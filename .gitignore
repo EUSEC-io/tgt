@@ -1,0 +1,7 @@
+# Ignore all
+*
+
+# Share these
+!.gitignore
+!tgt.fish
+!tun0ip.fish
