@@ -15,17 +15,10 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         echo "  ACTIVE DIRECTORY"
         echo "    tgt --set-dc <DC_HOSTNAME>   Set domain controller + update krb5.conf + /etc/hosts"
+        echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
-        echo ""
-        echo "  EXAMPLES"
-        echo "    tgt                                        # set up a new target"
-        echo "    tgt --add-host app.htb admin.app.htb       # found new vhosts"
-        echo "    tgt --set-dc DC01.corp.htb                 # found the DC"
-        echo "    tgt --rm-host old.app.htb                  # remove stale hostname"
-        echo "    nmap -sV \$TGT                              # use in commands"
-        echo "    tgt --revoke                               # done, clean up"
         echo ""
         return 0
     end
@@ -45,27 +38,18 @@ function tgt --description 'Set penetration testing target environment variables
         if set -q TGT_AD_DOMAIN
             set -l realm (string upper $TGT_AD_DOMAIN)
             if grep -q "$realm" /etc/krb5.conf 2>/dev/null
-                sudo python3 -c '
-import re, sys
-realm = sys.argv[1]
-with open("/etc/krb5.conf", "r") as f:
-    content = f.read()
-content = re.sub(r"^\s*default_realm\s*=\s*" + re.escape(realm) + r"\s*$", "\tdefault_realm = ATHENA.MIT.EDU", content, flags=re.MULTILINE)
-content = re.sub(r"\s*" + re.escape(realm) + r"\s*=\s*\{[^}]*\}\n?", "", content)
-with open("/etc/krb5.conf", "w") as f:
-    f.write(content)
-' "$realm" 2>/dev/null
+                _tgt_clean_krb5 $realm
                 echo "✓ Removed $realm from /etc/krb5.conf"
             end
         end
 
-        set -q TGT           && set -Ue TGT           && echo "✓ TGT unset"           || echo "- TGT was not set"
-        set -q TGT_PORT      && set -Ue TGT_PORT      && echo "✓ TGT_PORT unset"      || echo "- TGT_PORT was not set"
-        set -q TGT_USERNAME  && set -Ue TGT_USERNAME   && echo "✓ TGT_USERNAME unset"  || echo "- TGT_USERNAME was not set"
-        set -q TGT_PASSWORD  && set -Ue TGT_PASSWORD   && echo "✓ TGT_PASSWORD unset"  || echo "- TGT_PASSWORD was not set"
-        set -q TGT_AD_DOMAIN && set -Ue TGT_AD_DOMAIN  && echo "✓ TGT_AD_DOMAIN unset" || echo "- TGT_AD_DOMAIN was not set"
-        set -q TGT_DC        && set -Ue TGT_DC         && echo "✓ TGT_DC unset"        || echo "- TGT_DC was not set"
-        set -q TGT_HOSTS     && set -Ue TGT_HOSTS      && echo "✓ TGT_HOSTS unset"     || echo "- TGT_HOSTS was not set"
+        set -q TGT            && set -Ue TGT            && echo "✓ TGT unset"            || echo "- TGT was not set"
+        set -q TGT_PORT       && set -Ue TGT_PORT       && echo "✓ TGT_PORT unset"       || echo "- TGT_PORT was not set"
+        set -q TGT_USERNAME   && set -Ue TGT_USERNAME   && echo "✓ TGT_USERNAME unset"   || echo "- TGT_USERNAME was not set"
+        set -q TGT_PASSWORD   && set -Ue TGT_PASSWORD   && echo "✓ TGT_PASSWORD unset"   || echo "- TGT_PASSWORD was not set"
+        set -q TGT_AD_DOMAIN  && set -Ue TGT_AD_DOMAIN  && echo "✓ TGT_AD_DOMAIN unset"  || echo "- TGT_AD_DOMAIN was not set"
+        set -q TGT_DC         && set -Ue TGT_DC         && echo "✓ TGT_DC unset"         || echo "- TGT_DC was not set"
+        set -q TGT_HOSTS      && set -Ue TGT_HOSTS      && echo "✓ TGT_HOSTS unset"      || echo "- TGT_HOSTS was not set"
         return 0
     end
 
@@ -73,13 +57,13 @@ with open("/etc/krb5.conf", "w") as f:
     if test (count $argv) -ge 1 && test $argv[1] = "--show"
         echo ""
         echo "─────────────────────────────────"
-        set -q TGT           && echo "  TGT           = $TGT"           || echo "  TGT           = (not set)"
-        set -q TGT_PORT      && echo "  TGT_PORT      = $TGT_PORT"      || echo "  TGT_PORT      = (not set)"
-        set -q TGT_USERNAME  && echo "  TGT_USERNAME  = $TGT_USERNAME"  || echo "  TGT_USERNAME  = (not set)"
-        set -q TGT_PASSWORD  && echo "  TGT_PASSWORD  = ********"       || echo "  TGT_PASSWORD  = (not set)"
-        set -q TGT_AD_DOMAIN && echo "  TGT_AD_DOMAIN = $TGT_AD_DOMAIN" || echo "  TGT_AD_DOMAIN = (not set)"
-        set -q TGT_DC        && echo "  TGT_DC        = $TGT_DC"        || echo "  TGT_DC        = (not set)"
-        set -q TGT_HOSTS     && echo "  TGT_HOSTS     = $TGT_HOSTS"     || echo "  TGT_HOSTS     = (not set)"
+        set -q TGT            && echo "  TGT           = $TGT"            || echo "  TGT           = (not set)"
+        set -q TGT_PORT       && echo "  TGT_PORT      = $TGT_PORT"       || echo "  TGT_PORT      = (not set)"
+        set -q TGT_USERNAME   && echo "  TGT_USERNAME  = $TGT_USERNAME"   || echo "  TGT_USERNAME  = (not set)"
+        set -q TGT_PASSWORD   && echo "  TGT_PASSWORD  = ********"        || echo "  TGT_PASSWORD  = (not set)"
+        set -q TGT_AD_DOMAIN  && echo "  TGT_AD_DOMAIN = $TGT_AD_DOMAIN" || echo "  TGT_AD_DOMAIN = (not set)"
+        set -q TGT_DC         && echo "  TGT_DC        = $TGT_DC"         || echo "  TGT_DC        = (not set)"
+        set -q TGT_HOSTS      && echo "  TGT_HOSTS     = $TGT_HOSTS"      || echo "  TGT_HOSTS     = (not set)"
         echo "─────────────────────────────────"
         echo ""
         if set -q TGT
@@ -109,15 +93,12 @@ with open("/etc/krb5.conf", "w") as f:
         set -l new_hosts $argv[2..]
         set -l escaped (string escape --style=regex $TGT)
 
-        # Remove these hostnames from ANY other IP lines first (dedup)
         for h in $new_hosts
             set -l h_escaped (string escape --style=regex $h)
             sudo sed -i -E "s/\s+$h_escaped(\s|\$)/\1/g" /etc/hosts
-            # Clean up lines that now have only an IP and no hostnames
             sudo sed -i -E '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s*$/d' /etc/hosts
         end
 
-        # Get existing hostnames for this IP
         set -l existing_line (grep -P "^$escaped\s" /etc/hosts 2>/dev/null)
         if test -n "$existing_line"
             set -l existing_hosts (string split " " -- (string replace -r "^$escaped\s+" "" $existing_line))
@@ -153,7 +134,6 @@ with open("/etc/krb5.conf", "w") as f:
             set -l h_escaped (string escape --style=regex $h)
             sudo sed -i -E "s/\s+$h_escaped(\s|\$)/\1/g" /etc/hosts
         end
-        # Clean up line if only IP remains
         sudo sed -i -E '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s*$/d' /etc/hosts
 
         set -l remaining (grep -P "^$escaped\s" /etc/hosts 2>/dev/null | string replace -r "^$escaped\s+" "")
@@ -179,16 +159,45 @@ with open("/etc/krb5.conf", "w") as f:
         end
         set -Ux TGT_DC $argv[2]
         _tgt_update_krb5
-        # Also add DC hostname to /etc/hosts
         tgt --add-host $TGT_DC
         return 0
+    end
+
+    # ── BloodHound CLI Ingest ───────────────────────────────
+    if test (count $argv) -ge 1 && test $argv[1] = "ingest"
+        if test (count $argv) -lt 3
+            echo "Usage: tgt ingest <User> <Pass> [--zip [collection] [zipname]]"
+            return 1
+        end
+
+        set -l bh_user $argv[2]
+        set -l bh_pass $argv[3]
+        set -l do_zip false
+        set -l collection "all"
+        set -l zip_name "bloodhound_data.zip"
+
+        # Dynamically parse the remaining arguments
+        if test (count $argv) -ge 4; and test $argv[4] = "--zip"
+            set do_zip true
+            if test (count $argv) -ge 5
+                set collection $argv[5]
+            end
+            if test (count $argv) -ge 6
+                set zip_name $argv[6]
+                if not string match -q "*.zip" $zip_name
+                    set zip_name "$zip_name.zip"
+                end
+            end
+        end
+
+        _tgt_run_bloodhound "$bh_user" "$bh_pass" "$collection" "$do_zip" "$zip_name"
+        return $status
     end
 
     # ── Interactive setup ───────────────────────────────────
     echo ""
     echo "[ Target ]"
 
-    # TGT — clean old /etc/hosts entry if IP changes
     set -l cur_tgt (set -q TGT && echo $TGT || echo "")
     if test -n "$cur_tgt"
         read -P "  Host (TGT) [$cur_tgt]: " input_tgt
@@ -197,7 +206,6 @@ with open("/etc/krb5.conf", "w") as f:
     end
 
     if test -n "$input_tgt"
-        # If IP changed, clean old entry
         if test -n "$cur_tgt" && test "$input_tgt" != "$cur_tgt"
             set -l escaped (string escape --style=regex $cur_tgt)
             sudo sed -i "/^$escaped\s/d" /etc/hosts 2>/dev/null
@@ -210,7 +218,6 @@ with open("/etc/krb5.conf", "w") as f:
         return 1
     end
 
-    # TGT_PORT
     set -l cur_port (set -q TGT_PORT && echo $TGT_PORT || echo "")
     if test -n "$cur_port"
         read -P "  Port (TGT_PORT) [$cur_port]: " input_port
@@ -303,7 +310,6 @@ with open("/etc/krb5.conf", "w") as f:
     end
 
     if test "$is_ad" = y || test "$is_ad" = Y || begin; test -n "$cur_domain"; and test -z "$is_ad"; end
-        # Domain
         if test -n "$cur_domain"
             read -P "  Domain (TGT_AD_DOMAIN) [$cur_domain]: " input_domain
         else
@@ -316,7 +322,6 @@ with open("/etc/krb5.conf", "w") as f:
             set -Ux TGT_AD_DOMAIN $cur_domain
         end
 
-        # DC hostname
         set -l cur_dc (set -q TGT_DC && echo $TGT_DC || echo "")
         if test -n "$cur_dc"
             read -P "  DC hostname (TGT_DC) [$cur_dc]: " input_dc
@@ -330,7 +335,6 @@ with open("/etc/krb5.conf", "w") as f:
             set -Ux TGT_DC $cur_dc
         end
 
-        # Add DC to /etc/hosts if set and not already there
         if set -q TGT_DC
             set -l escaped (string escape --style=regex $TGT)
             set -l existing (grep -P "^$escaped\s" /etc/hosts 2>/dev/null)
@@ -343,10 +347,8 @@ with open("/etc/krb5.conf", "w") as f:
             end
         end
 
-        # Update krb5.conf
         _tgt_update_krb5
     else
-        # Clean AD if previously set
         if set -q TGT_AD_DOMAIN
             set -l realm (string upper $TGT_AD_DOMAIN)
             _tgt_clean_krb5 $realm
@@ -355,8 +357,81 @@ with open("/etc/krb5.conf", "w") as f:
         set -q TGT_DC        && set -Ue TGT_DC
     end
 
+    # ── BloodHound Interactive Follow-Up ────────────────────
+    if set -q TGT_AD_DOMAIN; and set -q TGT_USERNAME; and set -q TGT_PASSWORD
+        echo ""
+        echo "[ BloodHound ]"
+        read -P "  Run bloodhound-python ingest now? (y/N): " run_bh
+        if test "$run_bh" = y -o "$run_bh" = Y
+            read -P "  Zip results? (Y/n): " do_zip_input
+            set -l do_zip true
+            if test "$do_zip_input" = n -o "$do_zip_input" = N
+                set do_zip false
+            end
+            
+            set -l zip_name "bloodhound_data.zip"
+            if test "$do_zip" = true
+                read -P "  Zip filename [$zip_name]: " input_zip_name
+                if test -n "$input_zip_name"
+                    set zip_name $input_zip_name
+                    if not string match -q "*.zip" $zip_name
+                        set zip_name "$zip_name.zip"
+                    end
+                end
+            end
+
+            echo ""
+            _tgt_run_bloodhound "$TGT_USERNAME" "$TGT_PASSWORD" "all" "$do_zip" "$zip_name"
+        end
+    end
+
     # ── Summary ─────────────────────────────────────────────
     tgt --show
+end
+
+
+# ── Helper: Execute Bloodhound ─────────────────────────────
+function _tgt_run_bloodhound
+    set -l bh_user $argv[1]
+    set -l bh_pass $argv[2]
+    set -l collection $argv[3]
+    set -l do_zip $argv[4]
+    set -l zip_name $argv[5]
+
+    if not set -q TGT_AD_DOMAIN; or not set -q TGT
+        echo "✗ Error: TGT_AD_DOMAIN and TGT must be set to run BloodHound."
+        return 1
+    end
+    if not type -q bloodhound-python
+        echo "✗ Error: bloodhound-python is not installed or not in PATH."
+        return 1
+    end
+
+    set -l ns_target $TGT
+    if set -q TGT_DC
+        set ns_target $TGT_DC
+    end
+
+    echo "  [*] Executing bloodhound-python against $TGT_AD_DOMAIN..."
+    bloodhound-python -u "$bh_user" -p "$bh_pass" -d "$TGT_AD_DOMAIN" -ns "$ns_target" -c "$collection"
+
+    if test $status -eq 0
+        if test "$do_zip" = true
+            set -l json_files (ls *.json 2>/dev/null)
+            if test (count $json_files) -gt 0
+                echo "  [*] Zipping results into $zip_name..."
+                zip -m -q "$zip_name" *.json
+                echo "  ✓ Successfully created $zip_name"
+            else
+                echo "  ✗ No JSON files generated."
+            end
+        else
+            echo "  ✓ BloodHound ingest complete. JSON files left in current directory."
+        end
+    else
+        echo "  ✗ bloodhound-python encountered an error."
+        return 1
+    end
 end
 
 
@@ -377,13 +452,9 @@ function _tgt_update_krb5
         return
     end
 
-    # Clean any previous entry for this realm
     _tgt_clean_krb5 $realm
-
-    # Set default_realm
     sudo sed -i "s/^\s*default_realm\s*=.*/\tdefault_realm = $realm/" /etc/krb5.conf
 
-    # Add realm block before any existing realm or at end of [realms]
     set -l realm_block "\n    $realm = {\n        kdc = $kdc_host\n    }"
 
     if grep -q "^\[realms\]" /etc/krb5.conf
