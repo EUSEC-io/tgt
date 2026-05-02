@@ -17,8 +17,12 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt --set-dc <DC_HOSTNAME>   Set domain controller + update krb5.conf + /etc/hosts"
         echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
+        echo "  SCENARIOS"
+        echo "    tgt scenario --help          Manage scenarios (engagements, lab seasons)"
+        echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
+        echo "    \$TGT_SCENARIO  \$TGT_ACTIVE"
         echo ""
         return 0
     end
@@ -176,6 +180,12 @@ function tgt --description 'Set penetration testing target environment variables
         end
 
         _tgt_run_bloodhound "$bh_user" "$bh_pass" "$collection" "$do_zip" "$zip_name"
+        return $status
+    end
+
+    # ── Scenarios ───────────────────────────────────────────
+    if test (count $argv) -ge 1 && test $argv[1] = "scenario"
+        _tgt_scenario_cli $argv[2..]
         return $status
     end
 
