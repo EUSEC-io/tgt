@@ -23,16 +23,15 @@ function tgt --description 'Set penetration testing target environment variables
         return 0
     end
 
-    set -l hosts_file (_tgt_hosts_file)
-    set -l krb5_file  (_tgt_krb5_file)
+    set -l krb5_file (_tgt_krb5_file)
 
     # ── Revoke ──────────────────────────────────────────────
     if test (count $argv) -ge 1 && test $argv[1] = "--revoke"
         # Clean /etc/hosts
         if set -q TGT
-            set -l escaped (string escape --style=regex $TGT)
-            if grep -qP "^$escaped\s" $hosts_file
-                _tgt_sudo sed -i "/^$escaped\s/d" $hosts_file
+            set -l existing (_tgt_hosts_get default default)
+            if test (count $existing) -gt 0
+                _tgt_hosts_revoke default default
                 echo "✓ Removed $TGT from /etc/hosts"
             end
         end
@@ -71,7 +70,12 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         if set -q TGT
             echo "  /etc/hosts:"
-            grep -P "^"(string escape --style=regex $TGT)"\s" $hosts_file 2>/dev/null || echo "    (no entries)"
+            set -l hosts (_tgt_hosts_get default default)
+            if test (count $hosts) -gt 0
+                echo "    $TGT "(string join " " -- $hosts)
+            else
+                echo "    (no entries)"
+            end
         end
         if set -q TGT_AD_DOMAIN
             set -l realm (string upper $TGT_AD_DOMAIN)
@@ -94,28 +98,11 @@ function tgt --description 'Set penetration testing target environment variables
             return 1
         end
         set -l new_hosts $argv[2..]
-        set -l escaped (string escape --style=regex $TGT)
 
-        for h in $new_hosts
-            set -l h_escaped (string escape --style=regex $h)
-            _tgt_sudo sed -i -E "s/\s+$h_escaped(\s|\$)/\1/g" $hosts_file
-            _tgt_sudo sed -i -E '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s*$/d' $hosts_file
-        end
+        _tgt_hosts_add default default $TGT $new_hosts
 
-        set -l existing_line (grep -P "^$escaped\s" $hosts_file 2>/dev/null)
-        if test -n "$existing_line"
-            set -l existing_hosts (string split " " -- (string replace -r "^$escaped\s+" "" $existing_line))
-            for h in $new_hosts
-                if not contains $h $existing_hosts
-                    set -a existing_hosts $h
-                end
-            end
-            _tgt_sudo sed -i "s/^$escaped\s.*/$TGT $existing_hosts/" $hosts_file
-        else
-            _tgt_sudo sh -c "echo '$TGT $new_hosts' >> $hosts_file"
-        end
-
-        _tgt_export TGT_HOSTS (grep -P "^$escaped\s" $hosts_file | string replace -r "^$escaped\s+" "")
+        set -l updated (_tgt_hosts_get default default)
+        _tgt_export TGT_HOSTS (string join " " -- $updated)
         echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
         return 0
     end
@@ -131,17 +118,12 @@ function tgt --description 'Set penetration testing target environment variables
             return 1
         end
         set -l rm_hosts $argv[2..]
-        set -l escaped (string escape --style=regex $TGT)
 
-        for h in $rm_hosts
-            set -l h_escaped (string escape --style=regex $h)
-            _tgt_sudo sed -i -E "s/\s+$h_escaped(\s|\$)/\1/g" $hosts_file
-        end
-        _tgt_sudo sed -i -E '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\s*$/d' $hosts_file
+        _tgt_hosts_remove default default $rm_hosts
 
-        set -l remaining (grep -P "^$escaped\s" $hosts_file 2>/dev/null | string replace -r "^$escaped\s+" "")
-        if test -n "$remaining"
-            _tgt_export TGT_HOSTS $remaining
+        set -l remaining (_tgt_hosts_get default default)
+        if test (count $remaining) -gt 0
+            _tgt_export TGT_HOSTS (string join " " -- $remaining)
             echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
         else
             set -q TGT_HOSTS && _tgt_unexport TGT_HOSTS
@@ -210,8 +192,7 @@ function tgt --description 'Set penetration testing target environment variables
 
     if test -n "$input_tgt"
         if test -n "$cur_tgt" && test "$input_tgt" != "$cur_tgt"
-            set -l escaped (string escape --style=regex $cur_tgt)
-            _tgt_sudo sed -i "/^$escaped\s/d" $hosts_file 2>/dev/null
+            _tgt_hosts_revoke default default
         end
         _tgt_export TGT $input_tgt
     else if test -n "$cur_tgt"
@@ -248,9 +229,8 @@ function tgt --description 'Set penetration testing target environment variables
 
     if test -n "$input_hosts"
         set -l hosts_list (string split " " -- $input_hosts)
-        set -l escaped (string escape --style=regex $TGT)
-        _tgt_sudo sed -i "/^$escaped\s/d" $hosts_file 2>/dev/null
-        _tgt_sudo sh -c "echo '$TGT $input_hosts' >> $hosts_file"
+        _tgt_hosts_revoke default default
+        _tgt_hosts_add default default $TGT $hosts_list
         _tgt_export TGT_HOSTS $input_hosts
         echo "  ✓ Added: $TGT $input_hosts"
     else if test -n "$cur_hosts"
@@ -339,15 +319,7 @@ function tgt --description 'Set penetration testing target environment variables
         end
 
         if set -q TGT_DC
-            set -l escaped (string escape --style=regex $TGT)
-            set -l existing (grep -P "^$escaped\s" $hosts_file 2>/dev/null)
-            if test -n "$existing"
-                if not string match -q "*$TGT_DC*" $existing
-                    tgt --add-host $TGT_DC >/dev/null
-                end
-            else
-                _tgt_sudo sh -c "echo '$TGT $TGT_DC' >> $hosts_file"
-            end
+            _tgt_hosts_add default default $TGT $TGT_DC
         end
 
         _tgt_update_krb5
