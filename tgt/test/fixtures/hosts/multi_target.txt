@@ -1,0 +1,6 @@
+127.0.0.1	localhost
+::1		localhost ip6-localhost ip6-loopback
+127.0.1.1	parrot
+172.16.10.20 web01.dante.local intranet.dante.local # tgt:dante:web01
+172.16.10.100 dc01.dante.local # tgt:dante:dc01
+172.16.5.5 jumpbox.dante.local # tgt:dante:jumpbox

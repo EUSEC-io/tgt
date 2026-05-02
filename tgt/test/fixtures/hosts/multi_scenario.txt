@@ -1,0 +1,7 @@
+127.0.0.1	localhost
+::1		localhost ip6-localhost ip6-loopback
+127.0.1.1	parrot
+172.16.10.20 web01.dante.local # tgt:dante:web01
+172.16.10.100 dc01.dante.local # tgt:dante:dc01
+10.20.30.5 api.acme.test # tgt:customer-acme:api-gateway
+10.20.30.6 web.acme.test # tgt:customer-acme:webapp

@@ -1,0 +1,7 @@
+127.0.0.1	localhost
+::1		localhost ip6-localhost ip6-loopback
+127.0.1.1	parrot
+192.168.1.50	homelab.local
+10.10.11.5 forest.htb # tgt:htb-forest:forest
+10.0.0.1	router
+172.16.10.20 web01.dante.local # tgt:dante:web01
