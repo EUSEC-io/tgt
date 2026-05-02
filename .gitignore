@@ -7,7 +7,6 @@ README.md
 # Share these
 !.gitignore
 !tgt.fish
-!tun0ip.fish
 !CLAUDE.md
 !Makefile
 
@@ -16,6 +15,10 @@ README.md
 !bin/**
 !conf.d/
 !conf.d/**
+
+# Tool folders
+!tun0ip/
+!tun0ip/**
 
 # Design notes
 !specs/
