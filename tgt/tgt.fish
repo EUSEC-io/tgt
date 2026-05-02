@@ -234,6 +234,10 @@ function tgt --description 'Set penetration testing target environment variables
         _tgt_export TGT_HOSTS $input_hosts
         echo "  ✓ Added: $TGT $input_hosts"
     else if test -n "$cur_hosts"
+        # Carry hostnames forward to the (possibly new) TGT IP.
+        # Add re-asserts the entry; dedupes if it already exists.
+        set -l cur_hosts_list (string split " " -- $cur_hosts)
+        _tgt_hosts_add default default $TGT $cur_hosts_list
         _tgt_export TGT_HOSTS $cur_hosts
     end
 
