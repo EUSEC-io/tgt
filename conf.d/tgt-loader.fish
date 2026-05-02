@@ -4,7 +4,7 @@
 set -l self (realpath (status filename))
 set -l repo (dirname (dirname $self))
 
-for dir in $repo/*/
+for dir in $repo/*
     test -d $dir; or continue
     set -l name (basename $dir)
     test -f $dir/$name.fish; or continue
