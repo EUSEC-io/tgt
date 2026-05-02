@@ -33,6 +33,20 @@ set -l has_htb (string match -rq "HTB.LOCAL\s*=" -- $after; echo $status)
 _test_teardown
 
 #
+# Preserves file structure: line count drops by exactly the realm-block size.
+#
+_test_setup_krb5 two_realms.conf
+set -l before_lines (count (cat $TGT_KRB5_FILE))
+_tgt_clean_krb5 DANTE.LOCAL
+set -l after_lines (count (cat $TGT_KRB5_FILE))
+# DANTE.LOCAL block is 3 lines (opener + kdc + closer), plus a leading newline.
+@test "_tgt_clean_krb5: line count drops by 3 (realm block)" \
+    (math $before_lines - $after_lines) -eq 3
+@test "_tgt_clean_krb5: first line still [libdefaults]" \
+    (cat $TGT_KRB5_FILE)[1] = "[libdefaults]"
+_test_teardown
+
+#
 # Doesn't run sudo in test mode (verified by file ownership staying with the user).
 #
 _test_setup_krb5 two_realms.conf
