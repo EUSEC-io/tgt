@@ -1,4 +1,4 @@
-# Add or replace the active target's realm + KDC in /etc/krb5.conf.
+# Add or replace the active target's realm + KDC in the krb5 config file.
 function _tgt_update_krb5
     if not set -q TGT_AD_DOMAIN
         return
@@ -15,15 +15,15 @@ function _tgt_update_krb5
         return
     end
 
+    set -l krb5 (_tgt_krb5_file)
+
     _tgt_clean_krb5 $realm
-    sudo sed -i "s/^\s*default_realm\s*=.*/\tdefault_realm = $realm/" /etc/krb5.conf
+    _tgt_sudo sed -i "s/^\s*default_realm\s*=.*/\tdefault_realm = $realm/" $krb5
 
-    set -l realm_block "\n    $realm = {\n        kdc = $kdc_host\n    }"
-
-    if grep -q "^\[realms\]" /etc/krb5.conf
-        sudo sed -i "/^\[realms\]/a\\    $realm = {\n        kdc = $kdc_host\n    }" /etc/krb5.conf
+    if grep -q "^\[realms\]" $krb5
+        _tgt_sudo sed -i "/^\[realms\]/a\\    $realm = {\n        kdc = $kdc_host\n    }" $krb5
     else
-        sudo sh -c "printf '\n[realms]\n    $realm = {\n        kdc = $kdc_host\n    }\n' >> /etc/krb5.conf"
+        _tgt_sudo sh -c "printf '\n[realms]\n    $realm = {\n        kdc = $kdc_host\n    }\n' >> $krb5"
     end
 
     echo "  ✓ krb5.conf: default_realm = $realm, kdc = $kdc_host"

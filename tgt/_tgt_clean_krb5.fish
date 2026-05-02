@@ -1,15 +1,17 @@
-# Remove the named realm's block from /etc/krb5.conf.
+# Remove the named realm's block from the krb5 config file.
 function _tgt_clean_krb5
     set -l realm $argv[1]
-    if grep -q "$realm" /etc/krb5.conf 2>/dev/null
-        sudo python3 -c '
+    set -l krb5 (_tgt_krb5_file)
+    if grep -q "$realm" $krb5 2>/dev/null
+        _tgt_sudo python3 -c '
 import re, sys
 realm = sys.argv[1]
-with open("/etc/krb5.conf", "r") as f:
+path = sys.argv[2]
+with open(path, "r") as f:
     content = f.read()
 content = re.sub(r"\n?\s*" + re.escape(realm) + r"\s*=\s*\{[^}]*\}", "", content)
-with open("/etc/krb5.conf", "w") as f:
+with open(path, "w") as f:
     f.write(content)
-' "$realm"
+' "$realm" "$krb5"
     end
 end
