@@ -8,3 +8,15 @@ README.md
 !.gitignore
 !tgt.fish
 !tun0ip.fish
+!CLAUDE.md
+!Makefile
+
+# Loader infrastructure
+!bin/
+!bin/**
+!conf.d/
+!conf.d/**
+
+# Design notes
+!specs/
+!specs/**
