@@ -14,4 +14,4 @@ uninstall:
 	@echo "✓ removed $(LOADER)"
 
 test:
-	@fishtape */test/test_*.fish
+	@fish -c 'fishtape */test/test_*.fish'
