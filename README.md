@@ -18,35 +18,6 @@ fzf picker, archive support to hide finished engagements, BloodHound
 ingest with auto-routed loot folders, and a gum-based config wizard
 when [`gum`](https://github.com/charmbracelet/gum) is installed.
 
-Sample dashboard:
-
-```
-  scenario:  dante
-  active:    yes
-  dir:       /home/you/.config/fish/tgt/scenarios/dante
-
-  ─── targets (3) ─────────────────────────────────────
-    target        host                     creds  AD   hosts
-   * web01        10.10.10.5                 N    N    0
-     dc01         10.10.10.10:445            Y    Y    2
-     fileserver   10.10.10.20                Y    N    1
-```
-
-
-## Demos
-
-Bulk migration of existing HTB notes:
-
-![import demo](assets/import.svg)
-
-Per-scenario dashboard:
-
-![dashboard demo](assets/dashboard.svg)
-
-> SVGs are generated locally via `make demo` (needs
-> [`termtosvg`](https://github.com/nbedos/termtosvg) — `apt install
-> termtosvg`). See [`CONTRIBUTING.md`](CONTRIBUTING.md#demos).
-
 
 ## Concepts
 
@@ -57,49 +28,15 @@ Per-scenario dashboard:
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
-## Workflows
+## At a glance
 
-### HTB single box
+![dashboard](assets/dashboard.svg)
 
-```fish
-tgt scenario new lame      # one scenario per box (or use `tgt scenario import` to bulk-load existing notes)
-tgt new box                # creates target slot + drops into the wizard
-                           #   (fill in IP, hostname, creds when found, AD if present)
-tgt --add-host lame.htb    # extra hostname, tagged so removal is precise
-tgt cd                     # cd to the workspace folder for scans / loot
-                           # ... pwn ...
-tgt scenario archive       # done — hide it from the default list
-```
-
-### Pro Lab engagement (multi-target)
-
-```fish
-tgt scenario new dante           # one scenario for the lab
-tgt new web01                    # first foothold
-tgt --add-host web01.dante.local intranet.dante.local
-                                 # ... move laterally, find dc01 ...
-tgt new dc01                     # add the next target
-tgt --set-dc dc01.DANTE.LOCAL    # writes a krb5 realm + adds the DC to /etc/hosts
-tgt switch                       # fzf picker to jump between targets
-tgt ingest <user> <pass> --zip   # bloodhound JSON lands in dc01/loot/
-```
-
-### Wrapping up
-
-```fish
-tgt scenario rm dante --purge-workspace
-                  # removes /etc/hosts entries, krb5 realm, registry,
-                  # and (with --purge-workspace) the workspace folder.
-```
-
-### Migrating existing notes
-
-```fish
-tgt scenario import ~/HTB/machines --prefix htb- --dry-run
-                  # preview; then re-run without --dry-run.
-                  # each subdir of ~/HTB/machines becomes a scenario,
-                  # workspace dir = $TGT_WORKSPACE_ROOT/htb-<Name>/.
-```
+`tgt scenario show` gives you a per-scenario dashboard: every target's
+host, credentials-loaded flag (red = damage potential), AD flag
+(yellow), and hostname count. Active target is starred and bolded
+green. The data is read straight from the registry — no shell env
+pollution to inspect it.
 
 
 ## Install
@@ -180,7 +117,109 @@ refuses to overwrite. Either add `tgt_prompt` to it by hand or rerun
 with `--force` (your existing file is backed up to `<file>.tgt-bak`).
 
 
-## Commands
+## Best practices
+
+### Working a single HTB box
+
+```fish
+tgt scenario new lame      # one scenario per box
+tgt new box                # creates target slot + drops into the wizard
+                           #   (fill in IP, hostname, creds when found, AD if present)
+tgt --add-host lame.htb    # extra hostname, tagged so removal is precise
+tgt cd                     # cd to the workspace folder for scans / loot
+                           # ... pwn ...
+tgt scenario archive       # done — hide it from the default list
+```
+
+### Multi-target engagement (Pro Lab, client)
+
+```fish
+tgt scenario new dante           # one scenario for the lab
+tgt new web01                    # first foothold
+tgt --add-host web01.dante.local intranet.dante.local
+                                 # ... move laterally, find dc01 ...
+tgt new dc01                     # add the next target
+tgt --set-dc dc01.DANTE.LOCAL    # writes a krb5 realm + adds the DC to /etc/hosts
+tgt switch                       # fzf picker to jump between targets
+tgt ingest <user> <pass> --zip   # bloodhound JSON lands in dc01/loot/
+```
+
+### Wrapping up
+
+```fish
+tgt scenario rm dante --purge-workspace
+                  # removes /etc/hosts entries, krb5 realm, registry,
+                  # and (with --purge-workspace) the workspace folder.
+```
+
+For solo boxes you finished but want to keep the notes, archive
+instead of remove:
+
+```fish
+tgt scenario archive lame    # hidden from default list, still on disk
+tgt scenario unarchive lame  # bring it back
+```
+
+
+## More demos
+
+### The prompt always tells you where you stand
+
+![prompt](assets/prompt.svg)
+
+`tgt_prompt` is color-coded by damage potential — neutral for
+scenario-only, yellow once a host is loaded (recon), red as soon as
+credentials are present. Add it to your prompt with `tgt prompt install`.
+
+### Hide finished engagements
+
+![archive](assets/archive.svg)
+
+When boxes pile up, archive them. They stay on disk and remain
+switchable by name, but disappear from `tgt scenario list`. Pass
+`--all` to surface them again with an `[archived]` tag, or
+`--archived` for the archived-only view.
+
+### Bulk-import existing notes
+
+![import](assets/import.svg)
+
+Already have a directory full of box folders from past work?
+`tgt scenario import` walks each subdirectory and turns it into a
+scenario, sanitising names and (by default) moving the dir into the
+workspace root. Use `--prefix htb-` to namespace, `--copy` to keep the
+source intact, `--dry-run` to preview.
+
+### Rename retags everywhere
+
+![rename](assets/rename.svg)
+
+`tgt rename` updates the registry, retags every matching `/etc/hosts`
+line, moves the workspace folder, and updates `$TGT_ACTIVE` /
+`$TGT_SCENARIO` if the renamed item was the active one. `tgt scenario
+rename` does the same at the scenario level.
+
+### Workspace folders for tidy reporting
+
+![workspace](assets/workspace.svg)
+
+Opt in with `$TGT_WORKSPACE_AUTOCREATE` (or via `tgt config`). New
+scenarios and targets get a folder tree from configurable templates;
+`tgt cd` jumps in, `tgt workspace` visualizes the layout. See the
+deep-dive section below for `flat` vs. `nested` layouts.
+
+### Clean up between targets
+
+![revoke](assets/revoke.svg)
+
+`tgt --revoke` clears the active target's runtime state — env vars,
+`/etc/hosts` entries, krb5 realm — but keeps the scenario active.
+The persisted target file on disk is untouched, so `tgt switch <name>`
+loads it back instantly. The prompt collapses from `[scenario:target]`
+to `[scenario]` so it's clear nothing's loaded.
+
+
+## Command reference
 
 ### Scenarios
 
@@ -237,14 +276,22 @@ When the workspace folder for the active target exists on disk,
 demand) so JSON / zip output lands there. Otherwise it stays in
 `$PWD`.
 
+### Workspace
 
-## Workspace folders
+| Command | Behavior |
+|---|---|
+| `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder. |
+| `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`). |
+| `tgt workspace` | Show settings + visualize the active scenario's tree. |
+| `tgt workspace create [alias]` | Manually build the folder tree (regardless of `$TGT_WORKSPACE_AUTOCREATE`). |
+| `tgt config` | Interactive editor for all workspace settings. Uses gum if installed; plain `read` + `$EDITOR` otherwise. |
+| `tgt config show` | Print current settings. |
+| `tgt config reset` | Erase all custom workspace settings. |
 
-`tgt` can keep a directory tree per scenario (and per target) so scan
-output, loot, exploits, and notes have a predictable home — useful for
-reporting at the end of an engagement.
 
-**Off by default.** Opt in with `tgt config` or:
+## Workspace deep-dive
+
+The workspace is off by default. Opt in with `tgt config` or:
 
 ```fish
 set -Ux TGT_WORKSPACE_AUTOCREATE 1
@@ -273,18 +320,6 @@ Better for Pro Labs / client engagements with many targets.
 └── dc01/
     └── ...
 ```
-
-### Workspace commands
-
-| Command | Behavior |
-|---|---|
-| `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder. |
-| `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`). |
-| `tgt workspace` | Show settings + visualize the active scenario's tree. |
-| `tgt workspace create [alias]` | Manually build the folder tree (regardless of `$TGT_WORKSPACE_AUTOCREATE`). |
-| `tgt config` | Interactive editor for all workspace settings. Uses gum if installed; plain `read` + `$EDITOR` otherwise. |
-| `tgt config show` | Print current settings. |
-| `tgt config reset` | Erase all custom workspace settings. |
 
 ### Settings storage
 
@@ -368,5 +403,5 @@ nothing else. To fully remove, also delete the repo directory.
 
 - [`CHANGELOG.md`](CHANGELOG.md) — reverse-chronological feature log.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — layout, conventions, how to
-  add a function, test mode primer.
+  add a function, test mode primer, demo recording.
 - [`specs/`](specs/) — design discussions behind the larger features.

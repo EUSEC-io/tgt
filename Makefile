@@ -65,7 +65,7 @@ test:
 TERMTOSVG ?= termtosvg
 ASSETS    := assets
 
-DEMO_SCRIPTS := $(wildcard demos/*.fish)
+DEMO_SCRIPTS := $(filter-out demos/_%.fish,$(wildcard demos/*.fish))
 DEMO_SVGS    := $(patsubst demos/%.fish,$(ASSETS)/%.svg,$(DEMO_SCRIPTS))
 
 demo: $(DEMO_SVGS)
