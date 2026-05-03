@@ -38,8 +38,8 @@ For Active Directory ingest (optional — only if you use `tgt ingest`):
 pipx install bloodhound
 ```
 
-For a nicer `tgt config` TUI (optional — falls back to plain `read` +
-`$EDITOR` when missing):
+For a nicer interactive UI on `tgt` and `tgt config` (optional —
+falls back to plain `read` + `$EDITOR` when missing):
 
 ```bash
 sudo apt install gum    # Parrot/Kali; or `pacman -S gum` on Arch

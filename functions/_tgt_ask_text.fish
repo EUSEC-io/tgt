@@ -5,7 +5,11 @@
 function _tgt_ask_text --argument-names label default
     if command -q gum; and not set -q TGT_TEST_MODE
         set_color --bold yellow >&2; echo -n "  $label" >&2; set_color normal >&2; echo "" >&2
-        set_color brblack >&2; echo "    [press Enter to keep: $default]" >&2; set_color normal >&2
+        if test -n "$default"
+            set_color brblack >&2; echo "    [press Enter to keep: $default]" >&2; set_color normal >&2
+        else
+            set_color brblack >&2; echo "    [optional — Enter to skip]" >&2; set_color normal >&2
+        end
         echo "" >&2
         set -l value (command gum input --value "$default")
         set -l rc $status
@@ -16,7 +20,11 @@ function _tgt_ask_text --argument-names label default
         return 0
     end
 
-    read -P "  $label [$default]: " value
+    if test -n "$default"
+        read -P "  $label [$default]: " value
+    else
+        read -P "  $label (optional): " value
+    end
     set -l rc $status
     test $rc -ne 0; and return $rc
     test -z "$value"; and set value "$default"

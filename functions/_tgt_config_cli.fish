@@ -41,14 +41,6 @@ function _tgt_config_reset
     echo "  ✓ workspace settings reset to defaults"
 end
 
-# Render a section divider with the step number and a label.
-function _tgt_config_section --argument-names step label
-    echo ""
-    set_color cyan
-    echo "  ─── $step · $label "(string repeat -n (math 50 - (string length $label)) '─')
-    set_color normal
-end
-
 function _tgt_config_edit
     set -l ui_mode plain
     command -q gum; and not set -q TGT_TEST_MODE; and set ui_mode gum
@@ -80,7 +72,7 @@ function _tgt_config_edit
     set_color normal
 
     # ── 1. Workspace root ──
-    _tgt_config_section "1/5" "Workspace root"
+    _tgt_ui_section "1/5" "Workspace root"
     echo "    The directory under which all per-scenario / per-target"
     echo "    folders live."
     set -l new_root (_tgt_ask_text "Workspace root" (_tgt_workspace_root))
@@ -90,7 +82,7 @@ function _tgt_config_edit
     end
 
     # ── 2. Layout ──
-    _tgt_config_section "2/5" "Layout"
+    _tgt_ui_section "2/5" "Layout"
     echo "    flat   — every folder lives at scenario level."
     echo "             Best for HTB single boxes."
     echo "    nested — each target gets its own subfolder; the"
@@ -104,7 +96,7 @@ function _tgt_config_edit
     end
 
     # ── 3. Autocreate ──
-    _tgt_config_section "3/5" "Auto-create folders"
+    _tgt_ui_section "3/5" "Auto-create folders"
     echo "    When on, `tgt scenario new` and `tgt new` automatically"
     echo "    build the workspace tree from the templates below. Off"
     echo "    means folders are never created without explicit action."
@@ -119,7 +111,7 @@ function _tgt_config_edit
     test "$auto_ans" = yes; and set new_auto y
 
     # ── 4. Per-target template ──
-    _tgt_config_section "4/5" "Per-target template"
+    _tgt_ui_section "4/5" "Per-target template"
     echo "    Folders and files created inside each target's dir"
     echo "    (nested layout) or directly under the scenario (flat)."
     echo "    Trailing '/' = directory; anything else = touched file."
@@ -131,7 +123,7 @@ function _tgt_config_edit
     end
 
     # ── 5. Per-scenario template ──
-    _tgt_config_section "5/5" "Per-scenario template (nested layout only)"
+    _tgt_ui_section "5/5" "Per-scenario template (nested layout only)"
     echo "    Applied at the scenario root in nested layout. Use it"
     echo "    for cross-target assets like report folders or an"
     echo "    engagement README. Ignored in flat layout."
