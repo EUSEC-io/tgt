@@ -273,9 +273,9 @@ will show the migrated entry.
 make test
 ```
 
-Currently 430 tests across scenarios, targets, `/etc/hosts`,
+Currently 452 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
-completions, and boundary helpers.
+completions, ask helpers, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.
 

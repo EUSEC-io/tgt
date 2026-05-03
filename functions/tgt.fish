@@ -22,7 +22,7 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         echo "  SCENARIOS & TARGETS"
         echo "    tgt scenario                 Pick an action interactively (or --help for verbs)"
-        echo "    tgt new [alias]              Create a target + drop into the wizard"
+        echo "    tgt new [alias] [--no-edit]  Create a target + drop into the wizard (--no-edit skips it)"
         echo "    tgt switch [alias]           Load a saved target's settings"
         echo "    tgt edit [alias]             Switch (if needed) + run the wizard for a target"
         echo "    tgt list                     List targets in the active scenario"
@@ -40,13 +40,20 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt cd [alias|--scenario]    cd to active target's / scenario's workspace folder"
         echo "    tgt path [alias|--scenario]  Print the workspace path (no cd)"
         echo "    tgt workspace                Show settings + visualize current scenario's tree"
+        echo "    tgt workspace create [alias] Build the folder tree manually (regardless of autocreate)"
         echo "    tgt config                   Interactive editor for workspace settings"
         echo "    tgt config reset             Revert all workspace settings to defaults"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
-        echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
-        echo "    \$TGT_SCENARIO  \$TGT_ACTIVE"
-        echo "    \$TGT_WORKSPACE_ROOT  \$TGT_WORKSPACE_LAYOUT  \$TGT_WORKSPACE_AUTOCREATE"
+        echo "    target:    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD"
+        echo "               \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
+        echo "    scope:     \$TGT_SCENARIO  \$TGT_ACTIVE"
+        echo "    workspace: \$TGT_WORKSPACE_ROOT  \$TGT_WORKSPACE_LAYOUT  \$TGT_WORKSPACE_AUTOCREATE"
+        echo "               \$TGT_WORKSPACE_TARGET_TEMPLATE  \$TGT_WORKSPACE_SCENARIO_TEMPLATE"
+        echo ""
+        echo "  SEE ALSO"
+        echo "    tgt scenario --help    tgt prompt --help    tgt config --help"
+        echo "    tgt hosts --help       tgt workspace --help"
         echo ""
         return 0
     end
@@ -113,6 +120,16 @@ function tgt --description 'Set penetration testing target environment variables
             echo ""
             echo "  /etc/krb5.conf:"
             grep -A2 "$realm" $krb5_file 2>/dev/null || echo "    (no entries)"
+        end
+        # Workspace section — only when scenario is active and the
+        # workspace dir exists on disk (otherwise nothing useful to
+        # show, and we don't want to nudge users about a feature
+        # they haven't opted into).
+        if set -q TGT_SCENARIO
+            set -l ws_dir (_tgt_workspace_dir $TGT_SCENARIO)
+            if test -d $ws_dir
+                _tgt_workspace_show
+            end
         end
         echo ""
         return 0
