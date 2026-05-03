@@ -72,13 +72,7 @@ function _tgt_scenario_cli
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1
             end
-            echo "  scenario:  $name"
-            if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$name"
-                echo "  active:    yes"
-            else
-                echo "  active:    no"
-            end
-            echo "  dir:       "(_tgt_scenario_dir $name)
+            _tgt_scenario_show $name
             return 0
 
         case switch
@@ -118,10 +112,25 @@ function _tgt_scenario_cli
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1
             end
+            # Collect all unique realms used by this scenario's targets
+            # before destroying the registry, so we can clean krb5.conf
+            # afterwards (only if no other scenario still uses them).
+            set -l realms
+            for target in (_tgt_target_list $name)
+                set -l r (_tgt_target_ad_realm $name $target)
+                test -z "$r"; and continue
+                contains -- $r $realms; or set -a realms $r
+            end
             _tgt_hosts_revoke_scenario $name
             _tgt_scenario_destroy $name
             if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$name"
                 _tgt_unexport TGT_SCENARIO
+            end
+            for r in $realms
+                if not _tgt_realm_in_use $r
+                    _tgt_clean_krb5 $r
+                    echo "  ✓ removed $r from /etc/krb5.conf"
+                end
             end
             echo "✓ scenario '$name' removed"
             if set -q _flag_purge_workspace

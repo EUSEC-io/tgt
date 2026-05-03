@@ -142,7 +142,7 @@ tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 | `tgt scenario new <name>` | Create scenario, activate it |
 | `tgt scenario list` | List scenarios; `*` marks active |
 | `tgt scenario switch [name]` | Switch active scenario (no arg → fzf) |
-| `tgt scenario show [name]` | Show scenario details |
+| `tgt scenario show [name]` | Scenario dashboard: details + per-target table (host, creds, AD, hostnames count) |
 | `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its workspace folder |
 | `tgt new [alias] [--no-edit]` | Create target in active scenario; drops into the wizard unless `--no-edit`. No alias → prompts for one. |
 | `tgt switch [alias]` | Load target's saved env vars (no arg → fzf) |
@@ -272,7 +272,7 @@ will show the migrated entry.
 make test
 ```
 
-Currently 398 tests across scenarios, targets, `/etc/hosts`,
+Currently 413 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
 completions, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
