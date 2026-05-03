@@ -1,4 +1,5 @@
 function tgt --description 'Set penetration testing target environment variables'
+    set -e _tgt_sudo_announced
     _tgt_maybe_migrate
 
     # ── Help ────────────────────────────────────────────────

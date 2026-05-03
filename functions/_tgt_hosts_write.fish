@@ -8,6 +8,7 @@ function _tgt_hosts_write
     if set -q TGT_TEST_MODE
         command mv $tmp $hosts_file
     else
+        _tgt_sudo_notice
         command sudo install -m 644 -o root -g root $tmp $hosts_file
         command rm -f $tmp
     end

@@ -21,11 +21,17 @@ function _tgt_target_cli
 
     switch $verb
         case new
-            if test (count $rest) -lt 1
-                echo "Usage: tgt new <alias>" >&2
-                return 1
+            argparse --name='tgt new' 'no-edit' -- $rest
+            or return 1
+            set -l alias ""
+            test (count $argv) -ge 1; and set alias $argv[1]
+            if test -z "$alias"
+                set alias (_tgt_ask_text "New target alias" "")
+                if test $status -ne 0; or test -z "$alias"
+                    set_color brblack; echo "  cancelled."; set_color normal
+                    return 1
+                end
             end
-            set -l alias $rest[1]
             if not _tgt_target_validate_name $alias
                 echo "tgt new: invalid alias '$alias' (allowed: A-Z a-z 0-9 _ -)" >&2
                 return 1
@@ -36,14 +42,23 @@ function _tgt_target_cli
             end
             _tgt_target_save $scenario $alias
             _tgt_export TGT_ACTIVE $alias
-            echo "✓ target '$alias' created in '$scenario' and activated"
-            echo "  Run \`tgt\` to fill in IP / port / creds — they'll be saved automatically."
+            set_color green; echo "✓ target '$alias' created in '$scenario' and activated"; set_color normal
             if _tgt_workspace_autocreate
                 if _tgt_workspace_create $scenario $alias
                     echo "  workspace: "(_tgt_workspace_dir $scenario $alias)
                 end
             end
-            return 0
+            if set -q _flag_no_edit; or set -q TGT_TEST_MODE
+                echo "  Run \`tgt\` to fill in IP / port / creds — they'll be saved automatically."
+                return 0
+            end
+            # Chain into the wizard. Clear stale env from the previous
+            # target first so the wizard starts with empty defaults.
+            for v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS
+                set -q $v; and _tgt_unexport $v
+            end
+            _tgt_wizard
+            return $status
 
         case switch
             set -l alias $rest[1]

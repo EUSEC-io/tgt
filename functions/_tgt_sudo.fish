@@ -3,6 +3,7 @@ function _tgt_sudo
     if set -q TGT_TEST_MODE
         $argv
     else
+        _tgt_sudo_notice
         command sudo $argv
     end
 end

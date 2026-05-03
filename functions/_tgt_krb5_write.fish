@@ -8,6 +8,7 @@ function _tgt_krb5_write
     if set -q TGT_TEST_MODE
         command mv $tmp $krb5
     else
+        _tgt_sudo_notice
         command sudo install -m 644 -o root -g root $tmp $krb5
         command rm -f $tmp
     end
