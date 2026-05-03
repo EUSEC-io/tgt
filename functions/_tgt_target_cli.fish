@@ -9,7 +9,7 @@ function _tgt_target_cli
 
     # All target operations require an active scenario.
     if not set -q TGT_SCENARIO
-        echo "tgt $verb: no active scenario — run \`tgt scenario new <name>\` or \`tgt scenario switch <name>\` first" >&2
+        echo "tgt $verb: no active scenario — run `tgt scenario new <name>` or `tgt scenario switch <name>` first" >&2
         return 1
     end
     set -l scenario $TGT_SCENARIO
@@ -49,7 +49,7 @@ function _tgt_target_cli
                 end
             end
             if set -q _flag_no_edit; or set -q TGT_TEST_MODE
-                echo "  Run \`tgt\` to fill in IP / port / creds — they'll be saved automatically."
+                echo "  Run `tgt` to fill in IP / port / creds — they'll be saved automatically."
                 return 0
             end
             # Chain into the wizard. Clear stale env from the previous
@@ -101,6 +101,29 @@ function _tgt_target_cli
                 end
             end
             return 0
+
+        case edit
+            set -l alias ""
+            test (count $rest) -ge 1; and set alias $rest[1]
+            if test -n "$alias"
+                if not _tgt_target_exists $scenario $alias
+                    echo "tgt edit: target '$alias' does not exist in scenario '$scenario'" >&2
+                    return 1
+                end
+                if not set -q TGT_ACTIVE; or test "$TGT_ACTIVE" != "$alias"
+                    _tgt_target_cli switch $alias
+                    or return $status
+                end
+            else if not set -q TGT_ACTIVE
+                echo "tgt edit: no active target. Specify <alias> or run `tgt switch` first." >&2
+                return 1
+            end
+            if set -q TGT_TEST_MODE
+                # Don't drop into the wizard during tests.
+                return 0
+            end
+            _tgt_wizard
+            return $status
 
         case rm
             argparse --name='tgt rm' 'purge-workspace' -- $rest

@@ -9,7 +9,7 @@ function _tgt_workspace_resolve
     test (count $argv) -ge 1; and set target_arg $argv[1]
 
     if not set -q TGT_SCENARIO
-        echo "tgt: no active scenario — run \`tgt scenario new <name>\` or \`tgt scenario switch <name>\` first" >&2
+        echo "tgt: no active scenario — run `tgt scenario new <name>` or `tgt scenario switch <name>` first" >&2
         return 1
     end
     set -l scenario $TGT_SCENARIO
@@ -26,8 +26,8 @@ function _tgt_workspace_resolve
     set -l dir (_tgt_workspace_dir $scenario $target)
     if not test -d $dir
         echo "tgt: $dir does not exist" >&2
-        echo "  enable auto-create with \`set -Ux TGT_WORKSPACE_AUTOCREATE 1\` and recreate the scenario/target," >&2
-        echo "  or run \`mkdir -p $dir\` to create it manually." >&2
+        echo "  enable auto-create with `set -Ux TGT_WORKSPACE_AUTOCREATE 1` and recreate the scenario/target," >&2
+        echo "  or run `mkdir -p $dir` to create it manually." >&2
         return 1
     end
     echo $dir

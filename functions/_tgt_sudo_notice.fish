@@ -8,6 +8,6 @@ function _tgt_sudo_notice
     set -g _tgt_sudo_announced 1
     set_color brblack
     echo "  ℹ sudo required: tgt is about to modify a root-owned system file" >&2
-    echo "    (/etc/hosts or /etc/krb5.conf — both rewritten atomically via \`install\`)." >&2
+    echo "    (/etc/hosts or /etc/krb5.conf — both rewritten atomically via `install`)." >&2
     set_color normal
 end

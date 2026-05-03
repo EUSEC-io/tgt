@@ -138,13 +138,15 @@ tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 
 | Command | Behavior |
 |---|---|
+| `tgt scenario` | With gum: pick an action interactively. Otherwise: prints help. |
 | `tgt scenario new <name>` | Create scenario, activate it |
 | `tgt scenario list` | List scenarios; `*` marks active |
 | `tgt scenario switch [name]` | Switch active scenario (no arg → fzf) |
 | `tgt scenario show [name]` | Show scenario details |
 | `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its workspace folder |
-| `tgt new <alias>` | Create target in active scenario |
+| `tgt new [alias] [--no-edit]` | Create target in active scenario; drops into the wizard unless `--no-edit`. No alias → prompts for one. |
 | `tgt switch [alias]` | Load target's saved env vars (no arg → fzf) |
+| `tgt edit [alias]` | Switch (if needed) + run the wizard for a target |
 | `tgt list` | List targets in active scenario |
 | `tgt rm [alias] [--purge-workspace]` | Delete target + `/etc/hosts` entries; `--purge-workspace` also removes the target's workspace folder (nested layout only) |
 | `tgt` (no args) | Interactive setup; auto-saves to active target |
@@ -154,12 +156,17 @@ tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 ### `/etc/hosts`
 
 ```
+tgt hosts                        Multi-line editor (uses gum write or $EDITOR)
 tgt --add-host <host> [host..]   Add hostnames for active target
 tgt --rm-host <host> [host..]    Remove hostnames
 ```
 
 All entries are tagged `# tgt:<scenario>:<target>`. The tool only
 touches lines it owns — your manual `/etc/hosts` entries are safe.
+
+When sudo is needed (writes to `/etc/hosts` and `/etc/krb5.conf` are
+atomic via `sudo install`), `tgt` prints a one-line note before the
+prompt explaining why.
 
 ### Active Directory
 
@@ -265,7 +272,7 @@ will show the migrated entry.
 make test
 ```
 
-Currently 382 tests across scenarios, targets, `/etc/hosts`,
+Currently 398 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
 completions, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`

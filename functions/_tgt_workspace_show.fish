@@ -16,7 +16,7 @@ function _tgt_workspace_show
     echo ""
 
     if not set -q TGT_SCENARIO
-        echo "    (no active scenario — \`tgt scenario new <name>\` to start)"
+        echo "    (no active scenario — `tgt scenario new <name>` to start)"
         echo ""
         return 0
     end

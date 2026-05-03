@@ -4,18 +4,18 @@ function _tgt_scenario_cli
     set -l rest $argv[2..]
 
     switch "$sub"
-        case "" -h --help
-            echo ""
-            echo "  tgt scenario — manage engagement / lab scenarios"
-            echo ""
-            echo "    tgt scenario new <name>      Create a new scenario, switch to it"
-            echo "    tgt scenario list            List scenarios (active marked)"
-            echo "    tgt scenario show [name]     Show scenario details"
-            echo "    tgt scenario switch <name>   Make a scenario active"
-            echo "    tgt scenario rm <name> [--purge-workspace]"
-            echo "                                 Delete a scenario + its /etc/hosts entries."
-            echo "                                 With --purge-workspace, also rm -rf its folder."
-            echo ""
+        case ""
+            # Interactive menu when gum is available + we have a TTY;
+            # help text otherwise (scripts, CI, tests).
+            if command -q gum; and not set -q TGT_TEST_MODE; and isatty stdin
+                _tgt_scenario_menu
+                return $status
+            end
+            _tgt_scenario_help
+            return 0
+
+        case -h --help
+            _tgt_scenario_help
             return 0
 
         case new

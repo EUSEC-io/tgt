@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm cd path workspace config prompt ingest
+set -l top_subs scenario new switch list rm edit cd path workspace config prompt ingest hosts
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -19,6 +19,10 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a list      -d 'List targets in the active scenario'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a rm        -d 'Drop a target + its /etc/hosts entries'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a edit      -d 'Switch (if needed) + run the wizard for a target'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a hosts     -d 'Multi-line editor for active target hostnames'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a cd        -d 'cd to active target / scenario folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -46,13 +50,19 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -s h -l help -d 'Show help'
 
-# ── tgt switch / rm <target> (top-level, not scenario) ──────────────
+# ── tgt switch / rm / edit <target> (top-level, not scenario) ───────
 complete -c tgt -n '__fish_seen_subcommand_from switch; and not __fish_seen_subcommand_from scenario' \
     -a '(__tgt_complete_active_targets)' -d target
 complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario' \
     -a '(__tgt_complete_active_targets)' -d target
 complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'
+complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario' \
+    -a '(__tgt_complete_active_targets)' -d target
+
+# ── tgt new (top-level): can take --no-edit ─────────────────────────
+complete -c tgt -n '__fish_seen_subcommand_from new; and not __fish_seen_subcommand_from scenario' \
+    -l no-edit -d 'Create the slot but skip the wizard'
 
 # ── tgt cd / tgt path ──────────────────────────────────────────────
 complete -c tgt -n '__fish_seen_subcommand_from cd path' \

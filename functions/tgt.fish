@@ -21,11 +21,13 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
         echo "  SCENARIOS & TARGETS"
-        echo "    tgt scenario --help          Manage scenarios (engagements, lab seasons)"
-        echo "    tgt new <alias>              Create a target in the active scenario"
-        echo "    tgt switch <alias>           Load a saved target's settings"
+        echo "    tgt scenario                 Pick an action interactively (or --help for verbs)"
+        echo "    tgt new [alias]              Create a target + drop into the wizard"
+        echo "    tgt switch [alias]           Load a saved target's settings"
+        echo "    tgt edit [alias]             Switch (if needed) + run the wizard for a target"
         echo "    tgt list                     List targets in the active scenario"
         echo "    tgt rm <alias>               Drop a target + its /etc/hosts entries"
+        echo "    tgt hosts                    Multi-line editor for active target's hostnames"
         echo ""
         echo "  PROMPT"
         echo "    tgt prompt install           Wire tgt_prompt into your fish prompt"
@@ -241,10 +243,16 @@ function tgt --description 'Set penetration testing target environment variables
     # ── Targets within the active scenario ─────────────────
     if test (count $argv) -ge 1
         switch $argv[1]
-            case new switch list rm
+            case new switch list rm edit
                 _tgt_target_cli $argv
                 return $status
         end
+    end
+
+    # ── Hosts editor (multi-line /etc/hosts editor) ─────────
+    if test (count $argv) -ge 1 && test $argv[1] = "hosts"
+        _tgt_hosts_cli $argv[2..]
+        return $status
     end
 
     # ── Interactive setup ───────────────────────────────────
