@@ -71,6 +71,7 @@ function tgt --description 'Set penetration testing target environment variables
         set -q TGT_AD_DOMAIN  && _tgt_unexport TGT_AD_DOMAIN  && echo "✓ TGT_AD_DOMAIN unset"  || echo "- TGT_AD_DOMAIN was not set"
         set -q TGT_DC         && _tgt_unexport TGT_DC         && echo "✓ TGT_DC unset"         || echo "- TGT_DC was not set"
         set -q TGT_HOSTS      && _tgt_unexport TGT_HOSTS      && echo "✓ TGT_HOSTS unset"      || echo "- TGT_HOSTS was not set"
+        set -q TGT_ACTIVE     && _tgt_unexport TGT_ACTIVE     && echo "✓ TGT_ACTIVE unset (target deselected; scenario kept)" || echo "- TGT_ACTIVE was not set"
         return 0
     end
 
