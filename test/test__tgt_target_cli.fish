@@ -122,6 +122,7 @@ _test_teardown
 # tgt rm: keeps TGT_ACTIVE when a different target is removed.
 #
 _test_setup_home
+set -gx TGT_HOSTS_FILE (mktemp)
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 1.2.3.4
 _tgt_target_cli new web01 >/dev/null

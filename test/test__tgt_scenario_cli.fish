@@ -127,6 +127,7 @@ _test_teardown
 # rm: leaves TGT_SCENARIO alone if a different scenario is active
 #
 _test_setup_home
+set -gx TGT_HOSTS_FILE (mktemp)
 _tgt_scenario_cli new dante >/dev/null
 _tgt_scenario_cli new acme >/dev/null
 set -gx TGT_SCENARIO acme
@@ -150,14 +151,19 @@ _test_teardown
     (_tgt_scenario_cli garbage 2>/dev/null; echo $status) -ne 0
 
 #
-# Help: --help, -h, no-arg all return 0 and print something
+# Help: --help, -h, no-arg all return 0 and print something.
+# (TGT_TEST_MODE forces the help path regardless of TTY, otherwise
+# the no-arg case would open the interactive gum menu when this
+# test file is run from a real terminal.)
 #
+set -gx TGT_TEST_MODE 1
 @test "scenario --help: succeeds" \
     (_tgt_scenario_cli --help >/dev/null; echo $status) -eq 0
 @test "scenario -h: succeeds" \
     (_tgt_scenario_cli -h >/dev/null; echo $status) -eq 0
 @test "scenario (no args): prints help, succeeds" \
     (_tgt_scenario_cli >/dev/null; echo $status) -eq 0
+set -e TGT_TEST_MODE
 
 #
 # _tgt_hosts_revoke_scenario directly: matches all targets in scenario
