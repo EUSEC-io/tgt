@@ -12,7 +12,9 @@ function _tgt_scenario_cli
             echo "    tgt scenario list            List scenarios (active marked)"
             echo "    tgt scenario show [name]     Show scenario details"
             echo "    tgt scenario switch <name>   Make a scenario active"
-            echo "    tgt scenario rm <name>       Delete a scenario + its /etc/hosts entries"
+            echo "    tgt scenario rm <name> [--purge-workspace]"
+            echo "                                 Delete a scenario + its /etc/hosts entries."
+            echo "                                 With --purge-workspace, also rm -rf its folder."
             echo ""
             return 0
 
@@ -33,6 +35,11 @@ function _tgt_scenario_cli
             _tgt_scenario_create $name
             _tgt_export TGT_SCENARIO $name
             echo "✓ scenario '$name' created and active"
+            if _tgt_workspace_autocreate
+                if _tgt_workspace_create $name
+                    echo "  workspace: "(_tgt_workspace_dir $name)
+                end
+            end
             return 0
 
         case list
@@ -94,7 +101,10 @@ function _tgt_scenario_cli
             return 0
 
         case rm
-            set -l name $rest[1]
+            argparse --name='tgt scenario rm' 'purge-workspace' -- $rest
+            or return 1
+            set -l name ""
+            test (count $argv) -ge 1; and set name $argv[1]
             if test -z "$name"
                 set -l scenarios (_tgt_scenario_list)
                 if test (count $scenarios) -eq 0
@@ -114,6 +124,9 @@ function _tgt_scenario_cli
                 _tgt_unexport TGT_SCENARIO
             end
             echo "✓ scenario '$name' removed"
+            if set -q _flag_purge_workspace
+                _tgt_workspace_purge $name
+            end
             return 0
 
         case '*'

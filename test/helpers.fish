@@ -30,12 +30,19 @@ function _test_setup_fishfn_dir
     set -gx TGT_FISH_FUNCTIONS_DIR (mktemp -d)
 end
 
+function _test_setup_workspace
+    set -gx TGT_TEST_MODE 1
+    set -gx TGT_WORKSPACE_ROOT (mktemp -d)
+end
+
 function _test_teardown
     set -q TGT_KRB5_FILE; and rm -f $TGT_KRB5_FILE
     set -q TGT_HOSTS_FILE; and rm -f $TGT_HOSTS_FILE
     set -q TGT_HOME; and rm -rf $TGT_HOME
     set -q TGT_FISH_FUNCTIONS_DIR; and rm -rf $TGT_FISH_FUNCTIONS_DIR
+    set -q TGT_WORKSPACE_ROOT; and rm -rf $TGT_WORKSPACE_ROOT
     set -e TGT_TEST_MODE TGT_KRB5_FILE TGT_HOSTS_FILE TGT_HOME TGT_FISH_FUNCTIONS_DIR
+    set -e TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE
     # Also clear any tgt env vars a test set, to keep cases independent.
     for v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS TGT_SCENARIO TGT_ACTIVE
         set -q $v; and set -e $v

@@ -38,6 +38,11 @@ function _tgt_target_cli
             _tgt_export TGT_ACTIVE $alias
             echo "✓ target '$alias' created in '$scenario' and activated"
             echo "  Run \`tgt\` to fill in IP / port / creds — they'll be saved automatically."
+            if _tgt_workspace_autocreate
+                if _tgt_workspace_create $scenario $alias
+                    echo "  workspace: "(_tgt_workspace_dir $scenario $alias)
+                end
+            end
             return 0
 
         case switch
@@ -83,7 +88,10 @@ function _tgt_target_cli
             return 0
 
         case rm
-            set -l alias $rest[1]
+            argparse --name='tgt rm' 'purge-workspace' -- $rest
+            or return 1
+            set -l alias ""
+            test (count $argv) -ge 1; and set alias $argv[1]
             if test -z "$alias"
                 set -l targets (_tgt_target_list $scenario)
                 if test (count $targets) -eq 0
@@ -103,6 +111,14 @@ function _tgt_target_cli
                 _tgt_unexport TGT_ACTIVE
             end
             echo "✓ target '$alias' removed from '$scenario'"
+            if set -q _flag_purge_workspace
+                set -l layout (_tgt_workspace_layout)
+                if test "$layout" = nested
+                    _tgt_workspace_purge $scenario $alias
+                else
+                    echo "  --purge-workspace: skipped (layout is flat — no per-target folder to remove)"
+                end
+            end
             return 0
 
         case '*'

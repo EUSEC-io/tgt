@@ -33,9 +33,15 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt prompt status            Show what's currently installed"
         echo "    tgt_prompt                   Render [scenario:target] (color = damage potential)"
         echo ""
+        echo "  WORKSPACE"
+        echo "    tgt cd [alias|--scenario]    cd to active target's / scenario's workspace folder"
+        echo "    tgt path [alias|--scenario]  Print the workspace path (no cd)"
+        echo "    tgt workspace                Show settings + visualize current scenario's tree"
+        echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
         echo "    \$TGT_SCENARIO  \$TGT_ACTIVE"
+        echo "    \$TGT_WORKSPACE_ROOT  \$TGT_WORKSPACE_LAYOUT  \$TGT_WORKSPACE_AUTOCREATE"
         echo ""
         return 0
     end
@@ -212,6 +218,15 @@ function tgt --description 'Set penetration testing target environment variables
     if test (count $argv) -ge 1 && test $argv[1] = "prompt"
         _tgt_prompt_cli $argv[2..]
         return $status
+    end
+
+    # ── Workspace folders / cd / path ───────────────────────
+    if test (count $argv) -ge 1
+        switch $argv[1]
+            case cd path workspace
+                _tgt_workspace_cli $argv
+                return $status
+        end
     end
 
     # ── Targets within the active scenario ─────────────────

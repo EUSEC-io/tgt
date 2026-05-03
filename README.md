@@ -133,14 +133,14 @@ tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 | `tgt scenario list` | List scenarios; `*` marks active |
 | `tgt scenario switch [name]` | Switch active scenario (no arg → fzf) |
 | `tgt scenario show [name]` | Show scenario details |
-| `tgt scenario rm [name]` | Delete scenario + its `/etc/hosts` entries |
+| `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its workspace folder |
 | `tgt new <alias>` | Create target in active scenario |
 | `tgt switch [alias]` | Load target's saved env vars (no arg → fzf) |
 | `tgt list` | List targets in active scenario |
-| `tgt rm [alias]` | Delete target + its `/etc/hosts` entries |
+| `tgt rm [alias] [--purge-workspace]` | Delete target + `/etc/hosts` entries; `--purge-workspace` also removes the target's workspace folder (nested layout only) |
 | `tgt` (no args) | Interactive setup; auto-saves to active target |
 | `tgt --show` | Print current state |
-| `tgt --revoke` | Clear env vars + `/etc/hosts` for active target |
+| `tgt --revoke` | Clear env vars + `/etc/hosts` for active target; deselects target (keeps scenario) |
 
 ### `/etc/hosts`
 
@@ -158,6 +158,52 @@ touches lines it owns — your manual `/etc/hosts` entries are safe.
 tgt --set-dc <DC_HOSTNAME>       Set DC + update /etc/krb5.conf realm
 tgt ingest <user> <pass> [--zip] Run bloodhound-python
 ```
+
+### Workspace folders
+
+`tgt` can keep a directory tree per scenario (and per target) so scan
+output, loot, exploits, and notes have a predictable home — useful
+for reporting at the end of an engagement. Off by default.
+
+```fish
+set -Ux TGT_WORKSPACE_AUTOCREATE 1     # opt in
+set -Ux TGT_WORKSPACE_ROOT ~/Documents/pentest    # default value
+set -Ux TGT_WORKSPACE_LAYOUT flat      # or 'nested' (see below)
+```
+
+| Command | Behavior |
+|---|---|
+| `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder |
+| `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`) |
+| `tgt workspace` | Show settings + visualize the active scenario's tree |
+
+**Layouts:**
+
+`flat` — everything at scenario level. Good for HTB single boxes.
+
+```
+~/Documents/pentest/dante/
+├── scans/  loot/  exploits/  screenshots/
+└── notes.md
+```
+
+`nested` — per-target subfolders + scenario-level report assets.
+Better for Pro Labs / client engagements with many targets.
+
+```
+~/Documents/pentest/dante/
+├── _report/{findings,screenshots}/
+├── _engagement.md
+├── web01/
+│   ├── scans/  loot/  exploits/  screenshots/
+│   └── notes.md
+└── dc01/
+    └── ...
+```
+
+When `$TGT_WORKSPACE_AUTOCREATE` is set, `tgt scenario new` and `tgt
+new` create the matching folders. Removal is opt-in via
+`--purge-workspace` on `tgt rm` / `tgt scenario rm`.
 
 ## Storage
 
@@ -189,8 +235,9 @@ will show the migrated entry.
 make test
 ```
 
-Currently 239 tests across scenarios, targets, `/etc/hosts`,
-`/etc/krb5.conf`, picker, prompt, migration, and boundary helpers.
+Currently 313 tests across scenarios, targets, `/etc/hosts`,
+`/etc/krb5.conf`, picker, prompt, migration, workspace, and boundary
+helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.
 
