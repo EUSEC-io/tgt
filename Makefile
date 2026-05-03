@@ -57,18 +57,34 @@ uninstall:
 test:
 	@fish -c 'fishtape test/test_*.fish'
 
-# ── termtosvg-recorded demos ───────────────────────────────────
-# Each demos/<name>.fish is recorded in an 80x25 PTY and rendered
-# straight to SVG. Add a new demo by dropping a fish script in
-# demos/ — `make demo` picks it up automatically.
+# ── Recorded demos ─────────────────────────────────────────────
+# Two pipelines:
+#
+#   demos/<name>.fish  → assets/<name>.svg   via termtosvg
+#                        for non-interactive output. Single Python
+#                        tool, in apt: `apt install termtosvg`.
+#
+#   demos/<name>.tape  → assets/<name>.gif   via vhs
+#                        for interactive flows that need keystroke
+#                        driving (gum, fzf, the wizard). Needs
+#                        `vhs` (charm.sh apt repo) + `ttyd` (binary
+#                        from github.com/tsl0922/ttyd).
+#
+# Add a new demo by dropping a script (or tape) in demos/ — both
+# rules pick up automatically. Files prefixed with `_` are ignored
+# (helpers, smoke tests).
 
 TERMTOSVG ?= termtosvg
+VHS       ?= vhs
 ASSETS    := assets
 
 DEMO_SCRIPTS := $(filter-out demos/_%.fish,$(wildcard demos/*.fish))
 DEMO_SVGS    := $(patsubst demos/%.fish,$(ASSETS)/%.svg,$(DEMO_SCRIPTS))
 
-demo: $(DEMO_SVGS)
+DEMO_TAPES   := $(filter-out demos/_%.tape,$(wildcard demos/*.tape))
+DEMO_GIFS    := $(patsubst demos/%.tape,$(ASSETS)/%.gif,$(DEMO_TAPES))
+
+demo: $(DEMO_SVGS) $(DEMO_GIFS)
 
 $(ASSETS):
 	@mkdir -p $@
@@ -78,5 +94,11 @@ $(ASSETS)/%.svg: demos/%.fish | $(ASSETS)
 	@echo "→ recording $@"
 	@$(TERMTOSVG) -g 80x25 -D 5000 -c "fish $<" $@
 
+$(ASSETS)/%.gif: demos/%.tape | $(ASSETS)
+	@command -v $(VHS) >/dev/null || { echo "vhs not installed (charm.sh apt repo) — also needs ttyd"; exit 1; }
+	@command -v ttyd >/dev/null || { echo "ttyd not installed (https://github.com/tsl0922/ttyd/releases)"; exit 1; }
+	@echo "→ recording $@"
+	@$(VHS) $<
+
 demo-clean:
-	@rm -rf $(ASSETS)/*.svg
+	@rm -rf $(ASSETS)/*.svg $(ASSETS)/*.gif

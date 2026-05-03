@@ -208,6 +208,17 @@ scenarios and targets get a folder tree from configurable templates;
 `tgt cd` jumps in, `tgt workspace` visualizes the layout. See the
 deep-dive section below for `flat` vs. `nested` layouts.
 
+### The wizards drive themselves
+
+![tgt config](assets/config.gif)
+
+`tgt config` walks through every workspace setting (root, layout,
+auto-create, per-target template, per-scenario template) one section
+at a time. The same gum-aware helpers power `tgt`'s no-args
+interactive setup and the `tgt scenario` (no-args) action picker.
+Without gum installed, all of these fall back to plain `read -P` +
+`$EDITOR` — same flow, less polish.
+
 ### Clean up between targets
 
 ![revoke](assets/revoke.svg)
