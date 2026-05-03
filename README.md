@@ -33,6 +33,20 @@ Sample dashboard:
 ```
 
 
+## Demos
+
+Bulk migration of existing HTB notes:
+
+![import demo](assets/import.svg)
+
+Per-scenario dashboard:
+
+![dashboard demo](assets/dashboard.svg)
+
+> SVGs are generated locally via `make demo` (needs `asciinema` and
+> `svg-term-cli`). See [`CONTRIBUTING.md`](CONTRIBUTING.md#demos).
+
+
 ## Concepts
 
 | Term | What it means |

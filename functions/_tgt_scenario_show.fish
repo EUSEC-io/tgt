@@ -37,10 +37,10 @@ function _tgt_scenario_show --argument-names name
         set -l fields (string split \t -- $line)
         # alias, host_port, creds, ad, hosts_count
         set -l marker "  "
-        set -l name_color normal
+        set -l is_active 0
         if test "$target" = "$active_alias"
             set marker " *"
-            set name_color "--bold green"
+            set is_active 1
         end
 
         # Render. Fields colored individually:
@@ -48,7 +48,7 @@ function _tgt_scenario_show --argument-names name
         #   AD    Y → yellow
         #   hosts 0 → dim
         printf '  %s ' $marker
-        set_color $name_color
+        test $is_active -eq 1; and set_color --bold green
         printf '%-13s' $fields[1]
         set_color normal
         printf ' %-24s ' $fields[2]

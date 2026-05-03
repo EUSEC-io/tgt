@@ -85,6 +85,27 @@ symlinks are named after files in this repo and won't collide with
 another plugin's files (assuming the other plugin doesn't ship the
 same filenames).
 
+## Demos
+
+Recorded terminal demos live under `demos/<name>.fish` and are
+rendered by `make demo` into SVGs under `assets/`. Each script
+runs in a sandboxed `$TGT_HOME` / `$TGT_WORKSPACE_ROOT` so it
+can't pollute the user's real state.
+
+Tooling (one-time):
+
+```bash
+sudo apt install asciinema      # or `pacman -S asciinema` on Arch
+sudo npm install -g svg-term-cli
+```
+
+Add a new demo by dropping `demos/foo.fish` — `make demo` picks it
+up automatically and produces `assets/foo.svg` at 80×25. Reference
+it in the README via `![foo](assets/foo.svg)`.
+
+`make demo-clean` removes the generated `.cast` and `.svg` files.
+
+
 ## Pre-commit checks
 
 Before committing:

@@ -1,4 +1,4 @@
-.PHONY: dev undev install uninstall test
+.PHONY: dev undev install uninstall test demo demo-clean
 
 REPO := $(shell pwd)
 FISH_DIR := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/fish
@@ -56,3 +56,35 @@ uninstall:
 
 test:
 	@fish -c 'fishtape test/test_*.fish'
+
+# ── Asciinema-recorded demos ───────────────────────────────────
+# Each demos/<name>.fish is recorded in an 80x25 PTY and converted
+# to an SVG under assets/. Add new demos by dropping a fish script
+# in demos/ — `make demo` picks it up automatically.
+
+ASCIINEMA ?= asciinema
+SVGTERM   ?= svg-term
+ASSETS    := assets
+
+DEMO_SCRIPTS := $(wildcard demos/*.fish)
+DEMO_CASTS   := $(patsubst demos/%.fish,$(ASSETS)/%.cast,$(DEMO_SCRIPTS))
+DEMO_SVGS    := $(patsubst demos/%.fish,$(ASSETS)/%.svg,$(DEMO_SCRIPTS))
+
+demo: $(DEMO_SVGS)
+
+$(ASSETS):
+	@mkdir -p $@
+
+$(ASSETS)/%.cast: demos/%.fish | $(ASSETS)
+	@command -v $(ASCIINEMA) >/dev/null || { echo "asciinema not installed (apt: asciinema)"; exit 1; }
+	@echo "→ recording $<"
+	@$(ASCIINEMA) rec --cols 80 --rows 25 --quiet --overwrite \
+		--command "fish $<" $@
+
+$(ASSETS)/%.svg: $(ASSETS)/%.cast
+	@command -v $(SVGTERM) >/dev/null || { echo "svg-term-cli not installed (npm: svg-term-cli)"; exit 1; }
+	@echo "→ rendering $@"
+	@$(SVGTERM) --in $< --out $@ --width 80 --height 25 --window
+
+demo-clean:
+	@rm -rf $(ASSETS)/*.cast $(ASSETS)/*.svg

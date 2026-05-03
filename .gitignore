@@ -15,3 +15,6 @@
 # Fish state that shouldn't end up in a plugin repo
 fish_variables
 *.local.fish
+
+# Asciinema intermediate files (.cast). SVGs in assets/ are tracked.
+assets/*.cast
