@@ -1,0 +1,129 @@
+source (status dirname)/helpers.fish
+
+# `complete -C` emits "completion\tdescription" lines. Helper that
+# returns just the names, one per line.
+function _complete_names
+    complete -C $argv | string replace -r '\t.*$' ''
+end
+
+#
+# Top-level subcommands surface on a bare `tgt `.
+#
+set -l names (_complete_names 'tgt ')
+@test "top-level: scenario offered" \
+    (contains scenario $names; echo $status) -eq 0
+@test "top-level: switch offered" \
+    (contains switch $names; echo $status) -eq 0
+@test "top-level: cd offered" \
+    (contains cd $names; echo $status) -eq 0
+@test "top-level: path offered" \
+    (contains path $names; echo $status) -eq 0
+@test "top-level: workspace offered" \
+    (contains workspace $names; echo $status) -eq 0
+@test "top-level: prompt offered" \
+    (contains prompt $names; echo $status) -eq 0
+set -l names_dash (_complete_names 'tgt -')
+@test "top-level: --revoke offered after dash" \
+    (contains -- --revoke $names_dash; echo $status) -eq 0
+@test "top-level: --show offered after dash" \
+    (contains -- --show $names_dash; echo $status) -eq 0
+
+#
+# After choosing a top-level subcommand, the same name shouldn't
+# appear again as a candidate (no "tgt scenario scenario").
+#
+set -l names_after_scenario (_complete_names 'tgt scenario ')
+@test "after 'tgt scenario': top-level commands not re-offered" \
+    (contains scenario $names_after_scenario; echo $status) -ne 0
+
+#
+# `tgt scenario <TAB>` offers scenario verbs.
+#
+@test "scenario: offers new" \
+    (contains new $names_after_scenario; echo $status) -eq 0
+@test "scenario: offers list" \
+    (contains list $names_after_scenario; echo $status) -eq 0
+@test "scenario: offers switch" \
+    (contains switch $names_after_scenario; echo $status) -eq 0
+@test "scenario: offers rm" \
+    (contains rm $names_after_scenario; echo $status) -eq 0
+
+#
+# `tgt prompt <TAB>` offers prompt verbs.
+#
+set -l names_prompt (_complete_names 'tgt prompt ')
+@test "prompt: offers install" \
+    (contains install $names_prompt; echo $status) -eq 0
+@test "prompt: offers uninstall" \
+    (contains uninstall $names_prompt; echo $status) -eq 0
+@test "prompt: offers status" \
+    (contains status $names_prompt; echo $status) -eq 0
+
+#
+# `tgt prompt install <TAB>` offers the slot/force flags.
+#
+set -l names_install (_complete_names 'tgt prompt install -')
+@test "prompt install: --right offered" \
+    (contains -- --right $names_install; echo $status) -eq 0
+@test "prompt install: --left offered" \
+    (contains -- --left $names_install; echo $status) -eq 0
+@test "prompt install: --force offered" \
+    (contains -- --force $names_install; echo $status) -eq 0
+
+#
+# `tgt rm -` (top-level rm) offers --purge-workspace.
+#
+set -l names_rm (_complete_names 'tgt rm -')
+@test "rm: --purge-workspace offered" \
+    (contains -- --purge-workspace $names_rm; echo $status) -eq 0
+
+#
+# `tgt cd -` offers --scenario.
+#
+set -l names_cd (_complete_names 'tgt cd -')
+@test "cd: --scenario offered" \
+    (contains -- --scenario $names_cd; echo $status) -eq 0
+
+#
+# Dynamic scenario list — `tgt scenario switch <TAB>` lists scenarios
+# from the registry.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_scenario_cli new acme  >/dev/null
+set -l ssn_names (_complete_names 'tgt scenario switch ')
+@test "scenario switch: lists 'dante'" \
+    (contains dante $ssn_names; echo $status) -eq 0
+@test "scenario switch: lists 'acme'" \
+    (contains acme $ssn_names; echo $status) -eq 0
+_test_teardown
+
+#
+# Dynamic target list — `tgt switch <TAB>` lists targets in active
+# scenario only.
+#
+_test_setup_home
+_test_setup_hosts empty.txt
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new web01 >/dev/null
+_tgt_target_cli new dc01  >/dev/null
+_tgt_scenario_cli new acme >/dev/null
+_tgt_target_cli new api    >/dev/null
+
+# Active scenario is now 'acme' — only its targets should complete.
+set -l switch_names (_complete_names 'tgt switch ')
+@test "switch (acme active): lists 'api'" \
+    (contains api $switch_names; echo $status) -eq 0
+@test "switch (acme active): does NOT list 'web01' (other scenario)" \
+    (contains web01 $switch_names; echo $status) -ne 0
+
+# Switch to dante and verify isolation flips.
+_tgt_export TGT_SCENARIO dante
+set -l switch_names2 (_complete_names 'tgt switch ')
+@test "switch (dante active): lists 'web01'" \
+    (contains web01 $switch_names2; echo $status) -eq 0
+@test "switch (dante active): lists 'dc01'" \
+    (contains dc01 $switch_names2; echo $status) -eq 0
+@test "switch (dante active): does NOT list 'api'" \
+    (contains api $switch_names2; echo $status) -ne 0
+_test_teardown

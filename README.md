@@ -78,6 +78,8 @@ Open a new fish shell and run:
 
 ```fish
 tgt --help
+tgt <TAB>          # subcommand completion
+tgt switch <TAB>   # completes from active scenario's targets
 ```
 
 ### Optional: prompt segment
@@ -235,9 +237,9 @@ will show the migrated entry.
 make test
 ```
 
-Currently 313 tests across scenarios, targets, `/etc/hosts`,
-`/etc/krb5.conf`, picker, prompt, migration, workspace, and boundary
-helpers.
+Currently 341 tests across scenarios, targets, `/etc/hosts`,
+`/etc/krb5.conf`, picker, prompt, migration, workspace, completions,
+and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.
 
