@@ -37,13 +37,48 @@ _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 _tgt_scenario_cli new acme >/dev/null
 set -gx TGT_SCENARIO dante
-set -l output (_tgt_scenario_cli list)
-@test "scenario list: returns 2 lines after creating 2 scenarios" \
-    (count $output) -eq 2
+# Strip ANSI escape codes so regex assertions don't trip on them.
+set -l raw (_tgt_scenario_cli list)
+set -l output (string replace -ar '\e\[[0-9;]*m' '' -- $raw | string replace -ar '\e\(B' '')
+# Output: 1 header line + 2 scenarios.
+@test "scenario list: 3 lines (header + 2 scenarios)" \
+    (count $output) -eq 3
+@test "scenario list: header row present" \
+    (string match -rq '^\s*scenario\s+targets\s+creds\s+AD' -- $output; echo $status) -eq 0
 @test "scenario list: marks dante active with leading *" \
     (string match -rq '^\* dante' -- $output; echo $status) -eq 0
 @test "scenario list: shows acme without active marker" \
     (string match -rq '^  acme' -- $output; echo $status) -eq 0
+_test_teardown
+
+#
+# list: shows aggregate state per scenario (target count, creds, AD).
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 10.10.10.10
+set -gx TGT_USERNAME admin
+set -gx TGT_PASSWORD secret
+set -gx TGT_AD_DOMAIN dante.local
+_tgt_target_cli new dc01 --no-edit >/dev/null
+_tgt_target_save dante dc01
+set -gx TGT 10.10.10.20
+_tgt_target_cli new web01 --no-edit >/dev/null
+_tgt_target_save dante web01
+set -e TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN
+
+_tgt_scenario_cli new acme >/dev/null   # empty scenario, no targets
+
+set -gx TGT_SCENARIO dante
+set -l raw2 (_tgt_scenario_cli list)
+set -l output (string replace -ar '\e\[[0-9;]*m' '' -- $raw2 | string replace -ar '\e\(B' '')
+
+@test "scenario list: dante row shows target count 2" \
+    (string match -rq 'dante\s+2\s+' -- $output; echo $status) -eq 0
+@test "scenario list: dante row shows creds=Y" \
+    (string match -rq 'dante\s+2\s+Y\s+Y' -- $output; echo $status) -eq 0
+@test "scenario list: acme row shows target count 0" \
+    (string match -rq 'acme\s+0\s+N\s+N' -- $output; echo $status) -eq 0
 _test_teardown
 
 #

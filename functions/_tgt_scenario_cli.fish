@@ -50,12 +50,35 @@ function _tgt_scenario_cli
                 echo "(no scenarios)"
                 return 0
             end
+            set_color --bold
+            printf '  %-15s %-8s %-6s %-4s\n' scenario targets creds AD
+            set_color normal
             for s in $scenarios
+                set -l line (_tgt_scenario_inspect $s)
+                set -l fields (string split \t -- $line)
+                # fields: name, count, creds, ad
+                set -l marker "  "
+                set -l is_active 0
                 if test "$s" = "$active"
-                    echo "* $s"
-                else
-                    echo "  $s"
+                    set marker "* "
+                    set is_active 1
                 end
+                printf '%s' $marker
+                test $is_active -eq 1; and set_color --bold green
+                printf '%-15s' $fields[1]
+                set_color normal
+                printf ' %-8d ' $fields[2]
+                if test "$fields[3]" = Y
+                    set_color red; printf '%-6s' Y; set_color normal
+                else
+                    set_color brblack; printf '%-6s' N; set_color normal
+                end
+                if test "$fields[4]" = Y
+                    set_color yellow; printf '%-4s' Y; set_color normal
+                else
+                    set_color brblack; printf '%-4s' N; set_color normal
+                end
+                echo ""
             end
             return 0
 
