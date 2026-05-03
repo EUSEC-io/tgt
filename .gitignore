@@ -1,11 +1,9 @@
 # Ignore all
 *
 
-# Required repo files
-README.md
-
 # Share these
 !.gitignore
+!README.md
 !CLAUDE.md
 !Makefile
 
