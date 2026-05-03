@@ -1,24 +1,17 @@
-# Ignore all
-*
+# Editor / OS noise
+.DS_Store
+*~
+*.swp
+.vscode/
+.idea/
 
-# Share these
-!.gitignore
-!README.md
-!CLAUDE.md
-!Makefile
+# Claude Code per-session settings
+.claude/
 
-# Loader infrastructure
-!bin/
-!bin/**
-!conf.d/
-!conf.d/**
+# Local scratch
+.scratch/
+*.tmp
 
-# Tool folders
-!tgt/
-!tgt/**
-!tun0ip/
-!tun0ip/**
-
-# Design notes
-!specs/
-!specs/**
+# Fish state that shouldn't end up in a plugin repo
+fish_variables
+*.local.fish

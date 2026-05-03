@@ -1,13 +1,12 @@
 # pentest-fish-functions
 
-A collection of [fish shell](https://fishshell.com/) functions for
-pentesting. Works on Arch, Parrot OS, Kali, and any distro running
-fish.
+A [fish shell](https://fishshell.com/) plugin for pentesting workflows.
+Tested on Arch, Parrot OS, and Kali.
 
 The flagship command is **`tgt`** — a target environment manager that
 handles `/etc/hosts`, `/etc/krb5.conf`, env vars, and BloodHound
-ingest. Targets can be organized into **scenarios** (HTB Pro Lab
-seasons, client engagements) with fzf-based switching.
+ingest. Targets organize into **scenarios** (HTB Pro Lab seasons,
+client engagements) with fzf-based switching.
 
 ## Install
 
@@ -39,42 +38,43 @@ For Active Directory ingest (optional — only if you use `tgt ingest`):
 pipx install bloodhound
 ```
 
-To run the test suite (dev-only):
+For running the test suite (dev only — needs Fisher + fishtape):
 
 ```fish
 curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source
 fisher install jorgebucaran/fisher jorgebucaran/fishtape
 ```
 
-### 2. Clone
+### 2. Install the plugin
 
-You can put the repo anywhere. Two common choices:
+Two paths, depending on whether you intend to develop on this repo or
+just use it.
 
-**Option A — into fish's config dir** (no install step required for
-top-level files; subfolder tools still need step 3):
+**A. Use it (production):**
 
-```bash
-git clone <repo-url> ~/.config/fish/functions
+```fish
+fisher install fuxx/pentest-fish-functions
 ```
 
-**Option B — anywhere else:**
+(Or any local path: `fisher install /path/to/clone`.)
+
+**B. Develop on it (symlink-based, fast iteration):**
 
 ```bash
-git clone <repo-url> ~/repos/pentest-fish-functions
+git clone <repo-url> /path/to/clone
+cd /path/to/clone
+make dev
 ```
 
-### 3. Activate the loader
+`make dev` symlinks the repo's `functions/`, `conf.d/`, `completions/`
+contents into your `~/.config/fish/`. Edits in the repo are picked up
+by new fish shells immediately — no re-install needed.
 
-```bash
-cd <wherever you cloned>
-./bin/install.fish     # or: make install
-```
+`make undev` removes the symlinks.
 
-This symlinks `conf.d/tgt-loader.fish` into `~/.config/fish/conf.d/`
-so fish autoloads from each tool's subfolder. Idempotent and
-location-independent — re-run after moving the repo.
+### 3. Verify
 
-### 4. Verify
+Open a new fish shell and run:
 
 ```fish
 tgt --help
@@ -82,9 +82,9 @@ tgt --help
 
 ### Optional: prompt segment
 
-Add `[scenario:target]` to your prompt — color-coded by damage
-potential (red = creds loaded, yellow = host/port set, default =
-scenario only):
+Add a `[scenario:target]` indicator to your prompt — color-coded by
+damage potential (red = creds loaded, yellow = host/port set, default
+= scenario only):
 
 ```fish
 # in ~/.config/fish/config.fish
@@ -96,10 +96,10 @@ end
 ## Quickstart
 
 ```fish
-# Set up a scenario for an engagement / lab season
+# Set up an engagement / lab season
 tgt scenario new dante
 
-# Add a target inside it
+# Add a target
 tgt new web01
 tgt              # interactive wizard for IP / port / creds / AD
 
@@ -107,7 +107,7 @@ tgt              # interactive wizard for IP / port / creds / AD
 tgt new dc01
 tgt --add-host dc01.dante.local
 
-# Switch between targets (fzf picker without arg)
+# Switch between targets (no-arg → fzf picker)
 tgt switch
 tgt switch web01
 
@@ -115,7 +115,7 @@ tgt switch web01
 tgt ingest <user> <password> --zip
 
 # When the engagement closes
-tgt scenario rm dante   # wipes /etc/hosts, krb5 realm, registry — one shot
+tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 ```
 
 ## Commands
@@ -169,10 +169,10 @@ State lives at `~/.config/fish/tgt/` (override with `$TGT_HOME`):
 Universal env vars (`set -Ux`) are synchronized across fish sessions
 by fish itself.
 
-## Upgrading from before scenarios existed
+## Upgrading from a pre-scenarios install
 
-If you had `$TGT` set from previous use, the first `tgt` invocation
-after upgrade auto-migrates your state into a `default` scenario with
+If you have `$TGT` set from earlier use, the first `tgt` invocation
+after upgrade auto-migrates the state into a `default` scenario with
 a `default` target. Nothing to do — open a new shell and `tgt list`
 will show the migrated entry.
 
@@ -184,66 +184,60 @@ will show the migrated entry.
 make test
 ```
 
-Currently 197 tests covering scenarios, targets, `/etc/hosts`
-management, krb5 realm management, picker, prompt, migration, and
-boundary helpers. Tests run sudoless against tmp files via the
-`TGT_TEST_MODE` indirection.
+Currently 197 tests across scenarios, targets, `/etc/hosts`,
+`/etc/krb5.conf`, picker, prompt, migration, and boundary helpers.
+Tests run sudoless against tmp files via the `TGT_TEST_MODE`
+indirection.
 
-### Project layout
+### Layout
 
 ```
 .
-├── bin/                    install.fish, uninstall.fish
-├── conf.d/                 fish startup hooks (the loader)
-├── specs/                  cross-cutting design docs
-├── tgt/                    the tgt tool
+├── functions/              all .fish functions, flat (Fisher convention)
 │   ├── tgt.fish            main dispatcher
-│   ├── _tgt_*.fish         helpers (autoloaded, hidden)
+│   ├── _tgt_*.fish         private helpers (underscore-prefixed; fish hides them)
 │   ├── tgt_prompt.fish     public prompt segment function
-│   ├── test/               tests + fixtures
-│   └── specs/              tool-specific design notes
-├── tun0ip/, showip/, ...   other small tools
-└── Makefile                make install / uninstall / test
+│   ├── tun0ip.fish, showip.fish, machines.fish
+├── conf.d/                 fish startup hooks (currently empty)
+├── completions/            tab completions (currently empty)
+├── test/                   fishtape tests + fixtures
+├── specs/                  design notes
+├── README.md  CLAUDE.md  Makefile
 ```
 
-Each tool lives in its own folder. The loader registers
-`<tool>/<tool>.fish` for autoload — so a folder counts as a tool
-folder when it contains a same-named primary `.fish` file.
+This is a standard Fisher plugin layout. `functions/` must be flat —
+fish doesn't recurse into subfolders of `$fish_function_path`.
+Per-tool grouping happens via filename prefix (`_tgt_*`).
 
-### Adding a new tool
+### Adding a function
 
-```bash
-mkdir mytool
-cat > mytool/mytool.fish <<'EOF'
-function mytool --description '...'
-    echo hi
-end
-EOF
-```
+Drop a new file in `functions/`. With `make dev` active, a new shell
+picks it up. Naming: public functions get a plain name (`mything`),
+private helpers get an underscore prefix (`_mything_helper`) so fish
+hides them from default tab completion and `functions` listings.
 
-Open a new shell — fish autoloads it. Update `.gitignore` to track
-the folder if you want it shared.
+### Multiple plugins coexisting
 
-### Adding your own personal functions
-
-The `.gitignore` allowlist means files you drop in won't be tracked
-unless explicitly listed. Personal scripts live alongside without
-interfering with pulls.
+This is a Fisher plugin. Other Fisher plugins coexist with it in your
+`~/.config/fish/` — Fisher tracks which files came from which plugin
+in `~/.config/fish/fish_plugins`. With `make dev`, the symlinks are
+named after files in this repo and won't collide with another
+plugin's files (assuming the other plugin doesn't ship the same
+filenames).
 
 ## Uninstall
 
 ```bash
-cd <repo>
-./bin/uninstall.fish     # or: make uninstall
+make undev      # if you used `make dev`
+make uninstall  # if you used Fisher
 ```
 
-Removes the loader symlink. Repo stays on disk — re-run
-`./bin/install.fish` to reactivate. To fully remove, also delete the
-repo directory.
+`make undev` removes only the symlinks that point into this repo —
+nothing else. To fully remove, also delete the repo directory.
 
 ## Specs / design notes
 
-The `specs/` and `tgt/specs/` folders contain design discussions for
-larger features (multi-target, `/etc/hosts` redesign, testing
-strategy, configuration TUI). Read them for the *why* behind
+The `specs/` directory holds design discussions for the larger
+features (multi-target / scenarios, `/etc/hosts` redesign, testing
+strategy, configuration TUI backlog). Read them for the *why* behind
 architectural choices.
