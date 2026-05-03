@@ -58,21 +58,22 @@ set -l rc3 (_tgt_config_cli --help >/dev/null 2>&1; echo $status)
 _test_teardown
 
 #
-# _tgt_config_edit_template: when EDITOR is a no-op (cat dumps file
-# back to stdout but doesn't modify), input list round-trips through
-# the parser (skipping comments and blanks).
+# _tgt_ask_multiline: when EDITOR is a no-op (true), input list
+# round-trips through the parser (skipping comments and blanks).
 #
 set -gx EDITOR true
-set -l parsed (_tgt_config_edit_template "label" alpha/ beta gamma/sub/ 2>/dev/null)
-@test "edit_template (no-op editor): 3 entries round-trip" \
+set -gx TGT_TEST_MODE 1
+set -l parsed (_tgt_ask_multiline "label" alpha/ beta gamma/sub/ 2>/dev/null)
+@test "ask_multiline (no-op editor): 3 entries round-trip" \
     (count $parsed) -eq 3
-@test "edit_template (no-op editor): contains alpha/" \
+@test "ask_multiline (no-op editor): contains alpha/" \
     (contains alpha/ $parsed; echo $status) -eq 0
-@test "edit_template (no-op editor): contains beta" \
+@test "ask_multiline (no-op editor): contains beta" \
     (contains beta $parsed; echo $status) -eq 0
-@test "edit_template (no-op editor): contains gamma/sub/" \
+@test "ask_multiline (no-op editor): contains gamma/sub/" \
     (contains gamma/sub/ $parsed; echo $status) -eq 0
 set -e EDITOR
+_test_teardown
 
 #
 # Completions: `tgt config <TAB>` offers edit/show/reset.

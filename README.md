@@ -38,6 +38,13 @@ For Active Directory ingest (optional — only if you use `tgt ingest`):
 pipx install bloodhound
 ```
 
+For a nicer `tgt config` TUI (optional — falls back to plain `read` +
+`$EDITOR` when missing):
+
+```bash
+sudo apt install gum    # Parrot/Kali; or `pacman -S gum` on Arch
+```
+
 For running the test suite (dev only — needs Fisher + fishtape):
 
 ```fish
@@ -183,7 +190,7 @@ set -Ux TGT_WORKSPACE_LAYOUT flat      # or 'nested' (see below)
 | `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder |
 | `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`) |
 | `tgt workspace` | Show settings + visualize the active scenario's tree |
-| `tgt config` | Interactive editor for all workspace settings (uses `$EDITOR` for templates) |
+| `tgt config` | Interactive editor for all workspace settings (uses [gum](https://github.com/charmbracelet/gum) if installed, plain `read` + `$EDITOR` otherwise) |
 | `tgt config reset` | Erase all custom workspace settings (revert to defaults) |
 
 **Layouts:**
