@@ -1,4 +1,6 @@
 function tgt --description 'Set penetration testing target environment variables'
+    _tgt_maybe_migrate
+
     # ── Help ────────────────────────────────────────────────
     if test (count $argv) -ge 1; and begin; test $argv[1] = "--help"; or test $argv[1] = "-h"; end
         echo ""
