@@ -95,15 +95,17 @@ can't pollute the user's real state.
 Tooling (one-time):
 
 ```bash
-sudo apt install asciinema      # or `pacman -S asciinema` on Arch
-sudo npm install -g svg-term-cli
+sudo apt install termtosvg      # or `pacman -S termtosvg` on Arch
 ```
+
+That's it — pure Python, no node / Rust / cargo. Records the PTY
+and renders an SVG animation in one step.
 
 Add a new demo by dropping `demos/foo.fish` — `make demo` picks it
 up automatically and produces `assets/foo.svg` at 80×25. Reference
 it in the README via `![foo](assets/foo.svg)`.
 
-`make demo-clean` removes the generated `.cast` and `.svg` files.
+`make demo-clean` removes the generated `.svg` files.
 
 
 ## Pre-commit checks

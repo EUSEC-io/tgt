@@ -43,8 +43,9 @@ Per-scenario dashboard:
 
 ![dashboard demo](assets/dashboard.svg)
 
-> SVGs are generated locally via `make demo` (needs `asciinema` and
-> `svg-term-cli`). See [`CONTRIBUTING.md`](CONTRIBUTING.md#demos).
+> SVGs are generated locally via `make demo` (needs
+> [`termtosvg`](https://github.com/nbedos/termtosvg) — `apt install
+> termtosvg`). See [`CONTRIBUTING.md`](CONTRIBUTING.md#demos).
 
 
 ## Concepts

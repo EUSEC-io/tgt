@@ -16,5 +16,5 @@
 fish_variables
 *.local.fish
 
-# Asciinema intermediate files (.cast). SVGs in assets/ are tracked.
-assets/*.cast
+# termtosvg intermediate output (none currently — single-step
+# pipeline). SVGs in assets/ are tracked and committed.
