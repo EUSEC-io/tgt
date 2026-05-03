@@ -36,15 +36,21 @@ function _test_setup_workspace
 end
 
 function _test_teardown
-    set -q TGT_KRB5_FILE; and rm -f $TGT_KRB5_FILE
-    set -q TGT_HOSTS_FILE; and rm -f $TGT_HOSTS_FILE
-    set -q TGT_HOME; and rm -rf $TGT_HOME
-    set -q TGT_FISH_FUNCTIONS_DIR; and rm -rf $TGT_FISH_FUNCTIONS_DIR
-    set -q TGT_WORKSPACE_ROOT; and rm -rf $TGT_WORKSPACE_ROOT
-    set -e TGT_TEST_MODE TGT_KRB5_FILE TGT_HOSTS_FILE TGT_HOME TGT_FISH_FUNCTIONS_DIR
-    set -e TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE
-    # Also clear any tgt env vars a test set, to keep cases independent.
-    for v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS TGT_SCENARIO TGT_ACTIVE
-        set -q $v; and set -e $v
+    # Clean up tempfiles / dirs (only check global; universals are
+    # the user's real config and must not be touched).
+    set -qg TGT_KRB5_FILE; and rm -f $TGT_KRB5_FILE
+    set -qg TGT_HOSTS_FILE; and rm -f $TGT_HOSTS_FILE
+    set -qg TGT_HOME; and rm -rf $TGT_HOME
+    set -qg TGT_FISH_FUNCTIONS_DIR; and rm -rf $TGT_FISH_FUNCTIONS_DIR
+    set -qg TGT_WORKSPACE_ROOT; and rm -rf $TGT_WORKSPACE_ROOT
+    # Erase ONLY global-scope copies. `set -e` without a scope flag
+    # would fall back to the universal scope when no global exists,
+    # which would obliterate the user's `tgt config` settings.
+    for v in TGT_TEST_MODE TGT_KRB5_FILE TGT_HOSTS_FILE TGT_HOME TGT_FISH_FUNCTIONS_DIR \
+             TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
+             TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE \
+             TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
+             TGT_SCENARIO TGT_ACTIVE
+        set -qg $v; and set -eg $v
     end
 end
