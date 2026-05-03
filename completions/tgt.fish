@@ -70,6 +70,12 @@ complete -c tgt -n '__fish_seen_subcommand_from cd path' \
 complete -c tgt -n '__fish_seen_subcommand_from cd path' \
     -s s -l scenario -d 'Use scenario root, not target dir'
 
+# ── tgt workspace <verb> ───────────────────────────────────────────
+complete -c tgt -n '__fish_seen_subcommand_from workspace; and not __fish_seen_subcommand_from create' \
+    -a create -d 'Build folder tree for active scenario / target'
+complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subcommand_from create' \
+    -a '(__tgt_complete_active_targets)' -d target
+
 # ── tgt scenario <verb> ────────────────────────────────────────────
 set -l scenario_subs new list show switch rm
 

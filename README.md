@@ -197,6 +197,7 @@ set -Ux TGT_WORKSPACE_LAYOUT flat      # or 'nested' (see below)
 | `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder |
 | `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`) |
 | `tgt workspace` | Show settings + visualize the active scenario's tree |
+| `tgt workspace create [alias]` | Manually build the folder tree for the active scenario / target (works regardless of `$TGT_WORKSPACE_AUTOCREATE`) |
 | `tgt config` | Interactive editor for all workspace settings (uses [gum](https://github.com/charmbracelet/gum) if installed, plain `read` + `$EDITOR` otherwise) |
 | `tgt config reset` | Erase all custom workspace settings (revert to defaults) |
 
@@ -272,7 +273,7 @@ will show the migrated entry.
 make test
 ```
 
-Currently 413 tests across scenarios, targets, `/etc/hosts`,
+Currently 430 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
 completions, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
