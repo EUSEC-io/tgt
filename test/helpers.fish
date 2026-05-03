@@ -8,6 +8,19 @@
 
 set -g _test_dir (status dirname)
 
+# Sourced from every test file: erase any TGT_* globals inherited
+# from the user's environment (exported by their config.fish or
+# `tgt config`). Tests are isolated from the user's real settings —
+# without this, any global set by the user's shell would leak in
+# and break "default / unset" assertions.
+for _v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
+          TGT_SCENARIO TGT_ACTIVE \
+          TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
+          TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE
+    set -qg $_v; and set -eg $_v
+end
+set -e _v
+
 function _test_setup_krb5 --argument-names fixture
     set -gx TGT_TEST_MODE 1
     set -gx TGT_KRB5_FILE (mktemp)
