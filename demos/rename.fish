@@ -20,6 +20,6 @@ sleep 3
 
 _p "cat /etc/hosts    # tag rewritten; manual line untouched"
 cat $TGT_HOSTS_FILE
-sleep 5
+sleep 1
 
 _demo_cleanup

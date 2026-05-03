@@ -26,6 +26,6 @@ sleep 5.5
 
 _p "tgt path     # active target's folder"
 tgt path
-sleep 3
+sleep 1
 
 _demo_cleanup

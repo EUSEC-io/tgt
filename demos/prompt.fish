@@ -28,6 +28,6 @@ _state "+ host loaded — yellow (recon)"
 set -gx TGT_PASSWORD secret
 _state "+ creds loaded — red (damage)"
 
-sleep 4
+sleep 1
 
 _demo_cleanup

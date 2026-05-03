@@ -76,7 +76,7 @@ $(ASSETS):
 $(ASSETS)/%.svg: demos/%.fish | $(ASSETS)
 	@command -v $(TERMTOSVG) >/dev/null || { echo "termtosvg not installed (apt: termtosvg, or pacman -S termtosvg on Arch)"; exit 1; }
 	@echo "→ recording $@"
-	@$(TERMTOSVG) -g 80x25 -c "fish $<" $@
+	@$(TERMTOSVG) -g 80x25 -D 5000 -c "fish $<" $@
 
 demo-clean:
 	@rm -rf $(ASSETS)/*.svg

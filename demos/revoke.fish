@@ -24,6 +24,6 @@ sleep 4
 
 _p "tgt --show    # state cleared; scenario still active"
 tgt --show
-sleep 5
+sleep 1
 
 _demo_cleanup

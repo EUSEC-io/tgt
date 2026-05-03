@@ -37,6 +37,6 @@ sleep 4.5
 
 _p "tgt scenario show"
 tgt scenario show
-sleep 6
+sleep 1
 
 _demo_cleanup

@@ -25,6 +25,6 @@ sleep 2.5
 
 _p "tgt scenario list"
 tgt scenario list
-sleep 4.5
+sleep 1
 
 _demo_cleanup

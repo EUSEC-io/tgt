@@ -20,7 +20,7 @@ sleep 4
 
 _p "tgt scenario list"
 tgt scenario list
-sleep 5
+sleep 1
 
 command rm -rf -- $fake
 _demo_cleanup
