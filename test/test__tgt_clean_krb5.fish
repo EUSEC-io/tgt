@@ -55,3 +55,40 @@ _tgt_clean_krb5 DANTE.LOCAL
 set -l owner_after (stat -c '%U' $TGT_KRB5_FILE)
 @test "_tgt_clean_krb5: runs sudoless in test mode (no ownership change)" "$owner_before" = "$owner_after"
 _test_teardown
+
+#
+# default_realm cleanup: removing the sole realm resets default_realm
+# to ATHENA.MIT.EDU (krb5 conventional placeholder).
+#
+_test_setup_krb5 one_realm.conf
+_tgt_clean_krb5 HTB.LOCAL
+set -l after (cat $TGT_KRB5_FILE)
+@test "default_realm cleanup (sole realm): old default_realm gone" \
+    (string match -rq 'default_realm\s*=\s*HTB\.LOCAL' -- $after; echo $status) -ne 0
+@test "default_realm cleanup (sole realm): retargeted to ATHENA.MIT.EDU" \
+    (string match -rq 'default_realm\s*=\s*ATHENA\.MIT\.EDU' -- $after; echo $status) -eq 0
+_test_teardown
+
+#
+# default_realm cleanup: removing one of multiple realms retargets to
+# the surviving realm.
+#
+_test_setup_krb5 two_realms.conf
+_tgt_clean_krb5 DANTE.LOCAL
+set -l after2 (cat $TGT_KRB5_FILE)
+@test "default_realm cleanup (multi-realm): old default_realm gone" \
+    (string match -rq 'default_realm\s*=\s*DANTE\.LOCAL' -- $after2; echo $status) -ne 0
+@test "default_realm cleanup (multi-realm): retargeted to surviving realm" \
+    (string match -rq 'default_realm\s*=\s*OTHER\.LOCAL' -- $after2; echo $status) -eq 0
+_test_teardown
+
+#
+# default_realm cleanup: removing a non-default realm leaves
+# default_realm pointed at the original (still-valid) realm.
+#
+_test_setup_krb5 two_realms.conf
+_tgt_clean_krb5 OTHER.LOCAL
+set -l after3 (cat $TGT_KRB5_FILE)
+@test "default_realm cleanup (non-default removed): default_realm unchanged" \
+    (string match -rq 'default_realm\s*=\s*DANTE\.LOCAL' -- $after3; echo $status) -eq 0
+_test_teardown
