@@ -37,6 +37,17 @@ Older milestones live in `git log`.
 - `tgt prompt install / uninstall / status` — wires `tgt_prompt`
   into `fish_(right_)prompt` (`--right|--left|--force`).
 
+### Storage migration
+- Workspace config now lives in `~/.config/fish/tgt/config.fish`
+  (plain fish source, sourced by a `conf.d/` hook at shell startup).
+  Replaces the old "stored as fish universal vars" approach. The
+  file is `cat`-friendly, version-controllable, and can be rsynced
+  between machines. One-shot migration: on first startup with
+  existing universals and no file yet, `_tgt_config_migrate` writes
+  the universals' values into the file and erases them. Env vars
+  exported in the current shell still override the file values at
+  lookup time — used by tests and by ad-hoc overrides.
+
 ### Behaviors changed
 - `tgt --revoke` also unsets `$TGT_ACTIVE` (deselects the target;
   scenario is kept).

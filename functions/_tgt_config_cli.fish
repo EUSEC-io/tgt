@@ -35,9 +35,14 @@ function _tgt_config_cli
 end
 
 function _tgt_config_reset
+    # Erase from every scope: globals (live), universals (legacy
+    # pre-file storage), and delete the file itself.
     for v in TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE
-        set -q $v; and _tgt_unexport $v
+        set -qg $v; and set -eg $v
+        set -qU $v; and set -eU $v
     end
+    set -l file (_tgt_config_file)
+    test -f $file; and command rm -f -- $file
     echo "  ✓ workspace settings reset to defaults"
 end
 
@@ -163,24 +168,29 @@ function _tgt_config_edit
         return 1
     end
 
-    _tgt_export TGT_WORKSPACE_ROOT $new_root
-    _tgt_export TGT_WORKSPACE_LAYOUT $new_layout
+    # Update globals (live shell) and persist to file. Each var
+    # is either set globally or erased from globals (so that the
+    # saved file matches the new state exactly).
+    set -gx TGT_WORKSPACE_ROOT $new_root
+    set -gx TGT_WORKSPACE_LAYOUT $new_layout
     if test "$new_auto" = y
-        _tgt_export TGT_WORKSPACE_AUTOCREATE 1
+        set -gx TGT_WORKSPACE_AUTOCREATE 1
     else
-        set -q TGT_WORKSPACE_AUTOCREATE; and _tgt_unexport TGT_WORKSPACE_AUTOCREATE
+        set -qg TGT_WORKSPACE_AUTOCREATE; and set -eg TGT_WORKSPACE_AUTOCREATE
     end
     if test (count $new_target_tpl) -gt 0
-        _tgt_export TGT_WORKSPACE_TARGET_TEMPLATE $new_target_tpl
+        set -gx TGT_WORKSPACE_TARGET_TEMPLATE $new_target_tpl
     else
-        set -q TGT_WORKSPACE_TARGET_TEMPLATE; and _tgt_unexport TGT_WORKSPACE_TARGET_TEMPLATE
+        set -qg TGT_WORKSPACE_TARGET_TEMPLATE; and set -eg TGT_WORKSPACE_TARGET_TEMPLATE
     end
     if test (count $new_scenario_tpl) -gt 0
-        _tgt_export TGT_WORKSPACE_SCENARIO_TEMPLATE $new_scenario_tpl
+        set -gx TGT_WORKSPACE_SCENARIO_TEMPLATE $new_scenario_tpl
     else
-        set -q TGT_WORKSPACE_SCENARIO_TEMPLATE; and _tgt_unexport TGT_WORKSPACE_SCENARIO_TEMPLATE
+        set -qg TGT_WORKSPACE_SCENARIO_TEMPLATE; and set -eg TGT_WORKSPACE_SCENARIO_TEMPLATE
     end
 
-    set_color green; echo "  ✓ saved"; set_color normal
+    _tgt_config_save
+
+    set_color green; echo "  ✓ saved to "(_tgt_config_file); set_color normal
     return 0
 end

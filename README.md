@@ -231,6 +231,14 @@ When `$TGT_WORKSPACE_AUTOCREATE` is set, `tgt scenario new` and `tgt
 new` create the matching folders. Removal is opt-in via
 `--purge-workspace` on `tgt rm` / `tgt scenario rm`.
 
+**Where settings live:** `tgt config` writes to
+`~/.config/fish/tgt/config.fish` (or `$TGT_HOME/config.fish`).
+The file is plain fish source (`set -gx VAR value` lines) — `cat`,
+edit by hand, commit to git, rsync between machines, all fine.
+A `conf.d/` hook sources it at shell startup. Env vars exported
+in your current shell still take precedence over the file's values
+(useful for one-off overrides and tests).
+
 **Templates** (configurable via `tgt config`, or directly):
 
 ```fish
@@ -275,9 +283,10 @@ will show the migrated entry.
 make test
 ```
 
-Currently 480 tests across scenarios, targets, `/etc/hosts`,
+Currently 495 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
-completions, ask helpers, rename, and boundary helpers.
+completions, ask helpers, rename, config file storage, and
+boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.
 
