@@ -117,6 +117,61 @@ function _tgt_scenario_cli
             echo "✓ active scenario: $name"
             return 0
 
+        case rename
+            set -l old ""
+            set -l new ""
+            if test (count $rest) -ge 2
+                set old $rest[1]
+                set new $rest[2]
+            else if test (count $rest) -ge 1
+                if not set -q TGT_SCENARIO
+                    echo "tgt scenario rename: no active scenario. Specify <old> <new>." >&2
+                    return 1
+                end
+                set old $TGT_SCENARIO
+                set new $rest[1]
+            else
+                echo "Usage: tgt scenario rename [<old>] <new>" >&2
+                return 1
+            end
+            if test "$old" = "$new"
+                echo "tgt scenario rename: same name, nothing to do" >&2
+                return 1
+            end
+            if not _tgt_scenario_validate_name $new
+                echo "tgt scenario rename: invalid name '$new' (allowed: A-Z a-z 0-9 _ -)" >&2
+                return 1
+            end
+            if not _tgt_scenario_exists $old
+                echo "tgt scenario rename: '$old' does not exist" >&2
+                return 1
+            end
+            if _tgt_scenario_exists $new
+                echo "tgt scenario rename: '$new' already exists" >&2
+                return 1
+            end
+            set -l old_dir (_tgt_scenario_dir $old)
+            set -l new_dir (_tgt_scenario_dir $new)
+            if not command mv -- $old_dir $new_dir
+                echo "tgt scenario rename: failed to move scenario dir" >&2
+                return 1
+            end
+            # Retag /etc/hosts entries for every target in the scenario.
+            for target in (_tgt_target_list $new)
+                _tgt_hosts_retag $old $target $new $target
+            end
+            # Move the scenario's workspace folder if present.
+            set -l old_ws (_tgt_workspace_dir $old)
+            set -l new_ws (_tgt_workspace_dir $new)
+            if test -d $old_ws; and not test -e $new_ws
+                command mv -- $old_ws $new_ws
+            end
+            if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$old"
+                _tgt_export TGT_SCENARIO $new
+            end
+            set_color green; echo "✓ renamed scenario '$old' → '$new'"; set_color normal
+            return 0
+
         case rm
             argparse --name='tgt scenario rm' 'purge-workspace' -- $rest
             or return 1

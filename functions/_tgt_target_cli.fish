@@ -102,6 +102,61 @@ function _tgt_target_cli
             end
             return 0
 
+        case rename
+            set -l old ""
+            set -l new ""
+            if test (count $rest) -ge 2
+                set old $rest[1]
+                set new $rest[2]
+            else if test (count $rest) -ge 1
+                if not set -q TGT_ACTIVE
+                    echo "tgt rename: no active target. Specify <old> <new>." >&2
+                    return 1
+                end
+                set old $TGT_ACTIVE
+                set new $rest[1]
+            else
+                echo "Usage: tgt rename [<old>] <new>" >&2
+                return 1
+            end
+            if test "$old" = "$new"
+                echo "tgt rename: '$old' = '$new', nothing to do" >&2
+                return 1
+            end
+            if not _tgt_target_validate_name $new
+                echo "tgt rename: invalid alias '$new' (allowed: A-Z a-z 0-9 _ -)" >&2
+                return 1
+            end
+            if not _tgt_target_exists $scenario $old
+                echo "tgt rename: target '$old' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            if _tgt_target_exists $scenario $new
+                echo "tgt rename: target '$new' already exists in scenario '$scenario'" >&2
+                return 1
+            end
+            set -l old_file (_tgt_target_file $scenario $old)
+            set -l new_file (_tgt_target_file $scenario $new)
+            if not command mv -- $old_file $new_file
+                echo "tgt rename: failed to move registry file" >&2
+                return 1
+            end
+            _tgt_hosts_retag $scenario $old $scenario $new
+            # Move per-target workspace folder (nested layout only —
+            # flat doesn't have one).
+            if test (_tgt_workspace_layout) = nested
+                set -l old_ws (_tgt_workspace_dir $scenario $old)
+                set -l new_ws (_tgt_workspace_dir $scenario $new)
+                if test -d $old_ws; and not test -e $new_ws
+                    command mv -- $old_ws $new_ws
+                end
+            end
+            if set -q TGT_ACTIVE; and test "$TGT_ACTIVE" = "$old"
+                _tgt_export TGT_ACTIVE $new
+            end
+            set_color green; echo "✓ renamed target '$old' → '$new'"; set_color normal
+            return 0
+
         case edit
             set -l alias ""
             test (count $rest) -ge 1; and set alias $rest[1]

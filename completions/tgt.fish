@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit cd path workspace config prompt ingest hosts
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -21,6 +21,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a rm        -d 'Drop a target + its /etc/hosts entries'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a edit      -d 'Switch (if needed) + run the wizard for a target'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a rename    -d 'Rename a target; retags /etc/hosts and moves the workspace folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a hosts     -d 'Multi-line editor for active target hostnames'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -59,6 +61,8 @@ complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcomma
     -l purge-workspace -d 'Also rm -rf the workspace folder'
 complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario' \
     -a '(__tgt_complete_active_targets)' -d target
+complete -c tgt -n '__fish_seen_subcommand_from rename; and not __fish_seen_subcommand_from scenario' \
+    -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt new (top-level): can take --no-edit ─────────────────────────
 complete -c tgt -n '__fish_seen_subcommand_from new; and not __fish_seen_subcommand_from scenario' \
@@ -77,7 +81,7 @@ complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subco
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt scenario <verb> ────────────────────────────────────────────
-set -l scenario_subs new list show switch rm
+set -l scenario_subs new list show switch rm rename
 
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a new    -d 'Create a new scenario, switch to it'
@@ -88,10 +92,12 @@ complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_su
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a switch -d 'Make a scenario active'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a rename -d 'Rename a scenario; retags /etc/hosts and moves workspace folder'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a rm     -d 'Delete a scenario'
 
 # tgt scenario {switch,show,rm} <name>
-complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm' \
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm rename' \
     -a '(__tgt_complete_scenarios)' -d scenario
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from rm' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'

@@ -25,6 +25,7 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt new [alias] [--no-edit]  Create a target + drop into the wizard (--no-edit skips it)"
         echo "    tgt switch [alias]           Load a saved target's settings"
         echo "    tgt edit [alias]             Switch (if needed) + run the wizard for a target"
+        echo "    tgt rename [<old>] <new>     Rename a target (or the active one); retags /etc/hosts"
         echo "    tgt list                     List targets in the active scenario"
         echo "    tgt rm <alias>               Drop a target + its /etc/hosts entries"
         echo "    tgt hosts                    Multi-line editor for active target's hostnames"
@@ -260,7 +261,7 @@ function tgt --description 'Set penetration testing target environment variables
     # ── Targets within the active scenario ─────────────────
     if test (count $argv) -ge 1
         switch $argv[1]
-            case new switch list rm edit
+            case new switch list rm edit rename
                 _tgt_target_cli $argv
                 return $status
         end

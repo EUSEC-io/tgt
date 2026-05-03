@@ -7,6 +7,12 @@ Older milestones live in `git log`.
 ## Unreleased
 
 ### Commands added
+- `tgt rename [<old>] <new>` and `tgt scenario rename [<old>] <new>` —
+  rename a target / scenario in place. Moves the registry file or
+  scenario directory, retags `/etc/hosts` entries, moves the
+  workspace folder, and updates `$TGT_ACTIVE` / `$TGT_SCENARIO` if
+  the renamed item was the active one. Refuses to overwrite an
+  existing alias / scenario name.
 - `tgt scenario` (no args) — interactive picker (gum + TTY) for
   new / switch / show / rm. Falls back to help text on
   scripts / CI / tests.
