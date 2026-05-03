@@ -144,6 +144,8 @@ tgt scenario rm dante   # wipes /etc/hosts entries, krb5 realm, registry
 | `tgt scenario switch [name]` | Switch active scenario (no arg → fzf) |
 | `tgt scenario show [name]` | Scenario dashboard: details + per-target table (host, creds, AD, hostnames count) |
 | `tgt scenario rename [<old>] <new>` | Rename a scenario; retags every target's `/etc/hosts` lines and moves the workspace folder |
+| `tgt scenario archive [name]` / `tgt scenario unarchive [name]` | Mark a scenario as archived (hidden from default `list`) or revive it. Touches a `.archived` marker file. |
+| `tgt scenario list [--all\|--archived]` | Active by default; `--all` shows archived too with `[archived]` tag; `--archived` shows only archived. |
 | `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its workspace folder |
 | `tgt new [alias] [--no-edit]` | Create target in active scenario; drops into the wizard unless `--no-edit`. No alias → prompts for one. |
 | `tgt switch [alias]` | Load target's saved env vars (no arg → fzf) |

@@ -43,28 +43,59 @@ function _tgt_scenario_cli
             return 0
 
         case list
+            argparse --name='tgt scenario list' a/all archived -- $rest
+            or return 1
+            if set -q _flag_all; and set -q _flag_archived
+                echo "tgt scenario list: --all and --archived are mutually exclusive" >&2
+                return 1
+            end
+            set -l mode active
+            set -q _flag_all; and set mode all
+            set -q _flag_archived; and set mode archived
+
             set -l active ""
             set -q TGT_SCENARIO; and set active $TGT_SCENARIO
-            set -l scenarios (_tgt_scenario_list)
-            if test (count $scenarios) -eq 0
-                echo "(no scenarios)"
+            set -l all_scenarios (_tgt_scenario_list)
+            set -l filtered
+            set -l archived_count 0
+            for s in $all_scenarios
+                if _tgt_scenario_archived $s
+                    set archived_count (math $archived_count + 1)
+                    test "$mode" = active; and continue
+                else
+                    test "$mode" = archived; and continue
+                end
+                set -a filtered $s
+            end
+
+            if test (count $filtered) -eq 0
+                if test "$mode" = active; and test $archived_count -gt 0
+                    echo "(no active scenarios; $archived_count archived — use --all or --archived to see them)"
+                else if test "$mode" = archived
+                    echo "(no archived scenarios)"
+                else
+                    echo "(no scenarios)"
+                end
                 return 0
             end
+
             set_color --bold
             printf '  %-15s %-8s %-6s %-4s\n' scenario targets creds AD
             set_color normal
-            for s in $scenarios
+            for s in $filtered
                 set -l line (_tgt_scenario_inspect $s)
                 set -l fields (string split \t -- $line)
-                # fields: name, count, creds, ad
                 set -l marker "  "
                 set -l is_active 0
+                set -l is_archived 0
                 if test "$s" = "$active"
                     set marker "* "
                     set is_active 1
                 end
+                _tgt_scenario_archived $s; and set is_archived 1
                 printf '%s' $marker
                 test $is_active -eq 1; and set_color --bold green
+                test $is_archived -eq 1; and set_color brblack
                 printf '%-15s' $fields[1]
                 set_color normal
                 printf ' %-8d ' $fields[2]
@@ -78,8 +109,60 @@ function _tgt_scenario_cli
                 else
                     set_color brblack; printf '%-4s' N; set_color normal
                 end
+                test $is_archived -eq 1; and set_color brblack; and printf '  [archived]'; and set_color normal
                 echo ""
             end
+
+            if test "$mode" = active; and test $archived_count -gt 0
+                echo ""
+                set_color brblack
+                echo "  ($archived_count archived hidden — use --all to see them)"
+                set_color normal
+            end
+            return 0
+
+        case archive
+            set -l name ""
+            test (count $rest) -ge 1; and set name $rest[1]
+            if test -z "$name"
+                set -q TGT_SCENARIO; or begin
+                    echo "tgt scenario archive: no active scenario. Specify <name>." >&2
+                    return 1
+                end
+                set name $TGT_SCENARIO
+            end
+            if not _tgt_scenario_exists $name
+                echo "tgt scenario archive: '$name' does not exist" >&2
+                return 1
+            end
+            if _tgt_scenario_archived $name
+                echo "tgt scenario archive: '$name' is already archived" >&2
+                return 0
+            end
+            touch -- (_tgt_scenario_dir $name)/.archived
+            set_color green; echo "✓ archived '$name' (hidden from `tgt scenario list` by default)"; set_color normal
+            return 0
+
+        case unarchive
+            set -l name ""
+            test (count $rest) -ge 1; and set name $rest[1]
+            if test -z "$name"
+                set -q TGT_SCENARIO; or begin
+                    echo "tgt scenario unarchive: no active scenario. Specify <name>." >&2
+                    return 1
+                end
+                set name $TGT_SCENARIO
+            end
+            if not _tgt_scenario_exists $name
+                echo "tgt scenario unarchive: '$name' does not exist" >&2
+                return 1
+            end
+            if not _tgt_scenario_archived $name
+                echo "tgt scenario unarchive: '$name' is not archived" >&2
+                return 0
+            end
+            command rm -f -- (_tgt_scenario_dir $name)/.archived
+            set_color green; echo "✓ unarchived '$name'"; set_color normal
             return 0
 
         case show
@@ -99,11 +182,26 @@ function _tgt_scenario_cli
             return 0
 
         case switch
-            set -l name $rest[1]
+            argparse --name='tgt scenario switch' a/all -- $rest
+            or return 1
+            set -l name ""
+            test (count $argv) -ge 1; and set name $argv[1]
             if test -z "$name"
-                set -l scenarios (_tgt_scenario_list)
+                set -l all_scenarios (_tgt_scenario_list)
+                set -l scenarios
+                if set -q _flag_all
+                    set scenarios $all_scenarios
+                else
+                    for s in $all_scenarios
+                        _tgt_scenario_archived $s; or set -a scenarios $s
+                    end
+                end
                 if test (count $scenarios) -eq 0
-                    echo "tgt scenario switch: no scenarios registered" >&2
+                    if test (count $all_scenarios) -eq 0
+                        echo "tgt scenario switch: no scenarios registered" >&2
+                    else
+                        echo "tgt scenario switch: no active scenarios (use --all to include archived)" >&2
+                    end
                     return 1
                 end
                 set name (_tgt_pick "scenario" $scenarios)
@@ -115,6 +213,11 @@ function _tgt_scenario_cli
             end
             _tgt_export TGT_SCENARIO $name
             echo "✓ active scenario: $name"
+            _tgt_scenario_archived $name; and begin
+                set_color brblack
+                echo "  (note: '$name' is archived; `tgt scenario unarchive` to surface it in default list)"
+                set_color normal
+            end
             return 0
 
         case rename

@@ -7,6 +7,13 @@ Older milestones live in `git log`.
 ## Unreleased
 
 ### Commands added
+- `tgt scenario archive [name]` and `tgt scenario unarchive [name]` —
+  mark a scenario as archived (hidden from `tgt scenario list` by
+  default) or revive it. Marker is just a `.archived` file under
+  the scenario's registry dir. `tgt scenario list --all` shows
+  archived too with an `[archived]` tag; `tgt scenario list
+  --archived` shows only archived. Switch picker hides archived
+  by default — pass `--all` or name explicitly to revive.
 - `tgt rename [<old>] <new>` and `tgt scenario rename [<old>] <new>` —
   rename a target / scenario in place. Moves the registry file or
   scenario directory, retags `/etc/hosts` entries, moves the

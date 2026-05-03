@@ -81,23 +81,37 @@ complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subco
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt scenario <verb> ────────────────────────────────────────────
-set -l scenario_subs new list show switch rm rename
+set -l scenario_subs new list show switch rm rename archive unarchive
 
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a new    -d 'Create a new scenario, switch to it'
+    -a new       -d 'Create a new scenario, switch to it'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a list   -d 'List scenarios'
+    -a list      -d 'List scenarios (active by default)'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a show   -d 'Show scenario details'
+    -a show      -d 'Show scenario details'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a switch -d 'Make a scenario active'
+    -a switch    -d 'Make a scenario active'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a rename -d 'Rename a scenario; retags /etc/hosts and moves workspace folder'
+    -a archive   -d 'Hide a scenario from the default list'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
-    -a rm     -d 'Delete a scenario'
+    -a unarchive -d 'Surface an archived scenario again'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a rename    -d 'Rename a scenario; retags /etc/hosts and moves workspace folder'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a rm        -d 'Delete a scenario'
+
+# `tgt scenario list` flags
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from list' \
+    -s a -l all      -d 'Include archived scenarios'
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from list' \
+    -l archived       -d 'Show only archived scenarios'
+
+# `tgt scenario switch` flag
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch' \
+    -s a -l all      -d 'Include archived in the picker'
 
 # tgt scenario {switch,show,rm} <name>
-complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm rename' \
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm rename archive unarchive' \
     -a '(__tgt_complete_scenarios)' -d scenario
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from rm' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'
