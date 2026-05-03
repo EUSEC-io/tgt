@@ -17,8 +17,12 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt --set-dc <DC_HOSTNAME>   Set domain controller + update krb5.conf + /etc/hosts"
         echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
-        echo "  SCENARIOS"
+        echo "  SCENARIOS & TARGETS"
         echo "    tgt scenario --help          Manage scenarios (engagements, lab seasons)"
+        echo "    tgt new <alias>              Create a target in the active scenario"
+        echo "    tgt switch <alias>           Load a saved target's settings"
+        echo "    tgt list                     List targets in the active scenario"
+        echo "    tgt rm <alias>               Drop a target + its /etc/hosts entries"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
@@ -28,14 +32,16 @@ function tgt --description 'Set penetration testing target environment variables
     end
 
     set -l krb5_file (_tgt_krb5_file)
+    set -l hosts_scenario (_tgt_active_scenario_name)
+    set -l hosts_target   (_tgt_active_target_name)
 
     # ── Revoke ──────────────────────────────────────────────
     if test (count $argv) -ge 1 && test $argv[1] = "--revoke"
         # Clean /etc/hosts
         if set -q TGT
-            set -l existing (_tgt_hosts_get default default)
+            set -l existing (_tgt_hosts_get $hosts_scenario $hosts_target)
             if test (count $existing) -gt 0
-                _tgt_hosts_revoke default default
+                _tgt_hosts_revoke $hosts_scenario $hosts_target
                 echo "✓ Removed $TGT from /etc/hosts"
             end
         end
@@ -74,7 +80,7 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         if set -q TGT
             echo "  /etc/hosts:"
-            set -l hosts (_tgt_hosts_get default default)
+            set -l hosts (_tgt_hosts_get $hosts_scenario $hosts_target)
             if test (count $hosts) -gt 0
                 echo "    $TGT "(string join " " -- $hosts)
             else
@@ -103,9 +109,9 @@ function tgt --description 'Set penetration testing target environment variables
         end
         set -l new_hosts $argv[2..]
 
-        _tgt_hosts_add default default $TGT $new_hosts
+        _tgt_hosts_add $hosts_scenario $hosts_target $TGT $new_hosts
 
-        set -l updated (_tgt_hosts_get default default)
+        set -l updated (_tgt_hosts_get $hosts_scenario $hosts_target)
         _tgt_export TGT_HOSTS (string join " " -- $updated)
         echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
         return 0
@@ -123,9 +129,9 @@ function tgt --description 'Set penetration testing target environment variables
         end
         set -l rm_hosts $argv[2..]
 
-        _tgt_hosts_remove default default $rm_hosts
+        _tgt_hosts_remove $hosts_scenario $hosts_target $rm_hosts
 
-        set -l remaining (_tgt_hosts_get default default)
+        set -l remaining (_tgt_hosts_get $hosts_scenario $hosts_target)
         if test (count $remaining) -gt 0
             _tgt_export TGT_HOSTS (string join " " -- $remaining)
             echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
@@ -189,6 +195,15 @@ function tgt --description 'Set penetration testing target environment variables
         return $status
     end
 
+    # ── Targets within the active scenario ─────────────────
+    if test (count $argv) -ge 1
+        switch $argv[1]
+            case new switch list rm
+                _tgt_target_cli $argv
+                return $status
+        end
+    end
+
     # ── Interactive setup ───────────────────────────────────
     echo ""
     echo "[ Target ]"
@@ -202,7 +217,7 @@ function tgt --description 'Set penetration testing target environment variables
 
     if test -n "$input_tgt"
         if test -n "$cur_tgt" && test "$input_tgt" != "$cur_tgt"
-            _tgt_hosts_revoke default default
+            _tgt_hosts_revoke $hosts_scenario $hosts_target
         end
         _tgt_export TGT $input_tgt
     else if test -n "$cur_tgt"
@@ -239,15 +254,15 @@ function tgt --description 'Set penetration testing target environment variables
 
     if test -n "$input_hosts"
         set -l hosts_list (string split " " -- $input_hosts)
-        _tgt_hosts_revoke default default
-        _tgt_hosts_add default default $TGT $hosts_list
+        _tgt_hosts_revoke $hosts_scenario $hosts_target
+        _tgt_hosts_add $hosts_scenario $hosts_target $TGT $hosts_list
         _tgt_export TGT_HOSTS $input_hosts
         echo "  ✓ Added: $TGT $input_hosts"
     else if test -n "$cur_hosts"
         # Carry hostnames forward to the (possibly new) TGT IP.
         # Add re-asserts the entry; dedupes if it already exists.
         set -l cur_hosts_list (string split " " -- $cur_hosts)
-        _tgt_hosts_add default default $TGT $cur_hosts_list
+        _tgt_hosts_add $hosts_scenario $hosts_target $TGT $cur_hosts_list
         _tgt_export TGT_HOSTS $cur_hosts
     end
 
@@ -333,7 +348,7 @@ function tgt --description 'Set penetration testing target environment variables
         end
 
         if set -q TGT_DC
-            _tgt_hosts_add default default $TGT $TGT_DC
+            _tgt_hosts_add $hosts_scenario $hosts_target $TGT $TGT_DC
         end
 
         _tgt_update_krb5
@@ -371,6 +386,13 @@ function tgt --description 'Set penetration testing target environment variables
 
             echo ""
             _tgt_run_bloodhound "$TGT_USERNAME" "$TGT_PASSWORD" "all" "$do_zip" "$zip_name"
+        end
+    end
+
+    # ── Auto-save to registry if a target slot is active ────
+    if set -q TGT_SCENARIO; and set -q TGT_ACTIVE
+        if _tgt_scenario_exists $TGT_SCENARIO
+            _tgt_target_save $TGT_SCENARIO $TGT_ACTIVE
         end
     end
 
