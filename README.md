@@ -84,14 +84,19 @@ tgt --help
 
 Add a `[scenario:target]` indicator to your prompt — color-coded by
 damage potential (red = creds loaded, yellow = host/port set, default
-= scenario only):
+= scenario only).
 
 ```fish
-# in ~/.config/fish/config.fish
-function fish_right_prompt
-    tgt_prompt
-end
+tgt prompt install            # writes ~/.config/fish/functions/fish_right_prompt.fish
+tgt prompt install --left     # use the left prompt instead
+tgt prompt status             # show what's installed
+tgt prompt uninstall          # remove the managed file
 ```
+
+If you already have a custom `fish_(right_)prompt`, `tgt prompt
+install` refuses to overwrite it. Either add `tgt_prompt` to it by
+hand, or rerun with `--force` (your existing file is backed up to
+`<file>.tgt-bak`).
 
 ## Quickstart
 
@@ -184,7 +189,7 @@ will show the migrated entry.
 make test
 ```
 
-Currently 197 tests across scenarios, targets, `/etc/hosts`,
+Currently 239 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.

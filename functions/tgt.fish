@@ -27,9 +27,11 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt rm <alias>               Drop a target + its /etc/hosts entries"
         echo ""
         echo "  PROMPT"
-        echo "    tgt_prompt                   Renders [scenario:target], color = damage potential."
-        echo "                                 Add to your fish_right_prompt to see it always:"
-        echo "                                   function fish_right_prompt; tgt_prompt; end"
+        echo "    tgt prompt install           Wire tgt_prompt into your fish prompt"
+        echo "                                   --right (default) | --left | --force"
+        echo "    tgt prompt uninstall         Remove the managed prompt file(s)"
+        echo "    tgt prompt status            Show what's currently installed"
+        echo "    tgt_prompt                   Render [scenario:target] (color = damage potential)"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
@@ -202,6 +204,12 @@ function tgt --description 'Set penetration testing target environment variables
     # ── Scenarios ───────────────────────────────────────────
     if test (count $argv) -ge 1 && test $argv[1] = "scenario"
         _tgt_scenario_cli $argv[2..]
+        return $status
+    end
+
+    # ── Prompt segment ──────────────────────────────────────
+    if test (count $argv) -ge 1 && test $argv[1] = "prompt"
+        _tgt_prompt_cli $argv[2..]
         return $status
     end
 
