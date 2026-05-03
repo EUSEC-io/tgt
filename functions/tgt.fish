@@ -119,7 +119,8 @@ function tgt --description 'Set penetration testing target environment variables
         _tgt_hosts_add $hosts_scenario $hosts_target $TGT $new_hosts
 
         set -l updated (_tgt_hosts_get $hosts_scenario $hosts_target)
-        _tgt_export TGT_HOSTS (string join " " -- $updated)
+        _tgt_export TGT_HOSTS $updated
+        _tgt_maybe_save_active
         echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
         return 0
     end
@@ -140,12 +141,13 @@ function tgt --description 'Set penetration testing target environment variables
 
         set -l remaining (_tgt_hosts_get $hosts_scenario $hosts_target)
         if test (count $remaining) -gt 0
-            _tgt_export TGT_HOSTS (string join " " -- $remaining)
+            _tgt_export TGT_HOSTS $remaining
             echo "✓ /etc/hosts: $TGT $TGT_HOSTS"
         else
             set -q TGT_HOSTS && _tgt_unexport TGT_HOSTS
             echo "✓ All hostnames removed for $TGT"
         end
+        _tgt_maybe_save_active
         return 0
     end
 
@@ -162,6 +164,7 @@ function tgt --description 'Set penetration testing target environment variables
         _tgt_export TGT_DC $argv[2]
         _tgt_update_krb5
         tgt --add-host $TGT_DC
+        _tgt_maybe_save_active
         return 0
     end
 
@@ -263,14 +266,14 @@ function tgt --description 'Set penetration testing target environment variables
         set -l hosts_list (string split " " -- $input_hosts)
         _tgt_hosts_revoke $hosts_scenario $hosts_target
         _tgt_hosts_add $hosts_scenario $hosts_target $TGT $hosts_list
-        _tgt_export TGT_HOSTS $input_hosts
+        _tgt_export TGT_HOSTS $hosts_list
         echo "  ✓ Added: $TGT $input_hosts"
     else if test -n "$cur_hosts"
         # Carry hostnames forward to the (possibly new) TGT IP.
         # Add re-asserts the entry; dedupes if it already exists.
         set -l cur_hosts_list (string split " " -- $cur_hosts)
         _tgt_hosts_add $hosts_scenario $hosts_target $TGT $cur_hosts_list
-        _tgt_export TGT_HOSTS $cur_hosts
+        _tgt_export TGT_HOSTS $cur_hosts_list
     end
 
     # ── Credentials ─────────────────────────────────────────
