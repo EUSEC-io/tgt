@@ -3,7 +3,7 @@
 # 'no'. Echoes the entered value (empty = "keep current" / "skip"),
 # returns non-zero on abort.
 function _tgt_ask_password --argument-names label has_current
-    if command -q gum; and not set -q TGT_TEST_MODE
+    if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         set_color --bold yellow >&2; echo -n "  $label" >&2; set_color normal >&2; echo "" >&2
         if test "$has_current" = yes
             set_color brblack >&2; echo "    [input masked — Enter to keep current]" >&2; set_color normal >&2

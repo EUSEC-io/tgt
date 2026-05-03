@@ -3,7 +3,7 @@
 # then runs gum input (or `read` fallback) for the actual edit.
 # Empty input → default. Returns non-zero if gum/read aborted (Ctrl-C).
 function _tgt_ask_text --argument-names label default
-    if command -q gum; and not set -q TGT_TEST_MODE
+    if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         set_color --bold yellow >&2; echo -n "  $label" >&2; set_color normal >&2; echo "" >&2
         if test -n "$default"
             set_color brblack >&2; echo "    [press Enter to keep: $default]" >&2; set_color normal >&2

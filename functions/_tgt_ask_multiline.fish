@@ -9,7 +9,7 @@ function _tgt_ask_multiline
     set -l label $argv[1]
     set -l entries $argv[2..]
 
-    if command -q gum; and not set -q TGT_TEST_MODE
+    if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         set_color --bold yellow >&2; echo -n "  $label" >&2; set_color normal >&2; echo "" >&2
         set_color brblack >&2; echo "    [Esc or Ctrl-D to save & exit; one entry per line; trailing '/' = dir]" >&2; set_color normal >&2
         echo "" >&2

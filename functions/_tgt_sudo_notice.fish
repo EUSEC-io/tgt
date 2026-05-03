@@ -4,6 +4,7 @@
 # tgt.fish clears on entry).
 function _tgt_sudo_notice
     set -q TGT_TEST_MODE; and return 0
+    set -q TGT_NO_SUDO; and return 0
     set -q _tgt_sudo_announced; and return 0
     set -g _tgt_sudo_announced 1
     set_color brblack

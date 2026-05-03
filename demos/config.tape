@@ -1,7 +1,5 @@
 # Demo: walking through `tgt config` — the gum-driven workspace
-# settings wizard. vhs drives interactive gum widgets via a real PTY.
-#
-# Run via: vhs demos/config.tape  →  produces assets/config.gif
+# settings wizard.
 
 Output assets/config.gif
 
@@ -12,37 +10,8 @@ Set Height 720
 Set Padding 20
 Set Theme "Dracula"
 
-# Hidden setup: vhs/ttyd starts fish without autoloading the user's
-# config, so the function path is bare and conf.d isn't sourced.
-# Wire it up explicitly, plus sandbox tgt's state into tmp dirs.
-Hide
-Type "set -gx fish_function_path ~/.config/fish/functions /etc/fish/functions /usr/share/fish/functions"
-Enter
-Sleep 100ms
-Type "set -gx fish_complete_path ~/.config/fish/completions /etc/fish/completions /usr/share/fish/completions"
-Enter
-Sleep 100ms
-Type "set -gx TGT_HOME (mktemp -d); and mkdir -p $TGT_HOME"
-Enter
-Sleep 100ms
-Type "set -gx TGT_WORKSPACE_ROOT (mktemp -d)"
-Enter
-Sleep 100ms
-Type "set -gx TGT_HOSTS_FILE (mktemp); set -gx TGT_KRB5_FILE (mktemp)"
-Enter
-Sleep 100ms
-Type "for f in ~/.config/fish/conf.d/*.fish; source $f; end"
-Enter
-Sleep 100ms
-Type "for v in TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE; set -qg $v; and set -eg $v; end"
-Enter
-Sleep 100ms
-Type "clear"
-Enter
-Sleep 200ms
-Show
+Source demos/_vhs_setup.tape
 
-# ── Demo starts ──
 Type "tgt config"
 Sleep 500ms
 Enter
@@ -80,7 +49,6 @@ Sleep 1s
 Enter
 Sleep 4s
 
-# Confirm the file was actually written
 Type "cat $TGT_HOME/config.fish"
 Enter
 Sleep 6s

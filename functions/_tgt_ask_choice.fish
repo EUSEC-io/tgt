@@ -7,7 +7,7 @@ function _tgt_ask_choice
     set -l default $argv[2]
     set -l choices $argv[3..]
 
-    if command -q gum; and not set -q TGT_TEST_MODE
+    if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         set_color --bold yellow >&2; echo -n "  $label" >&2; set_color normal >&2; echo "" >&2
         set_color brblack >&2; echo "    [↑/↓ to select, Enter to confirm; current: $default]" >&2; set_color normal >&2
         echo "" >&2

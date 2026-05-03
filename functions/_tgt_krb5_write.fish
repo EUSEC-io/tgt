@@ -5,7 +5,7 @@ function _tgt_krb5_write
     set -l krb5 (_tgt_krb5_file)
     set -l tmp (command mktemp)
     command cat > $tmp
-    if set -q TGT_TEST_MODE
+    if set -q TGT_TEST_MODE; or set -q TGT_NO_SUDO
         command mv $tmp $krb5
     else
         _tgt_sudo_notice

@@ -214,10 +214,24 @@ deep-dive section below for `flat` vs. `nested` layouts.
 
 `tgt config` walks through every workspace setting (root, layout,
 auto-create, per-target template, per-scenario template) one section
-at a time. The same gum-aware helpers power `tgt`'s no-args
-interactive setup and the `tgt scenario` (no-args) action picker.
-Without gum installed, all of these fall back to plain `read -P` +
-`$EDITOR` — same flow, less polish.
+at a time. Same gum-aware helpers power `tgt`'s no-args setup
+wizard. Without gum installed, all of these fall back to plain
+`read -P` + `$EDITOR` — same flow, less polish.
+
+### Picking actions on a scenario
+
+![tgt scenario](assets/scenario-picker.gif)
+
+Bare `tgt scenario` (no verb) opens an interactive action picker —
+new / switch / show / rm — with the active scenario shown above.
+Falls back to the plain help text in scripts / CI / non-TTY contexts.
+
+### Jumping between targets
+
+![tgt switch](assets/switch.gif)
+
+No-arg `tgt switch` opens an fzf picker over the active scenario's
+targets. Type to filter, arrow + Enter to select.
 
 ### Clean up between targets
 

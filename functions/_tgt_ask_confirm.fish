@@ -2,7 +2,7 @@
 # Echoes 'yes' or 'no' on stdout and returns 0 on a clean answer.
 # Returns non-zero only on abort (Ctrl-C / gum failure).
 function _tgt_ask_confirm --argument-names label default_yn
-    if command -q gum; and not set -q TGT_TEST_MODE
+    if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         echo "" >&2
         if test "$default_yn" = y
             command gum confirm "$label"

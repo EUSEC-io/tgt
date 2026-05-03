@@ -5,7 +5,7 @@ function _tgt_hosts_write
     set -l hosts_file (_tgt_hosts_file)
     set -l tmp (command mktemp)
     command cat > $tmp
-    if set -q TGT_TEST_MODE
+    if set -q TGT_TEST_MODE; or set -q TGT_NO_SUDO
         command mv $tmp $hosts_file
     else
         _tgt_sudo_notice
