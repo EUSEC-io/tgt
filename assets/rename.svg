@@ -16,21 +16,21 @@
         }
     
             :root {
-                --animation-duration: 11023ms;
+                --animation-duration: 15019ms;
             }
 
             @keyframes roll {
                 0.000%{transform:translateY(0px)}
-9.099%{transform:translateY(-442px)}
-45.405%{transform:translateY(-884px)}
-54.586%{transform:translateY(-1326px)}
-81.820%{transform:translateY(-1768px)}
-90.928%{transform:translateY(-2210px)}
+6.678%{transform:translateY(-442px)}
+33.324%{transform:translateY(-884px)}
+40.049%{transform:translateY(-1326px)}
+60.031%{transform:translateY(-1768px)}
+66.709%{transform:translateY(-2210px)}
 100.000%{transform:translateY(-2210px)}
             }
 
             #screen_view {
-                animation-duration: 11023ms;
+                animation-duration: 15019ms;
                 animation-iteration-count:infinite;
                 animation-name:roll;
                 animation-timing-function: steps(1,end);
