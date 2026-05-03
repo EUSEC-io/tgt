@@ -5,14 +5,14 @@ source (status dirname)/helpers.fish
 @test "sanitize: already-clean name passes through" \
     (_tgt_scenario_sanitize_name lame) = lame
 
-@test "sanitize: uppercase → lowercase" \
-    (_tgt_scenario_sanitize_name FOREST) = forest
+@test "sanitize: case preserved" \
+    (_tgt_scenario_sanitize_name FOREST) = FOREST
 
-@test "sanitize: dots replaced with dashes" \
-    (_tgt_scenario_sanitize_name "active.htb") = active-htb
+@test "sanitize: dots replaced with dashes (case kept)" \
+    (_tgt_scenario_sanitize_name "Active.htb") = Active-htb
 
-@test "sanitize: spaces replaced" \
-    (_tgt_scenario_sanitize_name "Box Name") = box-name
+@test "sanitize: spaces replaced (case kept)" \
+    (_tgt_scenario_sanitize_name "Box Name") = Box-Name
 
 @test "sanitize: collapses multiple dashes" \
     (_tgt_scenario_sanitize_name "a..b") = a-b
@@ -113,12 +113,12 @@ mkdir -p "$src4/Active.htb" $src4/Forest
 
 _tgt_scenario_import --prefix htb- $src4 >/dev/null
 
-@test "import: 'Active.htb' → 'htb-active-htb'" \
-    (_tgt_scenario_exists htb-active-htb; echo $status) -eq 0
+@test "import: 'Active.htb' → 'htb-Active-htb'" \
+    (_tgt_scenario_exists htb-Active-htb; echo $status) -eq 0
 @test "import: workspace dir uses sanitized name" \
-    -d "$TGT_WORKSPACE_ROOT/htb-active-htb"
-@test "import: capitalized 'Forest' → 'htb-forest'" \
-    (_tgt_scenario_exists htb-forest; echo $status) -eq 0
+    -d "$TGT_WORKSPACE_ROOT/htb-Active-htb"
+@test "import: 'Forest' kept as 'htb-Forest'" \
+    (_tgt_scenario_exists htb-Forest; echo $status) -eq 0
 
 rm -rf $src4
 _test_teardown

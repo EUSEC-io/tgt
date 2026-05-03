@@ -13,8 +13,8 @@ Older milestones live in `git log`.
   intact; `--prefix` prepends a string to each scenario name (e.g.
   `--prefix htb-` turns `lame/` into `htb-lame`); `--dry-run`
   prints the plan without touching anything. Names with `.`,
-  spaces, or other invalid chars are sanitized (lowercased,
-  invalid → `-`, dashes collapsed and trimmed). Conflicts (scenario
+  spaces, or other invalid chars are sanitized (invalid → `-`,
+  dashes collapsed and trimmed; case is preserved). Conflicts (scenario
   exists, workspace dest exists) are skipped, not clobbered.
 - `tgt scenario archive [name]` and `tgt scenario unarchive [name]` —
   mark a scenario as archived (hidden from `tgt scenario list` by
