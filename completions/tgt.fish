@@ -81,7 +81,7 @@ complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subco
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt scenario <verb> ────────────────────────────────────────────
-set -l scenario_subs new list show switch rm rename archive unarchive
+set -l scenario_subs new list show switch rm rename archive unarchive import
 
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a new       -d 'Create a new scenario, switch to it'
@@ -99,6 +99,18 @@ complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_su
     -a rename    -d 'Rename a scenario; retags /etc/hosts and moves workspace folder'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a rm        -d 'Delete a scenario'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a import    -d 'Bulk-import each subdir under a path as a scenario'
+
+# `tgt scenario import` flags
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from import' \
+    -l copy      -d 'Copy instead of moving the source dirs'
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from import' \
+    -l dry-run   -d 'Print the plan without touching anything'
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from import' \
+    -l prefix    -d 'Prefix each scenario name with this string' -r
+# Re-enable file completion for the path argument.
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from import' -F
 
 # `tgt scenario list` flags
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from list' \

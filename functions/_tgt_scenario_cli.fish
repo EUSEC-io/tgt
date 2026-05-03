@@ -220,6 +220,10 @@ function _tgt_scenario_cli
             end
             return 0
 
+        case import
+            _tgt_scenario_import $rest
+            return $status
+
         case rename
             set -l old ""
             set -l new ""

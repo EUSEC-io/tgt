@@ -7,6 +7,15 @@ Older milestones live in `git log`.
 ## Unreleased
 
 ### Commands added
+- `tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]`
+  — bulk-import each subdir under `<path>` as a scenario. Default
+  moves the dir into the workspace root; `--copy` keeps the source
+  intact; `--prefix` prepends a string to each scenario name (e.g.
+  `--prefix htb-` turns `lame/` into `htb-lame`); `--dry-run`
+  prints the plan without touching anything. Names with `.`,
+  spaces, or other invalid chars are sanitized (lowercased,
+  invalid → `-`, dashes collapsed and trimmed). Conflicts (scenario
+  exists, workspace dest exists) are skipped, not clobbered.
 - `tgt scenario archive [name]` and `tgt scenario unarchive [name]` —
   mark a scenario as archived (hidden from `tgt scenario list` by
   default) or revive it. Marker is just a `.archived` file under
