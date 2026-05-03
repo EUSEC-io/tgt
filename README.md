@@ -161,6 +161,11 @@ tgt --set-dc <DC_HOSTNAME>       Set DC + update /etc/krb5.conf realm
 tgt ingest <user> <pass> [--zip] Run bloodhound-python
 ```
 
+When the workspace folder for the active target exists on disk,
+`tgt ingest` runs from that target's `loot/` subfolder (created
+on demand) so JSON / zip output lands there. Otherwise it stays
+in `$PWD`.
+
 ### Workspace folders
 
 `tgt` can keep a directory tree per scenario (and per target) so scan
@@ -237,7 +242,7 @@ will show the migrated entry.
 make test
 ```
 
-Currently 341 tests across scenarios, targets, `/etc/hosts`,
+Currently 346 tests across scenarios, targets, `/etc/hosts`,
 `/etc/krb5.conf`, picker, prompt, migration, workspace, completions,
 and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
