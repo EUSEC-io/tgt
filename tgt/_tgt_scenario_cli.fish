@@ -75,11 +75,16 @@ function _tgt_scenario_cli
             return 0
 
         case switch
-            if test (count $rest) -lt 1
-                echo "Usage: tgt scenario switch <name>" >&2
-                return 1
-            end
             set -l name $rest[1]
+            if test -z "$name"
+                set -l scenarios (_tgt_scenario_list)
+                if test (count $scenarios) -eq 0
+                    echo "tgt scenario switch: no scenarios registered" >&2
+                    return 1
+                end
+                set name (_tgt_pick "scenario" $scenarios)
+                test -z "$name"; and return 1
+            end
             if not _tgt_scenario_exists $name
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1
@@ -89,11 +94,16 @@ function _tgt_scenario_cli
             return 0
 
         case rm
-            if test (count $rest) -lt 1
-                echo "Usage: tgt scenario rm <name>" >&2
-                return 1
-            end
             set -l name $rest[1]
+            if test -z "$name"
+                set -l scenarios (_tgt_scenario_list)
+                if test (count $scenarios) -eq 0
+                    echo "tgt scenario rm: no scenarios registered" >&2
+                    return 1
+                end
+                set name (_tgt_pick "scenario to remove" $scenarios)
+                test -z "$name"; and return 1
+            end
             if not _tgt_scenario_exists $name
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1

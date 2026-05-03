@@ -41,11 +41,16 @@ function _tgt_target_cli
             return 0
 
         case switch
-            if test (count $rest) -lt 1
-                echo "Usage: tgt switch <alias>" >&2
-                return 1
-            end
             set -l alias $rest[1]
+            if test -z "$alias"
+                set -l targets (_tgt_target_list $scenario)
+                if test (count $targets) -eq 0
+                    echo "tgt switch: no targets in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "target" $targets)
+                test -z "$alias"; and return 1
+            end
             if not _tgt_target_exists $scenario $alias
                 echo "tgt switch: target '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
@@ -73,11 +78,16 @@ function _tgt_target_cli
             return 0
 
         case rm
-            if test (count $rest) -lt 1
-                echo "Usage: tgt rm <alias>" >&2
-                return 1
-            end
             set -l alias $rest[1]
+            if test -z "$alias"
+                set -l targets (_tgt_target_list $scenario)
+                if test (count $targets) -eq 0
+                    echo "tgt rm: no targets in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "target to remove" $targets)
+                test -z "$alias"; and return 1
+            end
             if not _tgt_target_exists $scenario $alias
                 echo "tgt rm: target '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
