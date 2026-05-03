@@ -183,6 +183,8 @@ set -Ux TGT_WORKSPACE_LAYOUT flat      # or 'nested' (see below)
 | `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder |
 | `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`) |
 | `tgt workspace` | Show settings + visualize the active scenario's tree |
+| `tgt config` | Interactive editor for all workspace settings (uses `$EDITOR` for templates) |
+| `tgt config reset` | Erase all custom workspace settings (revert to defaults) |
 
 **Layouts:**
 
@@ -211,6 +213,20 @@ Better for Pro Labs / client engagements with many targets.
 When `$TGT_WORKSPACE_AUTOCREATE` is set, `tgt scenario new` and `tgt
 new` create the matching folders. Removal is opt-in via
 `--purge-workspace` on `tgt rm` / `tgt scenario rm`.
+
+**Templates** (configurable via `tgt config`, or directly):
+
+```fish
+# defaults shown
+set -Ux TGT_WORKSPACE_TARGET_TEMPLATE   scans/ loot/ exploits/ screenshots/ notes.md
+set -Ux TGT_WORKSPACE_SCENARIO_TEMPLATE _report/findings/ _report/screenshots/ _engagement.md
+```
+
+In `flat` layout the per-target template is applied at scenario level
+and the scenario template is unused. In `nested` layout, both apply
+(scenario template at scenario root, target template under each
+target dir). Trailing `/` on a template entry creates a directory;
+anything else is `touch`-created as a file.
 
 ## Storage
 
@@ -242,9 +258,9 @@ will show the migrated entry.
 make test
 ```
 
-Currently 346 tests across scenarios, targets, `/etc/hosts`,
-`/etc/krb5.conf`, picker, prompt, migration, workspace, completions,
-and boundary helpers.
+Currently 382 tests across scenarios, targets, `/etc/hosts`,
+`/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
+completions, and boundary helpers.
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
 indirection.
 

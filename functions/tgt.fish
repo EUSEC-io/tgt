@@ -37,6 +37,8 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt cd [alias|--scenario]    cd to active target's / scenario's workspace folder"
         echo "    tgt path [alias|--scenario]  Print the workspace path (no cd)"
         echo "    tgt workspace                Show settings + visualize current scenario's tree"
+        echo "    tgt config                   Interactive editor for workspace settings"
+        echo "    tgt config reset             Revert all workspace settings to defaults"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
         echo "    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
@@ -227,6 +229,12 @@ function tgt --description 'Set penetration testing target environment variables
                 _tgt_workspace_cli $argv
                 return $status
         end
+    end
+
+    # ── Config (interactive editor for workspace settings) ──
+    if test (count $argv) -ge 1 && test $argv[1] = "config"
+        _tgt_config_cli $argv[2..]
+        return $status
     end
 
     # ── Targets within the active scenario ─────────────────

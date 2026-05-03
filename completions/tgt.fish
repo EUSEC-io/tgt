@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm cd path workspace prompt ingest
+set -l top_subs scenario new switch list rm cd path workspace config prompt ingest
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -25,6 +25,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a path      -d 'Print workspace path (no cd)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a workspace -d 'Show workspace settings + tree'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a config    -d 'Interactive editor for workspace settings'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a prompt    -d 'Install/uninstall the prompt segment'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -77,6 +79,16 @@ complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcom
     -a '(__tgt_complete_scenarios)' -d scenario
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from rm' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'
+
+# ── tgt config <verb> ──────────────────────────────────────────────
+set -l config_subs edit show reset
+
+complete -c tgt -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from $config_subs" \
+    -a edit  -d 'Open the interactive editor (default)'
+complete -c tgt -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from $config_subs" \
+    -a show  -d 'Print current settings'
+complete -c tgt -n "__fish_seen_subcommand_from config; and not __fish_seen_subcommand_from $config_subs" \
+    -a reset -d 'Revert all workspace settings to defaults'
 
 # ── tgt prompt <verb> ──────────────────────────────────────────────
 set -l prompt_subs install uninstall status
