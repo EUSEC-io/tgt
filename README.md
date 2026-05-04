@@ -7,16 +7,17 @@ Tested on Arch, Parrot OS, and Kali.
 ## What it does
 
 `tgt` is the flagship command. It remembers everything about the box
-you're working on (IP, creds, AD domain, hostnames) and keeps
+you're working on (IP, creds, AD domain, hostnames, ports) and keeps
 `/etc/hosts`, `/etc/krb5.conf`, and an optional per-engagement folder
 tree in sync. Targets organize into **scenarios**, so a Pro Lab season
 or a client engagement is one namespace; switching targets pulls up
 every detail and updates the right system files.
 
-A few flagged extras: a colored `[scenario:target]` prompt segment, an
-fzf picker, archive support to hide finished engagements, BloodHound
-ingest with auto-routed loot folders, and a gum-based config wizard
-when [`gum`](https://github.com/charmbracelet/gum) is installed.
+A few flagged extras: a colored `[scenario:target:port]` prompt segment,
+fzf pickers, archive support to hide finished engagements, BloodHound
+ingest with auto-routed loot folders, nmap port-record import, and a
+gum-based config wizard when [`gum`](https://github.com/charmbracelet/gum)
+is installed.
 
 
 ## Concepts
@@ -24,7 +25,7 @@ when [`gum`](https://github.com/charmbracelet/gum) is installed.
 | Term | What it means |
 |---|---|
 | **scenario** | An engagement, HTB Pro Lab season, or client. Holds many targets. |
-| **target** | One box / host. IP, creds, AD, hostnames. |
+| **target** | One box / host. IP, creds, AD, hostnames, ports. |
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
@@ -101,21 +102,13 @@ tgt switch <TAB>   # completes from active scenario's targets
 
 ### Optional: prompt segment
 
-A `[scenario:target[:port]]` indicator in your prompt — color-coded
-by damage potential (red = creds loaded, yellow = host or port set,
-default = scenario only). The port segment appears once you pick one
-via `tgt ports`.
-
 ```fish
 tgt prompt install            # writes ~/.config/fish/functions/fish_right_prompt.fish
 tgt prompt install --left     # left prompt instead
-tgt prompt status             # show what's installed
-tgt prompt uninstall          # remove the managed file
 ```
 
-If you already have a custom `fish_(right_)prompt`, `tgt prompt install`
-refuses to overwrite. Either add `tgt_prompt` to it by hand or rerun
-with `--force` (your existing file is backed up to `<file>.tgt-bak`).
+Renders `[scenario:target[:port]]` color-coded by damage potential.
+Details in [docs/commands.md](docs/commands.md#prompt-segment).
 
 
 ## Best practices
@@ -127,6 +120,8 @@ tgt scenario new lame      # one scenario per box
 tgt new box                # creates target slot + drops into the wizard
                            #   (fill in IP, hostname, creds when found, AD if present)
 tgt --add-host lame.htb    # extra hostname, tagged so removal is precise
+tgt ports add scans/sv_scan.gnmap     # import nmap output
+tgt ports                  # pick the port to focus on → $TGT_PORT
 tgt cd                     # cd to the workspace folder for scans / loot
                            # ... pwn ...
 tgt scenario archive       # done — hide it from the default list
@@ -162,70 +157,40 @@ tgt scenario unarchive lame  # bring it back
 ```
 
 
-## More demos
+## Demo gallery
+
+### Per-target ports with nmap import
+
+![ports](assets/ports.svg)
+
+`tgt ports add <file>` imports `nmap -oG` (gnmap) or `-oX` (xml)
+output. Common pentest ports get a bright cyan ★ marker so they jump
+out. Comments are free-form per record. The picker exports `TGT_PORT`
+for use in subsequent tools.
 
 ### The prompt always tells you where you stand
 
 ![prompt](assets/prompt.svg)
 
 `tgt_prompt` is color-coded by damage potential — neutral for
-scenario-only, yellow once a host is loaded (recon), red as soon as
-credentials are present. Add it to your prompt with `tgt prompt install`.
+scenario-only, yellow once a host or port is loaded (recon), red as
+soon as credentials are present.
 
 ### Hide finished engagements
 
 ![archive](assets/archive.svg)
 
-When boxes pile up, archive them. They stay on disk and remain
-switchable by name, but disappear from `tgt scenario list`. Pass
-`--all` to surface them again with an `[archived]` tag, or
+`tgt scenario archive` keeps the data on disk and switchable by name
+but hides it from the default list. `--all` to surface them, or
 `--archived` for the archived-only view.
 
 ### Bulk-import existing notes
 
 ![import](assets/import.svg)
 
-Already have a directory full of box folders from past work?
-`tgt scenario import` walks each subdirectory and turns it into a
-scenario, sanitising names and (by default) moving the dir into the
-workspace root. Use `--prefix htb-` to namespace, `--copy` to keep the
-source intact, `--dry-run` to preview.
-
-### Rename retags everywhere
-
-![rename](assets/rename.svg)
-
-`tgt rename` updates the registry, retags every matching `/etc/hosts`
-line, moves the workspace folder, and updates `$TGT_ACTIVE` /
-`$TGT_SCENARIO` if the renamed item was the active one. `tgt scenario
-rename` does the same at the scenario level.
-
-### Workspace folders for tidy reporting
-
-![workspace](assets/workspace.svg)
-
-Opt in with `$TGT_WORKSPACE_AUTOCREATE` (or via `tgt config`). New
-scenarios and targets get a folder tree from configurable templates;
-`tgt cd` jumps in, `tgt workspace` visualizes the layout. See the
-deep-dive section below for `flat` vs. `nested` layouts.
-
-### The wizards drive themselves
-
-![tgt config](assets/config.gif)
-
-`tgt config` walks through every workspace setting (root, layout,
-auto-create, per-target template, per-scenario template) one section
-at a time. Same gum-aware helpers power `tgt`'s no-args setup
-wizard. Without gum installed, all of these fall back to plain
-`read -P` + `$EDITOR` — same flow, less polish.
-
-### Picking actions on a scenario
-
-![tgt scenario](assets/scenario-picker.gif)
-
-Bare `tgt scenario` (no verb) opens an interactive action picker —
-new / switch / show / rm — with the active scenario shown above.
-Falls back to the plain help text in scripts / CI / non-TTY contexts.
+`tgt scenario import` walks each subdirectory under a path and turns
+it into a scenario. `--prefix htb-` to namespace, `--copy` to keep
+the source intact, `--dry-run` to preview.
 
 ### Jumping between targets
 
@@ -239,202 +204,29 @@ targets. Type to filter, arrow + Enter to select.
 ![revoke](assets/revoke.svg)
 
 `tgt --revoke` clears the active target's runtime state — env vars,
-`/etc/hosts` entries, krb5 realm — but keeps the scenario active.
-The persisted target file on disk is untouched, so `tgt switch <name>`
-loads it back instantly. The prompt collapses from `[scenario:target]`
-to `[scenario]` so it's clear nothing's loaded.
+`/etc/hosts` entries, krb5 realm, `TGT_PORT` — but keeps the scenario
+active. The persisted target file on disk is untouched, so
+`tgt switch <name>` loads it back instantly.
+
+### More
+
+[![rename](assets/rename.svg)](assets/rename.svg) ·
+[![workspace](assets/workspace.svg)](assets/workspace.svg) ·
+[![tgt scenario picker](assets/scenario-picker.gif)](assets/scenario-picker.gif) ·
+[![tgt config](assets/config.gif)](assets/config.gif)
 
 
-## Command reference
+## Documentation
 
-### Scenarios
-
-| Command | Behavior |
-|---|---|
-| `tgt scenario` | Interactive picker (gum + TTY) — new / switch / show / rm. Falls back to help text otherwise. |
-| `tgt scenario new <name>` | Create scenario, activate it. |
-| `tgt scenario list [--all\|--archived]` | Active scenarios with target count + creds/AD flags per row. `--all` adds archived (with `[archived]` tag); `--archived` shows only archived. `*` marks active. |
-| `tgt scenario show [name]` | Dashboard: details + per-target table (host, creds, AD, hostname count). |
-| `tgt scenario switch [--all] [name]` | Switch active scenario; no arg → fzf picker. Archived hidden by default; `--all` to surface them. |
-| `tgt scenario rename [<old>] <new>` | Rename a scenario; retags every target's `/etc/hosts` lines and moves the workspace folder. |
-| `tgt scenario archive [name]` / `unarchive [name]` | Hide a scenario from the default list (touches `.archived` marker), or surface it again. |
-| `tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]` | Bulk-import each subdir under `<path>` as a scenario. |
-| `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its folder. |
-
-### Targets
-
-| Command | Behavior |
-|---|---|
-| `tgt new [alias] [--no-edit]` | Create target in active scenario; drops into the wizard unless `--no-edit`. No alias → prompts. |
-| `tgt switch [alias]` | Load target's saved env vars (no arg → fzf). |
-| `tgt edit [alias]` | Switch (if needed) + run the wizard for a target. |
-| `tgt rename [<old>] <new>` | Rename a target; retags `/etc/hosts` and moves its workspace folder. |
-| `tgt list` | List targets in active scenario. |
-| `tgt rm [alias] [--purge-workspace]` | Delete target + `/etc/hosts` entries. `--purge-workspace` also removes target's folder (nested layout only). |
-| `tgt` (no args) | Interactive setup; auto-saves to active target. |
-| `tgt --show` | Print env vars + `/etc/hosts` + krb5 + workspace tree for active target. |
-| `tgt --revoke` | Clear runtime state + `/etc/hosts` for active target; deselects target (keeps scenario). |
-
-### `/etc/hosts`
-
-```
-tgt hosts                        Multi-line editor (uses gum write or $EDITOR)
-tgt --add-host <host> [host..]   Add hostnames for active target
-tgt --rm-host <host> [host..]    Remove hostnames
-```
-
-All entries are tagged `# tgt:<scenario>:<target>`. The tool only
-touches lines it owns — your manual `/etc/hosts` entries are safe.
-
-When sudo is needed (writes to `/etc/hosts` and `/etc/krb5.conf` are
-atomic via `sudo install`), `tgt` prints a one-line note before the
-prompt explaining why.
-
-### Ports
-
-![ports](assets/ports.svg)
-
-Per-target port records, with nmap import + interactive picker.
-The picked port becomes `$TGT_PORT` and shows up in the prompt as
-`[scenario:target:port]`.
-
-| Command | Behavior |
-|---|---|
-| `tgt ports` | List + pick → exports `TGT_PORT`. |
-| `tgt ports list` | List only (no picker). |
-| `tgt ports add <file>` | Import nmap output (`-oG` gnmap or `-oX` xml; auto-detect). |
-| `tgt ports add <port>[/<proto>] [svc] [comment]` | Manually add one record (proto defaults to `tcp`). |
-| `tgt ports rm <port>[/<proto>]` | Remove a record. |
-| `tgt ports comment <port>[/<proto>] <text>` | Set/replace the comment on an existing record. |
-| `tgt ports clear` | Drop all records for the active target. |
-| `tgt ports unset` | Clear `$TGT_PORT` (records kept). Also happens automatically on `tgt switch` and `tgt --revoke`. |
-
-Records live next to the target's registry file as
-`<target>.ports` — tab-separated `port\tproto\tservice\tcomment`,
-sorted by port. Identity is `port+proto`, so re-running an import
-upserts (no duplicates) while `53/tcp` and `53/udp` coexist.
-
-Common pentest-relevant ports get a bright cyan ★ marker so they
-stand out when scanning a long list. Override the highlight set per
-shell:
-
-```fish
-set -gx TGT_INTERESTING_TCP 21 22 80 443 445 3389
-set -gx TGT_INTERESTING_UDP 53 88 161 500
-```
-
-The default sets lean toward AD + common service exposure; see
-`functions/_tgt_ports_interesting_{tcp,udp}.fish`.
-
-### Active Directory
-
-```
-tgt --set-dc <DC_HOSTNAME>       Set DC + update /etc/krb5.conf realm
-tgt ingest <user> <pass> [--zip] Run bloodhound-python
-```
-
-When the workspace folder for the active target exists on disk,
-`tgt ingest` runs from that target's `loot/` subfolder (created on
-demand) so JSON / zip output lands there. Otherwise it stays in
-`$PWD`.
-
-### Workspace
-
-| Command | Behavior |
-|---|---|
-| `tgt cd [alias\|--scenario]` | `cd` to active target's / scenario's folder. |
-| `tgt path [alias\|--scenario]` | Print the workspace path (no `cd`). |
-| `tgt workspace` | Show settings + visualize the active scenario's tree. |
-| `tgt workspace create [alias]` | Manually build the folder tree (regardless of `$TGT_WORKSPACE_AUTOCREATE`). |
-| `tgt config` | Interactive editor for all workspace settings. Uses gum if installed; plain `read` + `$EDITOR` otherwise. |
-| `tgt config show` | Print current settings. |
-| `tgt config reset` | Erase all custom workspace settings. |
-
-
-## Workspace deep-dive
-
-The workspace is off by default. Opt in with `tgt config` or:
-
-```fish
-set -Ux TGT_WORKSPACE_AUTOCREATE 1
-```
-
-### Layouts
-
-`flat` — everything at scenario level. Best for HTB single boxes.
-
-```
-~/Documents/pentest/dante/
-├── scans/  loot/  exploits/  screenshots/
-└── notes.md
-```
-
-`nested` — per-target subfolders + scenario-level report assets.
-Better for Pro Labs / client engagements with many targets.
-
-```
-~/Documents/pentest/dante/
-├── _report/{findings,screenshots}/
-├── _engagement.md
-├── web01/
-│   ├── scans/  loot/  exploits/  screenshots/
-│   └── notes.md
-└── dc01/
-    └── ...
-```
-
-### Settings storage
-
-`tgt config` writes to `~/.config/fish/tgt/config.fish` (or
-`$TGT_HOME/config.fish`). The file is plain fish source — `set -gx VAR
-value` lines — sourced by a `conf.d/` hook at shell startup. `cat` it,
-edit by hand, commit to git, rsync between machines.
-
-Env vars exported in your current shell still take precedence over the
-file's values (handy for one-off overrides and tests).
-
-### Templates
-
-Configurable via `tgt config` or directly. Defaults shown:
-
-```fish
-set -Ux TGT_WORKSPACE_TARGET_TEMPLATE   scans/ loot/ exploits/ screenshots/ notes.md
-set -Ux TGT_WORKSPACE_SCENARIO_TEMPLATE _report/findings/ _report/screenshots/ _engagement.md
-```
-
-In `flat` layout the per-target template is applied at scenario level
-and the scenario template is unused. In `nested` layout, both apply
-(scenario template at scenario root, target template under each target
-dir). Trailing `/` on a template entry creates a directory; anything
-else is `touch`-created as a file.
-
-
-## State on disk
-
-```
-~/.config/fish/tgt/         (override with $TGT_HOME)
-├── config.fish             user's workspace settings (managed by `tgt config`)
-└── scenarios/
-    └── <scenario>/
-        ├── .archived       (when archived; remove to surface again)
-        └── targets/
-            └── <alias>.fish    set -gx TGT 10.10.11.5 ...
-```
-
-Workspace folders (when enabled) live under `$TGT_WORKSPACE_ROOT`,
-default `~/Documents/pentest/`.
-
-
-## Upgrading
-
-If you have `$TGT` set from earlier use, the first `tgt` invocation
-after upgrade auto-migrates the state into a `default` scenario with a
-`default` target — open a new shell and `tgt list` will show it.
-
-If you previously had workspace settings in fish universals, the
-`conf.d/` hook migrates them into `~/.config/fish/tgt/config.fish` on
-first startup and erases the universals so the file becomes the source
-of truth.
+- **[docs/commands.md](docs/commands.md)** — full command reference
+  (cheat sheet + every subcommand and flag, organized by concern,
+  plus state-on-disk and upgrading notes).
+- **[docs/workspace.md](docs/workspace.md)** — workspace deep-dive:
+  layouts, settings storage, templates.
+- **[CHANGELOG.md](CHANGELOG.md)** — reverse-chronological feature log.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — layout, conventions, how to
+  add a function, test mode primer, demo recording.
+- **[specs/](specs/)** — design discussions behind the larger features.
 
 
 ## Tests
@@ -443,11 +235,8 @@ of truth.
 make test
 ```
 
-Currently 543 tests across scenarios, targets, `/etc/hosts`,
-`/etc/krb5.conf`, picker, prompt, migration, workspace, templating,
-config file storage, completions, ask helpers, archive, import,
-rename, and boundary helpers. Tests run sudoless against tmp files via
-the `TGT_TEST_MODE` indirection.
+Tests run sudoless against tmp files via the `TGT_TEST_MODE`
+indirection.
 
 
 ## Uninstall
@@ -459,11 +248,3 @@ make uninstall  # if you used Fisher
 
 `make undev` removes only the symlinks that point into this repo —
 nothing else. To fully remove, also delete the repo directory.
-
-
-## More
-
-- [`CHANGELOG.md`](CHANGELOG.md) — reverse-chronological feature log.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — layout, conventions, how to
-  add a function, test mode primer, demo recording.
-- [`specs/`](specs/) — design discussions behind the larger features.
