@@ -77,12 +77,11 @@ function _tgt_target_cli
             end
             # Clear inherited target state so a target file with fewer
             # vars set doesn't carry stale values from the previous one.
-            for v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS
-                set -q $v; and _tgt_unexport $v
-            end
+            _tgt_clear_target_runtime
             _tgt_target_load $scenario $alias
             _tgt_export TGT_ACTIVE $alias
-            echo "✓ active target: $scenario:$alias"
+            set_color green; echo "✓ active target: $scenario:$alias"; set_color normal
+            _tgt_target_state_summary $scenario $alias
             return 0
 
         case list

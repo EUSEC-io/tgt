@@ -34,12 +34,17 @@ function _tgt_scenario_cli
             end
             _tgt_scenario_create $name
             _tgt_export TGT_SCENARIO $name
+            # New scenario is empty — clear any stale active target
+            # and runtime state from the previous scenario.
+            set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
+            _tgt_clear_target_runtime
             echo "✓ scenario '$name' created and active"
             if _tgt_workspace_autocreate
                 if _tgt_workspace_create $name
                     echo "  workspace: "(_tgt_workspace_dir $name)
                 end
             end
+            _tgt_scenario_followup $name
             return 0
 
         case list
@@ -212,12 +217,20 @@ function _tgt_scenario_cli
                 return 1
             end
             _tgt_export TGT_SCENARIO $name
+            # Drop a stale active target if it doesn't exist in the
+            # new scenario (would otherwise render as "[new:gone]"
+            # in the prompt).
+            if set -q TGT_ACTIVE; and not _tgt_target_exists $name $TGT_ACTIVE
+                _tgt_unexport TGT_ACTIVE
+                _tgt_clear_target_runtime
+            end
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack
                 echo "  (note: '$name' is archived; `tgt scenario unarchive` to surface it in default list)"
                 set_color normal
             end
+            _tgt_scenario_followup $name
             return 0
 
         case import
