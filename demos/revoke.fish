@@ -5,7 +5,6 @@ source (status dirname)/_baseline.fish
 
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.10
-set -gx TGT_PORT 445
 set -gx TGT_USERNAME admin
 set -gx TGT_PASSWORD secret
 set -gx TGT_AD_DOMAIN dante.local

@@ -23,9 +23,9 @@ function _tgt_wizard
     echo "  Press Ctrl-C any time to abort. UI mode: $ui_mode"
     set_color normal
 
-    # ── 1/4 · Host & port ──
-    _tgt_ui_section "1/4" "Host & port"
-    echo "    Target IP / hostname (TGT) and optional port (TGT_PORT)."
+    # ── 1/4 · Host ──
+    _tgt_ui_section "1/4" "Host"
+    echo "    Target IP / hostname (TGT)."
 
     set -l cur_tgt (set -q TGT && echo $TGT || echo "")
     set -l input_tgt (_tgt_ask_text "Host (TGT)" $cur_tgt)
@@ -41,16 +41,6 @@ function _tgt_wizard
         _tgt_hosts_revoke $hosts_scenario $hosts_target
     end
     _tgt_export TGT $input_tgt
-
-    set -l cur_port (set -q TGT_PORT && echo $TGT_PORT || echo "")
-    set -l input_port (_tgt_ask_text "Port (TGT_PORT)" $cur_port)
-    if test $status -ne 0
-        set_color brblack; echo "  aborted."; set_color normal
-        return 1
-    end
-    if test -n "$input_port"
-        _tgt_export TGT_PORT $input_port
-    end
 
     # ── 2/4 · Hostnames ──
     _tgt_ui_section "2/4" "Hostnames → /etc/hosts"

@@ -24,23 +24,22 @@ set -l fields (string split \t -- $line)
 _test_teardown
 
 #
-# _tgt_target_inspect: fully-loaded target (TGT + port + creds + AD + hosts).
+# _tgt_target_inspect: fully-loaded target (TGT + creds + AD + hosts).
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.10
-set -gx TGT_PORT 445
 set -gx TGT_USERNAME admin
 set -gx TGT_PASSWORD secret
 set -gx TGT_AD_DOMAIN dante.local
 set -gx TGT_HOSTS dc01.dante.local dc01
 _tgt_target_save dante dc01
-set -e TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_HOSTS
+set -e TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_HOSTS
 set -l line (_tgt_target_inspect dante dc01)
 set -l fields (string split \t -- $line)
 
-@test "inspect full: host[:port] formatted" \
-    "$fields[2]" = "10.10.10.10:445"
+@test "inspect full: host is TGT" \
+    "$fields[2]" = "10.10.10.10"
 @test "inspect full: creds = Y" \
     "$fields[3]" = Y
 @test "inspect full: AD = Y" \

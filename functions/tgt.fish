@@ -46,7 +46,7 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt config reset             Revert all workspace settings to defaults"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
-        echo "    target:    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD"
+        echo "    target:    \$TGT  \$TGT_USERNAME  \$TGT_PASSWORD"
         echo "               \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
         echo "    scope:     \$TGT_SCENARIO  \$TGT_ACTIVE"
         echo "    workspace: \$TGT_WORKSPACE_ROOT  \$TGT_WORKSPACE_LAYOUT  \$TGT_WORKSPACE_AUTOCREATE"
@@ -84,7 +84,6 @@ function tgt --description 'Set penetration testing target environment variables
         end
 
         set -q TGT            && _tgt_unexport TGT            && echo "✓ TGT unset"            || echo "- TGT was not set"
-        set -q TGT_PORT       && _tgt_unexport TGT_PORT       && echo "✓ TGT_PORT unset"       || echo "- TGT_PORT was not set"
         set -q TGT_USERNAME   && _tgt_unexport TGT_USERNAME   && echo "✓ TGT_USERNAME unset"   || echo "- TGT_USERNAME was not set"
         set -q TGT_PASSWORD   && _tgt_unexport TGT_PASSWORD   && echo "✓ TGT_PASSWORD unset"   || echo "- TGT_PASSWORD was not set"
         set -q TGT_AD_DOMAIN  && _tgt_unexport TGT_AD_DOMAIN  && echo "✓ TGT_AD_DOMAIN unset"  || echo "- TGT_AD_DOMAIN was not set"
@@ -99,9 +98,8 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         echo "─────────────────────────────────"
         set -q TGT            && echo "  TGT           = $TGT"            || echo "  TGT           = (not set)"
-        set -q TGT_PORT       && echo "  TGT_PORT      = $TGT_PORT"       || echo "  TGT_PORT      = (not set)"
         set -q TGT_USERNAME   && echo "  TGT_USERNAME  = $TGT_USERNAME"   || echo "  TGT_USERNAME  = (not set)"
-        set -q TGT_PASSWORD   && echo "  TGT_PASSWORD  = ********"        || echo "  TGT_PASSWORD  = (not set)"
+        set -q TGT_PASSWORD   && echo "  TGT_PASSWORD  = $TGT_PASSWORD"   || echo "  TGT_PASSWORD  = (not set)"
         set -q TGT_AD_DOMAIN  && echo "  TGT_AD_DOMAIN = $TGT_AD_DOMAIN" || echo "  TGT_AD_DOMAIN = (not set)"
         set -q TGT_DC         && echo "  TGT_DC        = $TGT_DC"         || echo "  TGT_DC        = (not set)"
         set -q TGT_HOSTS      && echo "  TGT_HOSTS     = $TGT_HOSTS"      || echo "  TGT_HOSTS     = (not set)"

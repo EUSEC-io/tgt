@@ -54,7 +54,6 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 172.16.10.20
-set -gx TGT_PORT 445
 set -gx TGT_USERNAME admin
 set -gx TGT_PASSWORD hunter2
 set -gx TGT_AD_DOMAIN dante.local
@@ -64,8 +63,6 @@ _tgt_target_save dante web01
 set -l content (cat (_tgt_target_file dante web01))
 @test "save: TGT line present" \
     (string match -rq '_tgt_export TGT 172.16.10.20' -- $content; echo $status) -eq 0
-@test "save: TGT_PORT line present" \
-    (string match -rq '_tgt_export TGT_PORT 445' -- $content; echo $status) -eq 0
 @test "save: TGT_USERNAME line present" \
     (string match -rq '_tgt_export TGT_USERNAME admin' -- $content; echo $status) -eq 0
 @test "save: TGT_PASSWORD line present" \
@@ -84,7 +81,7 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 10.10.10.5
-# TGT_PORT, TGT_USERNAME, etc. are all unset
+# TGT_USERNAME, TGT_PASSWORD, etc. are all unset
 _tgt_target_save dante web01
 set -l content (cat (_tgt_target_file dante web01))
 @test "save: only sets exports for set vars" \
@@ -113,15 +110,13 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 172.16.10.20
-set -gx TGT_PORT 445
 set -gx TGT_USERNAME admin
 set -gx TGT_HOSTS web01.dante.local intranet.dante.local
 _tgt_target_save dante web01
 # Clear env
-set -e TGT TGT_PORT TGT_USERNAME TGT_HOSTS
+set -e TGT TGT_USERNAME TGT_HOSTS
 _tgt_target_load dante web01
 @test "load: TGT restored" "$TGT" = "172.16.10.20"
-@test "load: TGT_PORT restored" "$TGT_PORT" = "445"
 @test "load: TGT_USERNAME restored" "$TGT_USERNAME" = "admin"
 @test "load: TGT_HOSTS restored as list" (count $TGT_HOSTS) -eq 2
 @test "load: TGT_HOSTS[1] correct" "$TGT_HOSTS[1]" = "web01.dante.local"

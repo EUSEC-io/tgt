@@ -59,13 +59,13 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 172.16.10.20
-set -gx TGT_PORT 445
+set -gx TGT_USERNAME admin
 _tgt_target_cli new web01 >/dev/null
 # Clear env, switch should reload from registry
-set -e TGT TGT_PORT TGT_ACTIVE
+set -e TGT TGT_USERNAME TGT_ACTIVE
 _tgt_target_cli switch web01 >/dev/null
 @test "target_cli switch: TGT loaded" "$TGT" = "172.16.10.20"
-@test "target_cli switch: TGT_PORT loaded" "$TGT_PORT" = "445"
+@test "target_cli switch: TGT_USERNAME loaded" "$TGT_USERNAME" = "admin"
 @test "target_cli switch: TGT_ACTIVE set" "$TGT_ACTIVE" = web01
 _test_teardown
 

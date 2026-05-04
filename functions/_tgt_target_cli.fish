@@ -54,7 +54,7 @@ function _tgt_target_cli
             end
             # Chain into the wizard. Clear stale env from the previous
             # target first so the wizard starts with empty defaults.
-            for v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS
+            for v in TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS
                 set -q $v; and _tgt_unexport $v
             end
             _tgt_wizard
@@ -81,7 +81,7 @@ function _tgt_target_cli
             _tgt_target_load $scenario $alias
             _tgt_export TGT_ACTIVE $alias
             set_color green; echo "✓ active target: $scenario:$alias"; set_color normal
-            _tgt_target_state_summary $scenario $alias
+            _tgt_target_state_summary
             return 0
 
         case list

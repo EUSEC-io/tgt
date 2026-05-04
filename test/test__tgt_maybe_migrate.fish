@@ -17,7 +17,6 @@ _test_teardown
 #
 _test_setup_home
 set -gx TGT 10.10.11.5
-set -gx TGT_PORT 445
 set -gx TGT_USERNAME admin
 set -gx TGT_HOSTS forest.htb dc01.htb.local
 _tgt_maybe_migrate
@@ -28,10 +27,9 @@ _tgt_maybe_migrate
 @test "migrate: TGT_SCENARIO set to default" "$TGT_SCENARIO" = default
 @test "migrate: TGT_ACTIVE set to default" "$TGT_ACTIVE" = default
 # Snapshotted legacy state should round-trip via load.
-set -e TGT TGT_PORT TGT_USERNAME TGT_HOSTS
+set -e TGT TGT_USERNAME TGT_HOSTS
 _tgt_target_load default default
 @test "migrate: snapshot preserved TGT" "$TGT" = "10.10.11.5"
-@test "migrate: snapshot preserved TGT_PORT" "$TGT_PORT" = "445"
 @test "migrate: snapshot preserved TGT_USERNAME" "$TGT_USERNAME" = "admin"
 @test "migrate: snapshot preserved TGT_HOSTS as list" \
     (count $TGT_HOSTS) -eq 2

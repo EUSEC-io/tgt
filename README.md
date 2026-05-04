@@ -7,7 +7,7 @@ Tested on Arch, Parrot OS, and Kali.
 ## What it does
 
 `tgt` is the flagship command. It remembers everything about the box
-you're working on (IP, port, creds, AD domain, hostnames) and keeps
+you're working on (IP, creds, AD domain, hostnames) and keeps
 `/etc/hosts`, `/etc/krb5.conf`, and an optional per-engagement folder
 tree in sync. Targets organize into **scenarios**, so a Pro Lab season
 or a client engagement is one namespace; switching targets pulls up
@@ -24,7 +24,7 @@ when [`gum`](https://github.com/charmbracelet/gum) is installed.
 | Term | What it means |
 |---|---|
 | **scenario** | An engagement, HTB Pro Lab season, or client. Holds many targets. |
-| **target** | One box / host. IP, port, creds, AD, hostnames. |
+| **target** | One box / host. IP, creds, AD, hostnames. |
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
@@ -102,7 +102,7 @@ tgt switch <TAB>   # completes from active scenario's targets
 ### Optional: prompt segment
 
 A `[scenario:target]` indicator in your prompt — color-coded by damage
-potential (red = creds loaded, yellow = host/port set, default =
+potential (red = creds loaded, yellow = host set, default =
 scenario only).
 
 ```fish

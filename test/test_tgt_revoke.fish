@@ -62,15 +62,15 @@ _test_setup_hosts empty.txt
 _test_setup_krb5 empty.conf
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.5
-set -gx TGT_PORT 8080
+set -gx TGT_USERNAME admin
 _tgt_target_cli new web01 >/dev/null
 tgt --revoke >/dev/null
 _tgt_target_cli switch web01 >/dev/null
 
 @test "revoke + switch back: TGT restored from disk" \
     "$TGT" = 10.10.10.5
-@test "revoke + switch back: TGT_PORT restored from disk" \
-    "$TGT_PORT" = 8080
+@test "revoke + switch back: TGT_USERNAME restored from disk" \
+    "$TGT_USERNAME" = admin
 @test "revoke + switch back: TGT_ACTIVE restored to web01" \
     "$TGT_ACTIVE" = web01
 _test_teardown
