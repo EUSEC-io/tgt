@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -27,6 +27,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a hosts     -d 'Multi-line editor for active target hostnames'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a ports     -d 'Per-target port records (list, import, pick → TGT_PORT)'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a dc        -d 'Per-scenario DC entries (krb5 realm definitions)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a cd        -d 'cd to active target / scenario folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -177,3 +179,17 @@ complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subco
 # re-enable file completion so paths work, but keep argument-style
 # completions for the manual form via the dispatcher itself.
 complete -c tgt -n '__fish_seen_subcommand_from ports; and __fish_seen_subcommand_from add' -F
+
+# ── tgt dc <verb> ──────────────────────────────────────────────────
+set -l dc_subs list show rm
+
+complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
+    -a list -d 'List DCs in the active scenario'
+complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
+    -a show -d 'Show details for a DC'
+complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
+    -a rm   -d 'Remove a DC entry'
+
+# show / rm: complete from active-scenario DC aliases
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from show rm' \
+    -a '(__tgt_complete_active_dcs)' -d dc

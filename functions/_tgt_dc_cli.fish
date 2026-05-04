@@ -1,0 +1,112 @@
+# Dispatch for `tgt dc …` — DC entries (per-scenario krb5 realm
+# definitions) live alongside targets and ports.
+#
+# This commit lands list / show / rm. `new`, `switch`, `unset`,
+# krb5 sync, /etc/hosts integration, the wizard, and prompt
+# coupling come later.
+#
+#   tgt dc list                 list all DCs in the active scenario
+#   tgt dc show [alias]         detailed view (no arg → fzf picker)
+#   tgt dc rm   [alias]         remove a DC entry
+function _tgt_dc_cli
+    set -l verb $argv[1]
+    set -l rest $argv[2..]
+
+    if not set -q TGT_SCENARIO
+        echo "tgt dc: no active scenario — run `tgt scenario new <name>` or `tgt scenario switch <name>` first" >&2
+        return 1
+    end
+    set -l scenario $TGT_SCENARIO
+
+    if not _tgt_scenario_exists $scenario
+        echo "tgt dc: active scenario '$scenario' is missing from the registry" >&2
+        return 1
+    end
+
+    switch $verb
+        case '' list
+            set -l aliases (_tgt_dc_list $scenario)
+            if test (count $aliases) -eq 0
+                echo "(no DCs recorded for $scenario)"
+                return 0
+            end
+            for a in $aliases
+                set -l line (_tgt_dc_inspect $scenario $a)
+                set -l fields (string split \t -- $line)
+                # alias  domain  realm  kdc  admin
+                printf '  %-12s %-20s %-20s %-24s %s\n' \
+                    $fields[1] $fields[2] $fields[3] $fields[4] $fields[5]
+            end
+            return 0
+
+        case show
+            set -l alias $rest[1]
+            if test -z "$alias"
+                set -l aliases (_tgt_dc_list $scenario)
+                if test (count $aliases) -eq 0
+                    echo "tgt dc show: no DCs in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "DC" $aliases)
+                test -z "$alias"; and return 1
+            end
+            if not _tgt_dc_exists $scenario $alias
+                echo "tgt dc show: DC '$alias' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            set -l line (_tgt_dc_inspect $scenario $alias)
+            set -l fields (string split \t -- $line)
+            # Walk the file once more to surface the host/ip pair
+            # split that inspect collapses into a single kdc/admin.
+            set -l file (_tgt_dc_file $scenario $alias)
+            set -l kdc_host ""
+            set -l kdc_ip ""
+            set -l admin_host ""
+            set -l admin_ip ""
+            while read -l ln
+                set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $ln)
+                test (count $m) -lt 3; and continue
+                switch $m[2]
+                    case TGT_DC_HOST
+                        set kdc_host $m[3]
+                    case TGT_DC_IP
+                        set kdc_ip $m[3]
+                    case TGT_DC_ADMIN_HOST
+                        set admin_host $m[3]
+                    case TGT_DC_ADMIN_IP
+                        set admin_ip $m[3]
+                end
+            end < $file
+            set_color brblack; printf '  alias:        '; set_color normal; echo $fields[1]
+            set_color brblack; printf '  domain:       '; set_color normal; echo $fields[2]
+            set_color brblack; printf '  realm:        '; set_color normal; echo $fields[3]
+            set_color brblack; printf '  kdc:          '; set_color normal
+            _tgt_dc_cli_emit_pair "$kdc_host" "$kdc_ip"
+            set_color brblack; printf '  admin_server: '; set_color normal
+            _tgt_dc_cli_emit_pair "$admin_host" "$admin_ip"
+            return 0
+
+        case rm
+            set -l alias $rest[1]
+            if test -z "$alias"
+                set -l aliases (_tgt_dc_list $scenario)
+                if test (count $aliases) -eq 0
+                    echo "tgt dc rm: no DCs in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "DC to remove" $aliases)
+                test -z "$alias"; and return 1
+            end
+            if not _tgt_dc_exists $scenario $alias
+                echo "tgt dc rm: DC '$alias' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            _tgt_dc_destroy $scenario $alias
+            set_color green; echo "✓ DC '$alias' removed from '$scenario'"; set_color normal
+            return 0
+
+        case '*'
+            echo "tgt dc: unknown subcommand '$verb'" >&2
+            return 1
+    end
+end

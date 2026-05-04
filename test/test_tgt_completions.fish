@@ -41,6 +41,23 @@ set -l names_ports (_complete_names 'tgt ports ')
     (contains comment $names_ports; echo $status) -eq 0
 @test "ports: offers unset" \
     (contains unset $names_ports; echo $status) -eq 0
+
+#
+# `tgt dc <TAB>` offers dc verbs.
+#
+set -l names_dc (_complete_names 'tgt dc ')
+@test "dc: offers list" \
+    (contains list $names_dc; echo $status) -eq 0
+@test "dc: offers show" \
+    (contains show $names_dc; echo $status) -eq 0
+@test "dc: offers rm" \
+    (contains rm $names_dc; echo $status) -eq 0
+
+#
+# Top-level offers `dc`.
+#
+@test "top-level: dc offered" \
+    (contains dc $names; echo $status) -eq 0
 set -l names_dash (_complete_names 'tgt -')
 @test "top-level: --revoke offered after dash" \
     (contains -- --revoke $names_dash; echo $status) -eq 0
