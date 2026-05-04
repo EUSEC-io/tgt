@@ -13,7 +13,7 @@ set -g _test_dir (status dirname)
 # `tgt config`). Tests are isolated from the user's real settings —
 # without this, any global set by the user's shell would leak in
 # and break "default / unset" assertions.
-for _v in TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
+for _v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
           TGT_SCENARIO TGT_ACTIVE \
           TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
           TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE
@@ -70,7 +70,7 @@ function _test_teardown
     for v in TGT_TEST_MODE TGT_KRB5_FILE TGT_HOSTS_FILE TGT_HOME TGT_FISH_FUNCTIONS_DIR \
              TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
              TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE \
-             TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
+             TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
              TGT_SCENARIO TGT_ACTIVE
         set -qg $v; and set -eg $v
     end

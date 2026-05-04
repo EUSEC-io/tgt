@@ -59,3 +59,28 @@ set -l raw (tgt_prompt | string collect)
 @test "tgt_prompt: ends with \e[m reset" \
     (string match -rq '\e\[m$' -- $raw; echo $status) -eq 0
 _test_teardown
+
+#
+# TGT_PORT appended to the label as :<port>.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_ACTIVE web01
+set -gx TGT 10.10.10.5
+set -gx TGT_PORT 445
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: appends :port when TGT_PORT set" \
+    (string match -rq '\[dante:web01:445\]' -- $raw; echo $status) -eq 0
+_test_teardown
+
+#
+# TGT_PORT alone (no TGT) still triggers yellow.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_ACTIVE web01
+set -gx TGT_PORT 8080
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: yellow SGR when only TGT_PORT set" \
+    (string match -rq '\e\[33m' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: label shows :8080" \
+    (string match -rq ':8080\]' -- $raw; echo $status) -eq 0
+_test_teardown
