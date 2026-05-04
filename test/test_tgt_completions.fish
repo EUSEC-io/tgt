@@ -52,6 +52,25 @@ set -l names_dc (_complete_names 'tgt dc ')
     (contains show $names_dc; echo $status) -eq 0
 @test "dc: offers rm" \
     (contains rm $names_dc; echo $status) -eq 0
+@test "dc: offers new" \
+    (contains new $names_dc; echo $status) -eq 0
+
+#
+# `tgt dc new -<TAB>` offers domain/realm/kdc/admin flags.
+#
+set -l names_dc_new (_complete_names 'tgt dc new -')
+@test "dc new: --domain offered" \
+    (contains -- --domain $names_dc_new; echo $status) -eq 0
+@test "dc new: --realm offered" \
+    (contains -- --realm $names_dc_new; echo $status) -eq 0
+@test "dc new: --kdc-host offered" \
+    (contains -- --kdc-host $names_dc_new; echo $status) -eq 0
+@test "dc new: --kdc-ip offered" \
+    (contains -- --kdc-ip $names_dc_new; echo $status) -eq 0
+@test "dc new: --admin-host offered" \
+    (contains -- --admin-host $names_dc_new; echo $status) -eq 0
+@test "dc new: --admin-ip offered" \
+    (contains -- --admin-ip $names_dc_new; echo $status) -eq 0
 
 #
 # Top-level offers `dc`.

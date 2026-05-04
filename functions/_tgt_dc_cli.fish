@@ -1,12 +1,15 @@
 # Dispatch for `tgt dc …` — DC entries (per-scenario krb5 realm
 # definitions) live alongside targets and ports.
 #
-# This commit lands list / show / rm. `new`, `switch`, `unset`,
+# This commit lands list / show / rm / new. `switch`, `unset`,
 # krb5 sync, /etc/hosts integration, the wizard, and prompt
 # coupling come later.
 #
 #   tgt dc list                 list all DCs in the active scenario
 #   tgt dc show [alias]         detailed view (no arg → fzf picker)
+#   tgt dc new <alias> --domain <d> [--realm <R>]
+#                      [--kdc-host <h>] [--kdc-ip <ip>]
+#                      [--admin-host <h>] [--admin-ip <ip>]
 #   tgt dc rm   [alias]         remove a DC entry
 function _tgt_dc_cli
     set -l verb $argv[1]
@@ -84,6 +87,63 @@ function _tgt_dc_cli
             _tgt_dc_cli_emit_pair "$kdc_host" "$kdc_ip"
             set_color brblack; printf '  admin_server: '; set_color normal
             _tgt_dc_cli_emit_pair "$admin_host" "$admin_ip"
+            return 0
+
+        case new
+            argparse --name='tgt dc new' \
+                'd/domain=' 'r/realm=' \
+                'kdc-host=' 'kdc-ip=' \
+                'admin-host=' 'admin-ip=' \
+                -- $rest
+            or return 1
+
+            set -l alias $argv[1]
+            if test -z "$alias"
+                echo "Usage: tgt dc new <alias> --domain <d> [--realm <R>] [--kdc-host <h>] [--kdc-ip <ip>] [--admin-host <h>] [--admin-ip <ip>]" >&2
+                return 1
+            end
+            if not _tgt_dc_validate_name $alias
+                echo "tgt dc new: invalid alias '$alias' (allowed: A-Z a-z 0-9 _ -)" >&2
+                return 1
+            end
+            if _tgt_dc_exists $scenario $alias
+                echo "tgt dc new: DC '$alias' already exists in scenario '$scenario'" >&2
+                return 1
+            end
+            if not set -q _flag_domain; or test -z "$_flag_domain"
+                echo "tgt dc new: --domain is required" >&2
+                return 1
+            end
+            if test -z "$_flag_kdc_host"; and test -z "$_flag_kdc_ip"
+                echo "tgt dc new: at least one of --kdc-host or --kdc-ip is required" >&2
+                return 1
+            end
+
+            # Realm defaults to upper(domain). User-provided realm is
+            # silently uppercased — kerberos realms are uppercase by
+            # convention; a lowercase realm would footgun every tool.
+            set -l realm $_flag_realm
+            test -z "$realm"; and set realm $_flag_domain
+            set realm (string upper -- $realm)
+
+            # Stage env vars, save, clear (active-on-new lands with
+            # the switch/unset commit).
+            set -gx TGT_DC_DOMAIN $_flag_domain
+            set -gx TGT_DC_REALM $realm
+            test -n "$_flag_kdc_host"   ; and set -gx TGT_DC_HOST $_flag_kdc_host
+            test -n "$_flag_kdc_ip"     ; and set -gx TGT_DC_IP $_flag_kdc_ip
+            test -n "$_flag_admin_host" ; and set -gx TGT_DC_ADMIN_HOST $_flag_admin_host
+            test -n "$_flag_admin_ip"   ; and set -gx TGT_DC_ADMIN_IP $_flag_admin_ip
+
+            _tgt_dc_save $scenario $alias
+            set -l rc $status
+
+            for v in TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP
+                set -q $v; and _tgt_unexport $v
+            end
+
+            test $rc -eq 0; or return $rc
+            set_color green; echo "✓ DC '$alias' created in '$scenario'"; set_color normal
             return 0
 
         case rm

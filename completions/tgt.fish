@@ -181,15 +181,31 @@ complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subco
 complete -c tgt -n '__fish_seen_subcommand_from ports; and __fish_seen_subcommand_from add' -F
 
 # ── tgt dc <verb> ──────────────────────────────────────────────────
-set -l dc_subs list show rm
+set -l dc_subs list show rm new
 
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a list -d 'List DCs in the active scenario'
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a show -d 'Show details for a DC'
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
+    -a new  -d 'Create a DC entry'
+complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a rm   -d 'Remove a DC entry'
 
 # show / rm: complete from active-scenario DC aliases
 complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from show rm' \
     -a '(__tgt_complete_active_dcs)' -d dc
+
+# `tgt dc new` flag completions
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l domain     -d 'AD domain (lowercase, e.g. dante.local)' -r
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l realm      -d 'Kerberos realm (default: upper(domain))' -r
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l kdc-host   -d 'KDC FQDN (used in krb5.conf when set)' -r
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l kdc-ip     -d 'KDC IP (paired with --kdc-host writes /etc/hosts)' -r
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l admin-host -d 'admin_server FQDN (optional)' -r
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+    -l admin-ip   -d 'admin_server IP (optional)' -r

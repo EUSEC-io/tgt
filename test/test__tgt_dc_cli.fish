@@ -159,6 +159,128 @@ _tgt_scenario_cli new dante >/dev/null
 _test_teardown
 
 #
+# tgt dc new: full set of fields, all stored.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_dc_cli new dc01 \
+    --domain dante.local \
+    --realm DANTE.LOCAL \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 \
+    --admin-host dc01.dante.local --admin-ip 10.10.10.5 \
+    >/dev/null
+@test "dc_cli new: file created" \
+    (_tgt_dc_exists dante dc01; echo $status) -eq 0
+_tgt_dc_load dante dc01
+@test "dc_cli new: TGT_DC_DOMAIN saved" "$TGT_DC_DOMAIN" = dante.local
+@test "dc_cli new: TGT_DC_REALM saved" "$TGT_DC_REALM" = DANTE.LOCAL
+@test "dc_cli new: TGT_DC_HOST saved" "$TGT_DC_HOST" = dc01.dante.local
+@test "dc_cli new: TGT_DC_IP saved" "$TGT_DC_IP" = 10.10.10.5
+@test "dc_cli new: TGT_DC_ADMIN_HOST saved" "$TGT_DC_ADMIN_HOST" = dc01.dante.local
+@test "dc_cli new: TGT_DC_ADMIN_IP saved" "$TGT_DC_ADMIN_IP" = 10.10.10.5
+_test_teardown
+
+#
+# tgt dc new: minimal — domain + kdc-ip only; realm auto-derived.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_dc_cli new minimal --domain dante.local --kdc-ip 10.10.10.5 >/dev/null
+_tgt_dc_load dante minimal
+@test "dc_cli new (minimal): realm auto = upper(domain)" \
+    "$TGT_DC_REALM" = DANTE.LOCAL
+@test "dc_cli new (minimal): TGT_DC falls back to IP" \
+    "$TGT_DC" = 10.10.10.5
+@test "dc_cli new (minimal): TGT_DC_HOST unset" \
+    (set -q TGT_DC_HOST; echo $status) -ne 0
+_test_teardown
+
+#
+# tgt dc new: lowercase realm is silently uppercased.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_dc_cli new mixed --domain dante.local --realm dante.local --kdc-ip 1.1.1.1 >/dev/null
+_tgt_dc_load dante mixed
+@test "dc_cli new: lowercase --realm gets uppercased on save" \
+    "$TGT_DC_REALM" = DANTE.LOCAL
+_test_teardown
+
+#
+# tgt dc new: explicit realm override (matching the user's example
+# of a non-canonical realm name).
+#
+_test_setup_home
+_tgt_scenario_cli new leandros >/dev/null
+_tgt_dc_cli new dc01 \
+    --domain leandros.eusec \
+    --realm DC01.LEANDROS.EUSEC \
+    --kdc-host dc01.leandros.eusec --admin-ip 1.1.1.1 \
+    >/dev/null
+_tgt_dc_load leandros dc01
+@test "dc_cli new: explicit realm override preserved" \
+    "$TGT_DC_REALM" = DC01.LEANDROS.EUSEC
+@test "dc_cli new: domain stays lowercase" \
+    "$TGT_DC_DOMAIN" = leandros.eusec
+_test_teardown
+
+#
+# tgt dc new: rejects bad alias.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+@test "dc_cli new: rejects empty alias (no positional)" \
+    (_tgt_dc_cli new --domain x.y --kdc-ip 1.1.1.1 2>/dev/null; echo $status) -ne 0
+@test "dc_cli new: rejects 'bad alias' with space" \
+    (_tgt_dc_cli new "bad alias" --domain x.y --kdc-ip 1.1.1.1 2>/dev/null; echo $status) -ne 0
+@test "dc_cli new: rejects '../etc' path traversal" \
+    (_tgt_dc_cli new ../etc --domain x.y --kdc-ip 1.1.1.1 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# tgt dc new: rejects missing domain.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+@test "dc_cli new: rejects missing --domain" \
+    (_tgt_dc_cli new dc01 --kdc-ip 1.1.1.1 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# tgt dc new: rejects when neither --kdc-host nor --kdc-ip given.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+@test "dc_cli new: rejects when no kdc data given" \
+    (_tgt_dc_cli new dc01 --domain dante.local 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# tgt dc new: rejects duplicate alias.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
+@test "dc_cli new: duplicate alias rejected" \
+    (_tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# tgt dc new: doesn't leak env vars after creation (active-on-new
+# isn't wired yet — staging vars must be cleared).
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
+@test "dc_cli new: TGT_DC_DOMAIN not leaked into shell" \
+    (set -q TGT_DC_DOMAIN; echo $status) -ne 0
+@test "dc_cli new: TGT_DC_REALM not leaked into shell" \
+    (set -q TGT_DC_REALM; echo $status) -ne 0
+@test "dc_cli new: TGT_DC_IP not leaked into shell" \
+    (set -q TGT_DC_IP; echo $status) -ne 0
+_test_teardown
+
+#
 # Top-level dispatch: `tgt dc list` reaches _tgt_dc_cli.
 #
 _test_setup_home
