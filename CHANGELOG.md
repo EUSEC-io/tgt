@@ -74,10 +74,12 @@ Older milestones live in `git log`.
   env / `/etc/hosts` / krb5 sections.
 - `tgt ingest` auto-routes BloodHound JSON / zip into the active
   target's `loot/` subfolder when the workspace folder exists.
-- Wizard (`tgt` no-args) is now a gum-aware 5-section walker
-  (Host & port, Hostnames, Credentials, AD, BloodHound) with
-  numbered headers, bold-yellow labels, dim hints, and clean
-  Ctrl-C abort at any prompt.
+- Wizard (`tgt` no-args) is now a gum-aware 4-section walker
+  (Host & port, Hostnames, Credentials, AD) with numbered
+  headers, bold-yellow labels, dim hints, and clean Ctrl-C abort
+  at any prompt. BloodHound ingest is the standalone `tgt ingest`
+  command — no longer chained from the wizard, since at target
+  creation time you usually don't have credentials yet.
 - One-line sudo notice (deduped per `tgt` invocation) explains why
   the password prompt is about to fire when modifying `/etc/hosts`
   or `/etc/krb5.conf`.

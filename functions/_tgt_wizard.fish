@@ -23,8 +23,8 @@ function _tgt_wizard
     echo "  Press Ctrl-C any time to abort. UI mode: $ui_mode"
     set_color normal
 
-    # ── 1/5 · Host & port ──
-    _tgt_ui_section "1/5" "Host & port"
+    # ── 1/4 · Host & port ──
+    _tgt_ui_section "1/4" "Host & port"
     echo "    Target IP / hostname (TGT) and optional port (TGT_PORT)."
 
     set -l cur_tgt (set -q TGT && echo $TGT || echo "")
@@ -52,8 +52,8 @@ function _tgt_wizard
         _tgt_export TGT_PORT $input_port
     end
 
-    # ── 2/5 · Hostnames ──
-    _tgt_ui_section "2/5" "Hostnames → /etc/hosts"
+    # ── 2/4 · Hostnames ──
+    _tgt_ui_section "2/4" "Hostnames → /etc/hosts"
     echo "    Aliases for this target (space-separated). Tagged with"
     echo "    # tgt:$hosts_scenario:$hosts_target so removal is precise."
 
@@ -71,8 +71,8 @@ function _tgt_wizard
         set_color green; echo "  ✓ /etc/hosts: $TGT $input_hosts"; set_color normal
     end
 
-    # ── 3/5 · Credentials ──
-    _tgt_ui_section "3/5" "Credentials"
+    # ── 3/4 · Credentials ──
+    _tgt_ui_section "3/4" "Credentials"
     echo "    Username + password for this target. Skip if you don't"
     echo "    have creds yet."
 
@@ -110,8 +110,8 @@ function _tgt_wizard
         set -q TGT_PASSWORD; and _tgt_unexport TGT_PASSWORD
     end
 
-    # ── 4/5 · Active Directory ──
-    _tgt_ui_section "4/5" "Active Directory"
+    # ── 4/4 · Active Directory ──
+    _tgt_ui_section "4/4" "Active Directory"
     echo "    AD domain (TGT_AD_DOMAIN) and DC hostname (TGT_DC)."
     echo "    Setting these wires up /etc/krb5.conf realms automatically."
 
@@ -156,45 +156,6 @@ function _tgt_wizard
         end
         set -q TGT_AD_DOMAIN; and _tgt_unexport TGT_AD_DOMAIN
         set -q TGT_DC; and _tgt_unexport TGT_DC
-    end
-
-    # ── 5/5 · BloodHound (only if AD + creds set) ──
-    if set -q TGT_AD_DOMAIN; and set -q TGT_USERNAME; and set -q TGT_PASSWORD
-        _tgt_ui_section "5/5" "BloodHound ingest"
-        echo "    AD + creds are set — run bloodhound-python now?"
-
-        set -l run_bh (_tgt_ask_confirm "Run bloodhound-python ingest?" n)
-        if test $status -ne 0
-            set_color brblack; echo "  aborted."; set_color normal
-            return 1
-        end
-        if test "$run_bh" = yes
-            set -l do_zip_ans (_tgt_ask_confirm "Zip the results?" y)
-            if test $status -ne 0
-                set_color brblack; echo "  aborted."; set_color normal
-                return 1
-            end
-            set -l do_zip true
-            test "$do_zip_ans" = no; and set do_zip false
-
-            set -l zip_name "bloodhound_data.zip"
-            if test "$do_zip" = true
-                set -l input_zip_name (_tgt_ask_text "Zip filename" $zip_name)
-                if test $status -ne 0
-                    set_color brblack; echo "  aborted."; set_color normal
-                    return 1
-                end
-                if test -n "$input_zip_name"
-                    set zip_name $input_zip_name
-                    if not string match -q "*.zip" $zip_name
-                        set zip_name "$zip_name.zip"
-                    end
-                end
-            end
-
-            echo ""
-            _tgt_run_bloodhound "$TGT_USERNAME" "$TGT_PASSWORD" "all" "$do_zip" "$zip_name"
-        end
     end
 
     # ── Persist + summary ──
