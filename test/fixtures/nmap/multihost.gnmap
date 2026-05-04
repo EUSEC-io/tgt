@@ -1,0 +1,3 @@
+# Multi-host gnmap — same target gets all entries
+Host: 10.10.10.5 ()	Ports: 22/open/tcp//ssh//OpenSSH 8.4p1/, 80/open/tcp//http//nginx/	Ignored State: closed (998)
+Host: 10.10.10.10 ()	Ports: 445/open/tcp//microsoft-ds///, 3389/open/tcp//ms-wbt-server///	Ignored State: closed (998)

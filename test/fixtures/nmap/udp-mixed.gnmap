@@ -1,0 +1,2 @@
+# Nmap UDP scan with mixed states
+Host: 10.10.10.5 ()	Ports: 53/open/udp//domain///, 88/open/udp//kerberos-sec///, 137/open|filtered/udp//netbios-ns///, 161/closed/udp//snmp///, 389/open/udp//ldap///	Ignored State: closed (995)
