@@ -273,6 +273,16 @@ function tgt --description 'Set penetration testing target environment variables
         return $status
     end
 
-    # ── Interactive setup ───────────────────────────────────
+    # ── Anything else: unknown ──────────────────────────────
+    # Fall-through means the user typed something that didn't
+    # match any verb / flag above. Refuse loudly instead of
+    # silently running the wizard for the active target.
+    if test (count $argv) -gt 0
+        echo "tgt: unknown command '$argv[1]'" >&2
+        echo "Try: tgt --help" >&2
+        return 1
+    end
+
+    # ── Interactive setup (no args) ─────────────────────────
     _tgt_wizard
 end
