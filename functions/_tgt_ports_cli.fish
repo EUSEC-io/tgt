@@ -23,10 +23,19 @@ function _tgt_ports_cli
     set -l rest $argv[2..]
 
     switch $verb
-        case '' list
+        case list
             _tgt_ports_print_list $scenario $target
-            test "$verb" = list; and return 0
-            # No-arg form also drops into the picker.
+            return 0
+
+        case ''
+            # If no records exist, fall back to the friendly note
+            # from print_list rather than dropping into a picker
+            # with nothing to pick from.
+            set -l records (_tgt_ports_list $scenario $target)
+            if test (count $records) -eq 0
+                _tgt_ports_print_list $scenario $target
+                return 0
+            end
             set -l choice (_tgt_ports_pick $scenario $target)
             test -z "$choice"; and return 0
             set -l parts (string split / -- $choice)
