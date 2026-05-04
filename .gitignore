@@ -18,3 +18,7 @@ fish_variables
 
 # termtosvg intermediate output (none currently — single-step
 # pipeline). SVGs in assets/ are tracked and committed.
+
+# Stray pentest scan output that lands in the repo dir (e.g. running
+# feroxbuster from the repo root). Never belongs here.
+ferox-*.state
