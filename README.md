@@ -292,6 +292,8 @@ prompt explaining why.
 
 ### Ports
 
+![ports](assets/ports.svg)
+
 Per-target port records, with nmap import + interactive picker.
 The picked port becomes `$TGT_PORT` and shows up in the prompt as
 `[scenario:target:port]`.
