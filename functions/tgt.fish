@@ -271,6 +271,12 @@ function tgt --description 'Set penetration testing target environment variables
         return $status
     end
 
+    # ── Ports (per-target port records) ─────────────────────
+    if test (count $argv) -ge 1 && test $argv[1] = "ports"
+        _tgt_ports_cli $argv[2..]
+        return $status
+    end
+
     # ── Anything else: unknown ──────────────────────────────
     # Fall-through means the user typed something that didn't
     # match any verb / flag above. Refuse loudly instead of

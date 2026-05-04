@@ -22,6 +22,23 @@ set -l names (_complete_names 'tgt ')
     (contains workspace $names; echo $status) -eq 0
 @test "top-level: prompt offered" \
     (contains prompt $names; echo $status) -eq 0
+@test "top-level: ports offered" \
+    (contains ports $names; echo $status) -eq 0
+
+#
+# `tgt ports <TAB>` offers ports verbs.
+#
+set -l names_ports (_complete_names 'tgt ports ')
+@test "ports: offers list" \
+    (contains list $names_ports; echo $status) -eq 0
+@test "ports: offers add" \
+    (contains add $names_ports; echo $status) -eq 0
+@test "ports: offers rm" \
+    (contains rm $names_ports; echo $status) -eq 0
+@test "ports: offers clear" \
+    (contains clear $names_ports; echo $status) -eq 0
+@test "ports: offers comment" \
+    (contains comment $names_ports; echo $status) -eq 0
 set -l names_dash (_complete_names 'tgt -')
 @test "top-level: --revoke offered after dash" \
     (contains -- --revoke $names_dash; echo $status) -eq 0

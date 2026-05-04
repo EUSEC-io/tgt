@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -25,6 +25,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a rename    -d 'Rename a target; retags /etc/hosts and moves the workspace folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a hosts     -d 'Multi-line editor for active target hostnames'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a ports     -d 'Per-target port records (list, import, pick → TGT_PORT)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a cd        -d 'cd to active target / scenario folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -154,3 +156,22 @@ complete -c tgt -n '__fish_seen_subcommand_from prompt; and __fish_seen_subcomma
     -s l -l left  -d 'Install into fish_prompt'
 complete -c tgt -n '__fish_seen_subcommand_from prompt; and __fish_seen_subcommand_from install' \
     -s f -l force -d 'Overwrite existing custom prompt (back up first)'
+
+# ── tgt ports <verb> ───────────────────────────────────────────────
+set -l ports_subs list add rm clear comment
+
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a list    -d 'List recorded ports for the active target'
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a add     -d 'Import nmap output, or add a single <port>[/<proto>]'
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a rm      -d 'Remove a record by <port>[/<proto>]'
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a clear   -d 'Drop all records for the active target'
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a comment -d 'Set/replace the comment on an existing record'
+
+# `tgt ports add` takes a file path (nmap output) or a port spec —
+# re-enable file completion so paths work, but keep argument-style
+# completions for the manual form via the dispatcher itself.
+complete -c tgt -n '__fish_seen_subcommand_from ports; and __fish_seen_subcommand_from add' -F
