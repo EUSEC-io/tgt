@@ -101,9 +101,10 @@ tgt switch <TAB>   # completes from active scenario's targets
 
 ### Optional: prompt segment
 
-A `[scenario:target]` indicator in your prompt — color-coded by damage
-potential (red = creds loaded, yellow = host set, default =
-scenario only).
+A `[scenario:target[:port]]` indicator in your prompt — color-coded
+by damage potential (red = creds loaded, yellow = host or port set,
+default = scenario only). The port segment appears once you pick one
+via `tgt ports`.
 
 ```fish
 tgt prompt install            # writes ~/.config/fish/functions/fish_right_prompt.fish
@@ -288,6 +289,39 @@ touches lines it owns — your manual `/etc/hosts` entries are safe.
 When sudo is needed (writes to `/etc/hosts` and `/etc/krb5.conf` are
 atomic via `sudo install`), `tgt` prints a one-line note before the
 prompt explaining why.
+
+### Ports
+
+Per-target port records, with nmap import + interactive picker.
+The picked port becomes `$TGT_PORT` and shows up in the prompt as
+`[scenario:target:port]`.
+
+| Command | Behavior |
+|---|---|
+| `tgt ports` | List + pick → exports `TGT_PORT`. |
+| `tgt ports list` | List only (no picker). |
+| `tgt ports add <file>` | Import nmap output (`-oG` gnmap or `-oX` xml; auto-detect). |
+| `tgt ports add <port>[/<proto>] [svc] [comment]` | Manually add one record (proto defaults to `tcp`). |
+| `tgt ports rm <port>[/<proto>]` | Remove a record. |
+| `tgt ports comment <port>[/<proto>] <text>` | Set/replace the comment on an existing record. |
+| `tgt ports clear` | Drop all records for the active target. |
+
+Records live next to the target's registry file as
+`<target>.ports` — tab-separated `port\tproto\tservice\tcomment`,
+sorted by port. Identity is `port+proto`, so re-running an import
+upserts (no duplicates) while `53/tcp` and `53/udp` coexist.
+
+Common pentest-relevant ports get a bright cyan ★ marker so they
+stand out when scanning a long list. Override the highlight set per
+shell:
+
+```fish
+set -gx TGT_INTERESTING_TCP 21 22 80 443 445 3389
+set -gx TGT_INTERESTING_UDP 53 88 161 500
+```
+
+The default sets lean toward AD + common service exposure; see
+`functions/_tgt_ports_interesting_{tcp,udp}.fish`.
 
 ### Active Directory
 
