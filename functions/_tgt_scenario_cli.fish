@@ -32,12 +32,17 @@ function _tgt_scenario_cli
                 echo "tgt scenario: '$name' already exists" >&2
                 return 1
             end
+            set -l old_scenario ""
+            set -q TGT_SCENARIO; and set old_scenario $TGT_SCENARIO
             _tgt_scenario_create $name
             _tgt_export TGT_SCENARIO $name
             # New scenario is empty — clear any stale active target
             # and runtime state from the previous scenario.
             set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
             _tgt_clear_target_runtime
+            # Hot-swap /etc/hosts: revoke the previous scenario's
+            # lines (new scenario has no targets to add yet).
+            _tgt_hosts_swap_scenario $old_scenario $name
             echo "✓ scenario '$name' created and active"
             if _tgt_workspace_autocreate
                 if _tgt_workspace_create $name
@@ -216,6 +221,8 @@ function _tgt_scenario_cli
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1
             end
+            set -l old_scenario ""
+            set -q TGT_SCENARIO; and set old_scenario $TGT_SCENARIO
             _tgt_export TGT_SCENARIO $name
             # Drop a stale active target if it doesn't exist in the
             # new scenario (would otherwise render as "[new:gone]"
@@ -224,6 +231,9 @@ function _tgt_scenario_cli
                 _tgt_unexport TGT_ACTIVE
                 _tgt_clear_target_runtime
             end
+            # Hot-swap /etc/hosts: revoke the previous scenario's
+            # lines, add the new scenario's.
+            _tgt_hosts_swap_scenario $old_scenario $name
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack

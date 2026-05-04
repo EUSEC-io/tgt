@@ -65,6 +65,12 @@ Older milestones live in `git log`.
   lookup time — used by tests and by ad-hoc overrides.
 
 ### Behaviors changed
+- **`/etc/hosts` hot-swaps on scenario change.** Switching scenarios
+  (and `tgt scenario new`) now revokes the old scenario's tagged
+  lines and adds the new scenario's targets' lines in a single
+  atomic write. Avoids cross-scenario IP collisions (matters for
+  HTB / Pro Labs where IPs are recycled). Single sudo prompt per
+  switch. Manual (non-tgt-tagged) lines are preserved.
 - `tgt --revoke` also unsets `$TGT_ACTIVE` (deselects the target;
   scenario is kept).
 - `tgt rm <alias>` and `tgt scenario rm <name>` now clean their AD
