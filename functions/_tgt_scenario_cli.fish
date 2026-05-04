@@ -42,7 +42,7 @@ function _tgt_scenario_cli
             _tgt_clear_target_runtime
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines (new scenario has no targets to add yet).
-            _tgt_hosts_swap_scenario $old_scenario $name
+            _tgt_hosts_apply_scenario $name
             echo "✓ scenario '$name' created and active"
             if _tgt_workspace_autocreate
                 if _tgt_workspace_create $name
@@ -233,7 +233,7 @@ function _tgt_scenario_cli
             end
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines, add the new scenario's.
-            _tgt_hosts_swap_scenario $old_scenario $name
+            _tgt_hosts_apply_scenario $name
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack

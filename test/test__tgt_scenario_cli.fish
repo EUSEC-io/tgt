@@ -142,8 +142,10 @@ _test_teardown
 _test_setup_home
 set -gx TGT_HOSTS_FILE (mktemp)
 printf "127.0.0.1\tlocalhost\n10.10.10.5 host.dante # tgt:dante:web01\n10.20.30.5 host.acme # tgt:acme:api\n" > $TGT_HOSTS_FILE
-_tgt_scenario_cli new dante >/dev/null
-_tgt_scenario_cli new acme >/dev/null
+# Create scenarios via the low-level helper so the apply-on-new
+# behavior doesn't scrub our pre-populated /etc/hosts fixture.
+_tgt_scenario_create dante
+_tgt_scenario_create acme
 set -gx TGT_SCENARIO dante
 _tgt_scenario_cli rm dante >/dev/null
 @test "scenario rm: registry entry gone" \
