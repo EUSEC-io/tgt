@@ -94,3 +94,20 @@ _tgt_target_cli switch b >/dev/null
 @test "switched to B: TGT_USERNAME cleared (B has no username)" \
     (set -q TGT_USERNAME; echo $status) -ne 0
 _test_teardown
+
+#
+# TGT_PORT is a transient runtime selection (set via `tgt ports`),
+# not part of the saved registry — switching targets must clear it.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 1.1.1.1
+_tgt_target_save dante a
+set -gx TGT 2.2.2.2
+_tgt_target_save dante b
+_tgt_target_cli switch a >/dev/null
+set -gx TGT_PORT 445
+_tgt_target_cli switch b >/dev/null
+@test "switch: TGT_PORT cleared (transient, doesn't follow target)" \
+    (set -q TGT_PORT; echo $status) -ne 0
+_test_teardown

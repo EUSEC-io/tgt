@@ -158,7 +158,7 @@ complete -c tgt -n '__fish_seen_subcommand_from prompt; and __fish_seen_subcomma
     -s f -l force -d 'Overwrite existing custom prompt (back up first)'
 
 # ── tgt ports <verb> ───────────────────────────────────────────────
-set -l ports_subs list add rm clear comment
+set -l ports_subs list add rm clear comment unset
 
 complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
     -a list    -d 'List recorded ports for the active target'
@@ -168,6 +168,8 @@ complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subco
     -a rm      -d 'Remove a record by <port>[/<proto>]'
 complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
     -a clear   -d 'Drop all records for the active target'
+complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
+    -a unset   -d 'Clear $TGT_PORT (records kept)'
 complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subcommand_from $ports_subs" \
     -a comment -d 'Set/replace the comment on an existing record'
 

@@ -160,3 +160,29 @@ tgt ports add 22/tcp ssh >/dev/null
 @test "top-level: 'tgt ports add' adds via dispatcher" \
     (count (_tgt_ports_list dante web01)) -eq 1
 _test_teardown
+
+#
+# tgt ports unset: clears $TGT_PORT, keeps records.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 1.1.1.1
+_tgt_target_cli new web01 --no-edit >/dev/null
+_tgt_ports_cli add 445/tcp microsoft-ds >/dev/null
+set -gx TGT_PORT 445
+_tgt_ports_cli unset >/dev/null
+@test "ports_cli unset: TGT_PORT cleared" \
+    (set -q TGT_PORT; echo $status) -ne 0
+@test "ports_cli unset: records preserved" \
+    (count (_tgt_ports_list dante web01)) -eq 1
+_test_teardown
+
+#
+# tgt ports unset: no-op when TGT_PORT not set (still exit 0).
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 1.1.1.1
+_tgt_target_cli new web01 --no-edit >/dev/null
+@test "ports_cli unset: no-TGT_PORT case exits 0" \
+    (_tgt_ports_cli unset >/dev/null; echo $status) -eq 0

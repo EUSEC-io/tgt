@@ -6,6 +6,7 @@
 #   tgt ports add <port>[/<proto>] [svc] [comment]   manual add
 #   tgt ports rm  <port>[/<proto>]
 #   tgt ports clear
+#   tgt ports unset                        clear $TGT_PORT (records kept)
 #   tgt ports comment <port>[/<proto>] <text>
 #
 # All operations require an active scenario AND target (the records
@@ -110,6 +111,18 @@ function _tgt_ports_cli
             set_color green
             echo "✓ cleared all port records for $scenario:$target"
             set_color normal
+            return 0
+
+        case unset
+            if set -q TGT_PORT
+                set -l prev $TGT_PORT
+                _tgt_unexport TGT_PORT
+                set_color green
+                echo "✓ TGT_PORT unset (was $prev)"
+                set_color normal
+            else
+                echo "- TGT_PORT was not set"
+            end
             return 0
 
         case comment

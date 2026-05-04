@@ -39,6 +39,8 @@ set -l names_ports (_complete_names 'tgt ports ')
     (contains clear $names_ports; echo $status) -eq 0
 @test "ports: offers comment" \
     (contains comment $names_ports; echo $status) -eq 0
+@test "ports: offers unset" \
+    (contains unset $names_ports; echo $status) -eq 0
 set -l names_dash (_complete_names 'tgt -')
 @test "top-level: --revoke offered after dash" \
     (contains -- --revoke $names_dash; echo $status) -eq 0

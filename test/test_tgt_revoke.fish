@@ -74,3 +74,18 @@ _tgt_target_cli switch web01 >/dev/null
 @test "revoke + switch back: TGT_ACTIVE restored to web01" \
     "$TGT_ACTIVE" = web01
 _test_teardown
+
+#
+# revoke clears TGT_PORT (transient runtime selection from `tgt ports`).
+#
+_test_setup_home
+_test_setup_hosts empty.txt
+_test_setup_krb5 empty.conf
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 10.10.10.5
+_tgt_target_cli new web01 >/dev/null
+set -gx TGT_PORT 445
+tgt --revoke >/dev/null
+@test "revoke: TGT_PORT unset" \
+    (set -q TGT_PORT; echo $status) -ne 0
+_test_teardown

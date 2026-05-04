@@ -305,6 +305,7 @@ The picked port becomes `$TGT_PORT` and shows up in the prompt as
 | `tgt ports rm <port>[/<proto>]` | Remove a record. |
 | `tgt ports comment <port>[/<proto>] <text>` | Set/replace the comment on an existing record. |
 | `tgt ports clear` | Drop all records for the active target. |
+| `tgt ports unset` | Clear `$TGT_PORT` (records kept). Also happens automatically on `tgt switch` and `tgt --revoke`. |
 
 Records live next to the target's registry file as
 `<target>.ports` — tab-separated `port\tproto\tservice\tcomment`,
