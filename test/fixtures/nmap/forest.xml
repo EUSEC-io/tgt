@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nmaprun scanner="nmap" args="nmap -oX forest.xml 10.10.10.161">
+  <host>
+    <address addr="10.10.10.161" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="53">
+        <state state="open" reason="syn-ack"/>
+        <service name="domain" product="Microsoft DNS"/>
+      </port>
+      <port protocol="tcp" portid="88">
+        <state state="open" reason="syn-ack"/>
+        <service name="kerberos-sec"/>
+      </port>
+      <port protocol="tcp" portid="389">
+        <state state="open" reason="syn-ack"/>
+        <service name="ldap"/>
+      </port>
+      <port protocol="tcp" portid="445">
+        <state state="open" reason="syn-ack"/>
+        <service name="microsoft-ds"/>
+      </port>
+      <port protocol="tcp" portid="999">
+        <state state="closed" reason="reset"/>
+      </port>
+      <port protocol="udp" portid="137">
+        <state state="open|filtered" reason="no-response"/>
+        <service name="netbios-ns"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>

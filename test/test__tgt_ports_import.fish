@@ -139,14 +139,50 @@ set -l count (_tgt_ports_import dante box $_test_dir/fixtures/nmap/multihost.gnm
 _test_teardown
 
 #
-# import (dispatcher): xml file → not-yet-supported error.
+# import_xml: parses sample fixture (2 open tcp ports).
 #
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 1.1.1.1
 _tgt_target_save dante box
-@test "import: xml format → non-zero exit" \
-    (_tgt_ports_import dante box $_test_dir/fixtures/nmap/sample.xml 2>/dev/null; echo $status) -ne 0
+set -l count (_tgt_ports_import_xml dante box $_test_dir/fixtures/nmap/sample.xml)
+@test "import_xml: returns 2 imported records" "$count" = 2
+@test "import_xml: 22/tcp present" \
+    (string match -q '*22*tcp*ssh*' -- (_tgt_ports_list dante box); echo $status) -eq 0
+@test "import_xml: 80/tcp present" \
+    (string match -q '*80*tcp*http*' -- (_tgt_ports_list dante box); echo $status) -eq 0
+_test_teardown
+
+#
+# import_xml: forest fixture — drops closed, accepts open|filtered,
+# captures udp records.
+#
+_test_setup_home
+_tgt_scenario_create dante >/dev/null
+set -gx TGT 10.10.10.161
+_tgt_target_save dante forest
+set -l count (_tgt_ports_import_xml dante forest $_test_dir/fixtures/nmap/forest.xml)
+@test "import_xml (forest): 5 imported (closed dropped)" "$count" = 5
+set -l recs (_tgt_ports_list dante forest)
+@test "import_xml (forest): 6 records on disk would have included closed" \
+    (count $recs) -eq 5
+@test "import_xml (forest): 53/tcp domain captured" \
+    (string match -q '*53*tcp*domain*' -- $recs; echo $status) -eq 0
+@test "import_xml (forest): 137/udp open|filtered kept" \
+    (string match -q '*137*udp*netbios-ns*' -- $recs; echo $status) -eq 0
+@test "import_xml (forest): 999/tcp closed dropped" \
+    (string match -q '*999*' -- $recs; echo $status) -ne 0
+_test_teardown
+
+#
+# import (dispatcher): xml path now imports successfully.
+#
+_test_setup_home
+_tgt_scenario_create dante >/dev/null
+set -gx TGT 1.1.1.1
+_tgt_target_save dante box
+set -l count (_tgt_ports_import dante box $_test_dir/fixtures/nmap/sample.xml)
+@test "import: xml dispatch returns 2" "$count" = 2
 _test_teardown
 
 #

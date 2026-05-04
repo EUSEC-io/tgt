@@ -1,7 +1,7 @@
 # Auto-detect an nmap file's format and dispatch to the right parser.
-# Currently gnmap is the only supported format; xml/nmap return a
-# "format detected but not yet supported" error pointing at the
-# expected next-step command.
+# gnmap and xml are supported; normal nmap text returns a "use the
+# .gnmap output instead" error since that format is too brittle to
+# parse reliably (column alignment shifts with terminal width).
 #
 # Echoes the imported-record count on success; writes a one-line
 # error to stderr on failure.
@@ -21,10 +21,9 @@ function _tgt_ports_import --argument-names scenario target file
         case gnmap
             _tgt_ports_import_gnmap $scenario $target $file
         case xml
-            echo "tgt ports add: xml import not implemented yet — pass the .gnmap output instead" >&2
-            return 1
+            _tgt_ports_import_xml $scenario $target $file
         case nmap
-            echo "tgt ports add: normal nmap text format isn't supported — pass the .gnmap output instead" >&2
+            echo "tgt ports add: normal nmap text format isn't supported — pass the .gnmap or .xml output instead" >&2
             return 1
         case '*'
             echo "tgt ports add: unknown format '$fmt'" >&2
