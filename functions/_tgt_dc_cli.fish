@@ -101,6 +101,19 @@ function _tgt_dc_cli
             or return 1
 
             set -l alias $argv[1]
+
+            # No data flags → drop into the interactive wizard.
+            # In TGT_TEST_MODE we skip the wizard so non-interactive
+            # tests can rely on flag parsing failing fast.
+            set -l have_data_flags 0
+            for f in _flag_domain _flag_realm _flag_kdc_host _flag_kdc_ip _flag_admin_host _flag_admin_ip
+                set -q $f; and set have_data_flags 1
+            end
+            if test $have_data_flags -eq 0; and not set -q TGT_TEST_MODE
+                _tgt_dc_wizard $scenario $alias
+                return $status
+            end
+
             if test -z "$alias"
                 echo "Usage: tgt dc new <alias> --domain <d> [--realm <R>] [--kdc-host <h>] [--kdc-ip <ip>] [--admin-host <h>] [--admin-ip <ip>]" >&2
                 return 1
@@ -129,8 +142,8 @@ function _tgt_dc_cli
             test -z "$realm"; and set realm $_flag_domain
             set realm (string upper -- $realm)
 
-            # Stage env vars, save, clear (active-on-new lands with
-            # the switch/unset commit).
+            # Stage env vars and let the shared finalizer handle save,
+            # sync, and auto-activate.
             set -gx TGT_DC_DOMAIN $_flag_domain
             set -gx TGT_DC_REALM $realm
             test -n "$_flag_kdc_host"   ; and set -gx TGT_DC_HOST $_flag_kdc_host
@@ -138,23 +151,9 @@ function _tgt_dc_cli
             test -n "$_flag_admin_host" ; and set -gx TGT_DC_ADMIN_HOST $_flag_admin_host
             test -n "$_flag_admin_ip"   ; and set -gx TGT_DC_ADMIN_IP $_flag_admin_ip
 
-            _tgt_dc_save $scenario $alias
-            set -l rc $status
+            _tgt_dc_finalize_new $scenario $alias
+            or return $status
 
-            for v in TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP
-                set -q $v; and _tgt_unexport $v
-            end
-
-            test $rc -eq 0; or return $rc
-            _tgt_krb5_apply_scenario $scenario
-            _tgt_hosts_apply_scenario $scenario
-            # Auto-active on create: clear any prior runtime, load
-            # the just-saved fields, persist the marker, and point
-            # default_realm at this DC's realm.
-            _tgt_dc_clear_runtime
-            _tgt_dc_load $scenario $alias
-            _tgt_dc_set_active $scenario $alias
-            set -q TGT_DC_REALM; and _tgt_krb5_set_default_realm $TGT_DC_REALM
             set_color green; echo "✓ DC '$alias' created in '$scenario' and activated"; set_color normal
             return 0
 

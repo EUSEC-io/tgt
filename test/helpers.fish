@@ -80,6 +80,7 @@ function _test_teardown
              TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS \
              TGT_DC_NAME TGT_DC_DOMAIN TGT_DC_REALM \
              TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP \
+             TGT_ASK_QUEUE \
              TGT_SCENARIO TGT_ACTIVE
         set -qg $v; and set -eg $v
     end
