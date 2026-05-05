@@ -54,6 +54,10 @@ set -l names_dc (_complete_names 'tgt dc ')
     (contains rm $names_dc; echo $status) -eq 0
 @test "dc: offers new" \
     (contains new $names_dc; echo $status) -eq 0
+@test "dc: offers switch" \
+    (contains switch $names_dc; echo $status) -eq 0
+@test "dc: offers unset" \
+    (contains unset $names_dc; echo $status) -eq 0
 
 #
 # `tgt dc new -<TAB>` offers domain/realm/kdc/admin flags.

@@ -36,12 +36,13 @@ function _tgt_scenario_cli
             set -q TGT_SCENARIO; and set old_scenario $TGT_SCENARIO
             _tgt_scenario_create $name
             _tgt_export TGT_SCENARIO $name
-            # New scenario is empty — clear any stale active target
-            # and runtime state from the previous scenario.
+            # New scenario is empty — clear any stale active target,
+            # active DC, and runtime state from the previous scenario.
             set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
             _tgt_clear_target_runtime
+            _tgt_dc_clear_runtime
             # Hot-swap /etc/hosts: revoke the previous scenario's
-            # lines (new scenario has no targets to add yet).
+            # lines (new scenario has no targets/DCs to add yet).
             _tgt_hosts_apply_scenario $name
             # And /etc/krb5.conf — strips old tgt-managed realm
             # blocks; new scenario has no DCs to add yet.
@@ -234,12 +235,17 @@ function _tgt_scenario_cli
                 _tgt_unexport TGT_ACTIVE
                 _tgt_clear_target_runtime
             end
+            # Clear the prior scenario's DC runtime — about to be
+            # replaced (or left empty if the new scenario has none).
+            _tgt_dc_clear_runtime
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines, add the new scenario's.
             _tgt_hosts_apply_scenario $name
             # Same for /etc/krb5.conf — managed realm blocks flip
             # to whatever DCs exist in the new scenario.
             _tgt_krb5_apply_scenario $name
+            # Restore the new scenario's remembered active DC, if any.
+            _tgt_dc_restore_active $name
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack

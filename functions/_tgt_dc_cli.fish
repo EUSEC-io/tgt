@@ -1,16 +1,19 @@
 # Dispatch for `tgt dc …` — DC entries (per-scenario krb5 realm
 # definitions) live alongside targets and ports.
 #
-# This commit lands list / show / rm / new. `switch`, `unset`,
-# krb5 sync, /etc/hosts integration, the wizard, and prompt
-# coupling come later.
-#
 #   tgt dc list                 list all DCs in the active scenario
 #   tgt dc show [alias]         detailed view (no arg → fzf picker)
 #   tgt dc new <alias> --domain <d> [--realm <R>]
 #                      [--kdc-host <h>] [--kdc-ip <ip>]
 #                      [--admin-host <h>] [--admin-ip <ip>]
+#   tgt dc switch [alias]       activate (loads env, sets default_realm)
+#   tgt dc unset                clear active-DC env vars + per-scenario marker
 #   tgt dc rm   [alias]         remove a DC entry
+#
+# Active-DC behavior: `tgt dc new` auto-activates the just-created
+# entry. The active DC is remembered per-scenario via a marker file,
+# so `tgt scenario switch` restores whichever DC was last active in
+# the scenario you're moving into.
 function _tgt_dc_cli
     set -l verb $argv[1]
     set -l rest $argv[2..]
@@ -145,7 +148,50 @@ function _tgt_dc_cli
             test $rc -eq 0; or return $rc
             _tgt_krb5_apply_scenario $scenario
             _tgt_hosts_apply_scenario $scenario
-            set_color green; echo "✓ DC '$alias' created in '$scenario'"; set_color normal
+            # Auto-active on create: clear any prior runtime, load
+            # the just-saved fields, persist the marker, and point
+            # default_realm at this DC's realm.
+            _tgt_dc_clear_runtime
+            _tgt_dc_load $scenario $alias
+            _tgt_dc_set_active $scenario $alias
+            set -q TGT_DC_REALM; and _tgt_krb5_set_default_realm $TGT_DC_REALM
+            set_color green; echo "✓ DC '$alias' created in '$scenario' and activated"; set_color normal
+            return 0
+
+        case switch
+            set -l alias $rest[1]
+            if test -z "$alias"
+                set -l aliases (_tgt_dc_list $scenario)
+                if test (count $aliases) -eq 0
+                    echo "tgt dc switch: no DCs in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "DC" $aliases)
+                test -z "$alias"; and return 1
+            end
+            if not _tgt_dc_exists $scenario $alias
+                echo "tgt dc switch: DC '$alias' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            _tgt_dc_clear_runtime
+            _tgt_dc_load $scenario $alias
+            _tgt_dc_set_active $scenario $alias
+            set -q TGT_DC_REALM; and _tgt_krb5_set_default_realm $TGT_DC_REALM
+            set_color green; echo "✓ active DC: $scenario:$alias"; set_color normal
+            return 0
+
+        case unset
+            if set -q TGT_DC_NAME
+                set -l prev $TGT_DC_NAME
+                _tgt_dc_clear_runtime
+                _tgt_dc_clear_active $scenario
+                set_color green; echo "✓ DC unset (was $prev)"; set_color normal
+            else
+                # Marker may still exist even when env was cleared
+                # by another path — clear it too for consistency.
+                _tgt_dc_clear_active $scenario
+                echo "- no DC was active"
+            end
             return 0
 
         case rm
@@ -164,6 +210,12 @@ function _tgt_dc_cli
                 return 1
             end
             _tgt_dc_destroy $scenario $alias
+            # Clear active marker (and current-shell runtime) if we
+            # just removed the active DC.
+            if test "$alias" = (_tgt_dc_get_active $scenario 2>/dev/null)
+                _tgt_dc_clear_active $scenario
+                _tgt_dc_clear_runtime
+            end
             _tgt_krb5_apply_scenario $scenario
             _tgt_hosts_apply_scenario $scenario
             set_color green; echo "✓ DC '$alias' removed from '$scenario'"; set_color normal
