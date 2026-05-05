@@ -266,21 +266,6 @@ _tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
 _test_teardown
 
 #
-# tgt dc new: doesn't leak env vars after creation (active-on-new
-# isn't wired yet — staging vars must be cleared).
-#
-_test_setup_home
-_tgt_scenario_cli new dante >/dev/null
-_tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
-@test "dc_cli new: TGT_DC_DOMAIN not leaked into shell" \
-    (set -q TGT_DC_DOMAIN; echo $status) -ne 0
-@test "dc_cli new: TGT_DC_REALM not leaked into shell" \
-    (set -q TGT_DC_REALM; echo $status) -ne 0
-@test "dc_cli new: TGT_DC_IP not leaked into shell" \
-    (set -q TGT_DC_IP; echo $status) -ne 0
-_test_teardown
-
-#
 # Top-level dispatch: `tgt dc list` reaches _tgt_dc_cli.
 #
 _test_setup_home

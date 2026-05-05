@@ -15,11 +15,11 @@ function _tgt_target_state_summary
     end
 
     set -l ad_part "(not set)"
-    if set -q TGT_AD_DOMAIN
-        if set -q TGT_DC
-            set ad_part "$TGT_AD_DOMAIN  (DC: $TGT_DC)"
+    if set -q TGT_DC_NAME
+        if set -q TGT_DC_DOMAIN
+            set ad_part "$TGT_DC_DOMAIN  (DC: $TGT_DC_NAME)"
         else
-            set ad_part $TGT_AD_DOMAIN
+            set ad_part "(DC: $TGT_DC_NAME)"
         end
     end
 
@@ -38,7 +38,7 @@ function _tgt_target_state_summary
     echo $creds_part
     set_color normal
     set_color brblack; printf '  AD:     '; set_color normal
-    if set -q TGT_AD_DOMAIN
+    if set -q TGT_DC_NAME
         set_color yellow
     else
         set_color brblack

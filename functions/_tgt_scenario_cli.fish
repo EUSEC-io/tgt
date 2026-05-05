@@ -94,7 +94,7 @@ function _tgt_scenario_cli
             end
 
             set_color --bold
-            printf '  %-15s %-8s %-6s %-4s\n' scenario targets creds AD
+            printf '  %-15s %-8s %-6s %-4s\n' scenario targets creds DCs
             set_color normal
             for s in $filtered
                 set -l line (_tgt_scenario_inspect $s)
@@ -118,10 +118,10 @@ function _tgt_scenario_cli
                 else
                     set_color brblack; printf '%-6s' N; set_color normal
                 end
-                if test "$fields[4]" = Y
-                    set_color yellow; printf '%-4s' Y; set_color normal
+                if test "$fields[4]" -gt 0
+                    set_color yellow; printf '%-4d' $fields[4]; set_color normal
                 else
-                    set_color brblack; printf '%-4s' N; set_color normal
+                    set_color brblack; printf '%-4d' 0; set_color normal
                 end
                 test $is_archived -eq 1; and set_color brblack; and printf '  [archived]'; and set_color normal
                 echo ""
@@ -332,30 +332,16 @@ function _tgt_scenario_cli
                 echo "tgt scenario: '$name' does not exist" >&2
                 return 1
             end
-            # Collect all unique realms used by this scenario's targets
-            # before destroying the registry, so we can clean krb5.conf
-            # afterwards (only if no other scenario still uses them).
-            set -l realms
-            for target in (_tgt_target_list $name)
-                set -l r (_tgt_target_ad_realm $name $target)
-                test -z "$r"; and continue
-                contains -- $r $realms; or set -a realms $r
-            end
             _tgt_hosts_revoke_scenario $name
             _tgt_scenario_destroy $name
             if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$name"
                 _tgt_unexport TGT_SCENARIO
-            end
-            for r in $realms
-                if not _tgt_realm_in_use $r
-                    _tgt_clean_krb5 $r
-                    echo "  ✓ removed $r from /etc/krb5.conf"
-                end
+                _tgt_dc_clear_runtime
             end
             # Re-apply krb5 so the removed scenario's tgt-managed DC
             # blocks are stripped. If another scenario is still active,
             # apply that; otherwise pass the removed name (which now
-            # has no DCs, so it just strips and adds nothing).
+            # has no DCs, so the apply just strips and adds nothing).
             if set -q TGT_SCENARIO
                 _tgt_krb5_apply_scenario $TGT_SCENARIO
             else

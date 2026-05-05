@@ -54,7 +54,7 @@ function _tgt_target_cli
             end
             # Chain into the wizard. Clear stale env from the previous
             # target first so the wizard starts with empty defaults.
-            for v in TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_DC TGT_HOSTS
+            for v in TGT TGT_USERNAME TGT_PASSWORD TGT_HOSTS
                 set -q $v; and _tgt_unexport $v
             end
             _tgt_wizard
@@ -197,17 +197,10 @@ function _tgt_target_cli
                 echo "tgt rm: target '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            # Capture the realm before destroying the file.
-            set -l realm (_tgt_target_ad_realm $scenario $alias)
             _tgt_hosts_revoke $scenario $alias
             _tgt_target_destroy $scenario $alias
             if set -q TGT_ACTIVE; and test "$TGT_ACTIVE" = "$alias"
                 _tgt_unexport TGT_ACTIVE
-            end
-            # Clean krb5 realm if no remaining target still uses it.
-            if test -n "$realm"; and not _tgt_realm_in_use $realm
-                _tgt_clean_krb5 $realm
-                echo "  ✓ removed $realm from /etc/krb5.conf"
             end
             echo "✓ target '$alias' removed from '$scenario'"
             if set -q _flag_purge_workspace

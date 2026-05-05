@@ -1,6 +1,9 @@
 # Read a target's registry file and emit a tab-separated state line
 # WITHOUT loading values into the current shell:
-#   alias\thost\tcreds(Y/N)\tAD(Y/N)\thosts_count
+#   alias\thost\tcreds(Y/N)\thosts_count
+#
+# AD info is no longer per-target — see `tgt dc list` for the
+# scenario's DC entries.
 function _tgt_target_inspect --argument-names scenario alias
     set -l file (_tgt_target_file $scenario $alias)
     test -f $file; or return 1
@@ -8,7 +11,6 @@ function _tgt_target_inspect --argument-names scenario alias
     set -l tgt ""
     set -l user ""
     set -l pass ""
-    set -l ad ""
     set -l hosts_count 0
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
@@ -22,8 +24,6 @@ function _tgt_target_inspect --argument-names scenario alias
                 set user $val
             case TGT_PASSWORD
                 set pass set
-            case TGT_AD_DOMAIN
-                set ad $val
             case TGT_HOSTS
                 set hosts_count (count (string split " " -- $val))
         end
@@ -34,7 +34,5 @@ function _tgt_target_inspect --argument-names scenario alias
 
     set -l creds N
     test -n "$user"; and test -n "$pass"; and set creds Y
-    set -l ad_part N
-    test -n "$ad"; and set ad_part Y
-    printf '%s\t%s\t%s\t%s\t%d\n' $alias $host_part $creds $ad_part $hosts_count
+    printf '%s\t%s\t%s\t%d\n' $alias $host_part $creds $hosts_count
 end

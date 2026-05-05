@@ -56,8 +56,6 @@ _tgt_scenario_create dante >/dev/null
 set -gx TGT 172.16.10.20
 set -gx TGT_USERNAME admin
 set -gx TGT_PASSWORD hunter2
-set -gx TGT_AD_DOMAIN dante.local
-set -gx TGT_DC DC01.dante.local
 set -gx TGT_HOSTS web01.dante.local intranet.dante.local
 _tgt_target_save dante web01
 set -l content (cat (_tgt_target_file dante web01))
@@ -67,12 +65,10 @@ set -l content (cat (_tgt_target_file dante web01))
     (string match -rq '_tgt_export TGT_USERNAME admin' -- $content; echo $status) -eq 0
 @test "save: TGT_PASSWORD line present" \
     (string match -rq '_tgt_export TGT_PASSWORD hunter2' -- $content; echo $status) -eq 0
-@test "save: TGT_AD_DOMAIN line present" \
-    (string match -rq '_tgt_export TGT_AD_DOMAIN dante.local' -- $content; echo $status) -eq 0
-@test "save: TGT_DC line present" \
-    (string match -rq '_tgt_export TGT_DC DC01.dante.local' -- $content; echo $status) -eq 0
 @test "save: TGT_HOSTS list serialized as multiple values" \
     (string match -rq '_tgt_export TGT_HOSTS .*web01.dante.local.*intranet.dante.local' -- $content; echo $status) -eq 0
+@test "save: TGT_AD_DOMAIN no longer in target file (moved to tgt dc)" \
+    (string match -rq 'TGT_AD_DOMAIN' -- $content; echo $status) -ne 0
 _test_teardown
 
 #

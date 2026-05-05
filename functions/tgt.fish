@@ -8,16 +8,19 @@ function tgt --description 'Set penetration testing target environment variables
         echo "  tgt — target environment manager"
         echo ""
         echo "  USAGE"
-        echo "    tgt                          Interactive setup (host, port, creds, AD, hostnames)"
-        echo "    tgt --show                   Show current target config + /etc/hosts + krb5"
-        echo "    tgt --revoke                 Clear everything (env vars, /etc/hosts, krb5.conf)"
+        echo "    tgt                          Interactive setup (host, creds, hostnames)"
+        echo "    tgt --show                   Show current target + active DC + /etc/hosts + krb5"
+        echo "    tgt --revoke                 Clear target runtime (env vars, /etc/hosts entries)"
         echo ""
         echo "  HOSTNAMES"
         echo "    tgt --add-host <h1> [h2..]   Add hostnames to /etc/hosts for \$TGT (deduplicates)"
         echo "    tgt --rm-host  <h1> [h2..]   Remove hostnames from /etc/hosts"
         echo ""
+        echo "  PORTS"
+        echo "    tgt ports                    Per-target port records: list / pick / nmap import"
+        echo ""
         echo "  ACTIVE DIRECTORY"
-        echo "    tgt --set-dc <DC_HOSTNAME>   Set domain controller + update krb5.conf + /etc/hosts"
+        echo "    tgt dc                       Per-scenario DC entries: new / switch / list / rm"
         echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
         echo "  SCENARIOS & TARGETS"
@@ -46,8 +49,9 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt config reset             Revert all workspace settings to defaults"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
-        echo "    target:    \$TGT  \$TGT_USERNAME  \$TGT_PASSWORD"
-        echo "               \$TGT_AD_DOMAIN  \$TGT_DC  \$TGT_HOSTS"
+        echo "    target:    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_HOSTS"
+        echo "    AD/DC:     \$TGT_DC_NAME  \$TGT_DC_DOMAIN  \$TGT_DC_REALM"
+        echo "               \$TGT_DC  \$TGT_DC_HOST  \$TGT_DC_IP"
         echo "    scope:     \$TGT_SCENARIO  \$TGT_ACTIVE"
         echo "    workspace: \$TGT_WORKSPACE_ROOT  \$TGT_WORKSPACE_LAYOUT  \$TGT_WORKSPACE_AUTOCREATE"
         echo "               \$TGT_WORKSPACE_TARGET_TEMPLATE  \$TGT_WORKSPACE_SCENARIO_TEMPLATE"
@@ -74,21 +78,10 @@ function tgt --description 'Set penetration testing target environment variables
             end
         end
 
-        # Clean krb5.conf
-        if set -q TGT_AD_DOMAIN
-            set -l realm (string upper $TGT_AD_DOMAIN)
-            if grep -q "$realm" $krb5_file 2>/dev/null
-                _tgt_clean_krb5 $realm
-                echo "✓ Removed $realm from /etc/krb5.conf"
-            end
-        end
-
         set -q TGT            && _tgt_unexport TGT            && echo "✓ TGT unset"            || echo "- TGT was not set"
         set -q TGT_PORT       && _tgt_unexport TGT_PORT       && echo "✓ TGT_PORT unset"       || echo "- TGT_PORT was not set"
         set -q TGT_USERNAME   && _tgt_unexport TGT_USERNAME   && echo "✓ TGT_USERNAME unset"   || echo "- TGT_USERNAME was not set"
         set -q TGT_PASSWORD   && _tgt_unexport TGT_PASSWORD   && echo "✓ TGT_PASSWORD unset"   || echo "- TGT_PASSWORD was not set"
-        set -q TGT_AD_DOMAIN  && _tgt_unexport TGT_AD_DOMAIN  && echo "✓ TGT_AD_DOMAIN unset"  || echo "- TGT_AD_DOMAIN was not set"
-        set -q TGT_DC         && _tgt_unexport TGT_DC         && echo "✓ TGT_DC unset"         || echo "- TGT_DC was not set"
         set -q TGT_HOSTS      && _tgt_unexport TGT_HOSTS      && echo "✓ TGT_HOSTS unset"      || echo "- TGT_HOSTS was not set"
         set -q TGT_ACTIVE     && _tgt_unexport TGT_ACTIVE     && echo "✓ TGT_ACTIVE unset (target deselected; scenario kept)" || echo "- TGT_ACTIVE was not set"
         return 0
@@ -102,9 +95,16 @@ function tgt --description 'Set penetration testing target environment variables
         set -q TGT_PORT       && echo "  TGT_PORT      = $TGT_PORT"       || echo "  TGT_PORT      = (not set)"
         set -q TGT_USERNAME   && echo "  TGT_USERNAME  = $TGT_USERNAME"   || echo "  TGT_USERNAME  = (not set)"
         set -q TGT_PASSWORD   && echo "  TGT_PASSWORD  = $TGT_PASSWORD"   || echo "  TGT_PASSWORD  = (not set)"
-        set -q TGT_AD_DOMAIN  && echo "  TGT_AD_DOMAIN = $TGT_AD_DOMAIN" || echo "  TGT_AD_DOMAIN = (not set)"
-        set -q TGT_DC         && echo "  TGT_DC        = $TGT_DC"         || echo "  TGT_DC        = (not set)"
         set -q TGT_HOSTS      && echo "  TGT_HOSTS     = $TGT_HOSTS"      || echo "  TGT_HOSTS     = (not set)"
+        if set -q TGT_DC_NAME
+            echo ""
+            echo "  active DC:"
+            echo "    name        = $TGT_DC_NAME"
+            set -q TGT_DC_DOMAIN && echo "    domain      = $TGT_DC_DOMAIN"
+            set -q TGT_DC_REALM  && echo "    realm       = $TGT_DC_REALM"
+            set -q TGT_DC_HOST   && echo "    kdc host    = $TGT_DC_HOST"
+            set -q TGT_DC_IP     && echo "    kdc ip      = $TGT_DC_IP"
+        end
         echo "─────────────────────────────────"
         echo ""
         if set -q TGT
@@ -116,11 +116,10 @@ function tgt --description 'Set penetration testing target environment variables
                 echo "    (no entries)"
             end
         end
-        if set -q TGT_AD_DOMAIN
-            set -l realm (string upper $TGT_AD_DOMAIN)
+        if set -q TGT_DC_REALM
             echo ""
             echo "  /etc/krb5.conf:"
-            grep -A2 "$realm" $krb5_file 2>/dev/null || echo "    (no entries)"
+            grep -A2 "$TGT_DC_REALM" $krb5_file 2>/dev/null || echo "    (no entries)"
         end
         # Workspace section — only when scenario is active and the
         # workspace dir exists on disk (otherwise nothing useful to
@@ -179,23 +178,6 @@ function tgt --description 'Set penetration testing target environment variables
             set -q TGT_HOSTS && _tgt_unexport TGT_HOSTS
             echo "✓ All hostnames removed for $TGT"
         end
-        _tgt_maybe_save_active
-        return 0
-    end
-
-    # ── Quick set DC ────────────────────────────────────────
-    if test (count $argv) -ge 1 && test $argv[1] = "--set-dc"
-        if not set -q TGT_AD_DOMAIN
-            echo "Error: TGT_AD_DOMAIN not set. Run tgt with AD domain first."
-            return 1
-        end
-        if test (count $argv) -lt 2
-            echo "Usage: tgt --set-dc DC_HOSTNAME"
-            return 1
-        end
-        _tgt_export TGT_DC $argv[2]
-        _tgt_update_krb5
-        tgt --add-host $TGT_DC
         _tgt_maybe_save_active
         return 0
     end

@@ -6,8 +6,8 @@ function _tgt_run_bloodhound
     set -l do_zip $argv[4]
     set -l zip_name $argv[5]
 
-    if not set -q TGT_AD_DOMAIN; or not set -q TGT
-        echo "✗ Error: TGT_AD_DOMAIN and TGT must be set to run BloodHound."
+    if not set -q TGT_DC_DOMAIN; or not set -q TGT
+        echo "✗ Error: an active DC and TGT must be set — run `tgt dc switch` and `tgt switch <target>`."
         return 1
     end
     if not type -q bloodhound-python
@@ -16,7 +16,9 @@ function _tgt_run_bloodhound
     end
 
     set -l ns_target $TGT
-    if set -q TGT_DC
+    if set -q TGT_DC_IP
+        set ns_target $TGT_DC_IP
+    else if set -q TGT_DC
         set ns_target $TGT_DC
     end
 
@@ -33,8 +35,8 @@ function _tgt_run_bloodhound
         echo "  [*] Output directory: $output_dir"
     end
 
-    echo "  [*] Executing bloodhound-python against $TGT_AD_DOMAIN..."
-    bloodhound-python -u "$bh_user" -p "$bh_pass" -d "$TGT_AD_DOMAIN" -ns "$ns_target" -c "$collection"
+    echo "  [*] Executing bloodhound-python against $TGT_DC_DOMAIN..."
+    bloodhound-python -u "$bh_user" -p "$bh_pass" -d "$TGT_DC_DOMAIN" -ns "$ns_target" -c "$collection"
     set -l bh_status $status
 
     if test $bh_status -eq 0

@@ -14,17 +14,18 @@ function _tgt_wizard
     set_color --bold cyan; echo "  tgt — interactive target setup"; set_color normal
     set_color cyan; echo "  ══════════════════════════════════════════════════════"; set_color normal
     echo ""
-    echo "  Configure the active target's environment: IP / port,"
-    echo "  hostnames in /etc/hosts, credentials, AD domain + DC."
+    echo "  Configure the active target's environment: IP, hostnames"
+    echo "  in /etc/hosts, and credentials."
     echo "  Each field defaults to its current value — Enter keeps it."
+    echo "  AD/DC config is per-scenario now; use `tgt dc new`."
     echo ""
     set_color brblack
     echo "  Active scope: $hosts_scenario:$hosts_target"
     echo "  Press Ctrl-C any time to abort. UI mode: $ui_mode"
     set_color normal
 
-    # ── 1/4 · Host ──
-    _tgt_ui_section "1/4" "Host"
+    # ── 1/3 · Host ──
+    _tgt_ui_section "1/3" "Host"
     echo "    Target IP / hostname (TGT)."
 
     set -l cur_tgt (set -q TGT && echo $TGT || echo "")
@@ -42,8 +43,8 @@ function _tgt_wizard
     end
     _tgt_export TGT $input_tgt
 
-    # ── 2/4 · Hostnames ──
-    _tgt_ui_section "2/4" "Hostnames → /etc/hosts"
+    # ── 2/3 · Hostnames ──
+    _tgt_ui_section "2/3" "Hostnames → /etc/hosts"
     echo "    Aliases for this target (space-separated). Tagged with"
     echo "    # tgt:$hosts_scenario:$hosts_target so removal is precise."
 
@@ -61,8 +62,8 @@ function _tgt_wizard
         set_color green; echo "  ✓ /etc/hosts: $TGT $input_hosts"; set_color normal
     end
 
-    # ── 3/4 · Credentials ──
-    _tgt_ui_section "3/4" "Credentials"
+    # ── 3/3 · Credentials ──
+    _tgt_ui_section "3/3" "Credentials"
     echo "    Username + password for this target. Skip if you don't"
     echo "    have creds yet."
 
@@ -98,54 +99,6 @@ function _tgt_wizard
     else
         set -q TGT_USERNAME; and _tgt_unexport TGT_USERNAME
         set -q TGT_PASSWORD; and _tgt_unexport TGT_PASSWORD
-    end
-
-    # ── 4/4 · Active Directory ──
-    _tgt_ui_section "4/4" "Active Directory"
-    echo "    AD domain (TGT_AD_DOMAIN) and DC hostname (TGT_DC)."
-    echo "    Setting these wires up /etc/krb5.conf realms automatically."
-
-    set -l cur_domain (set -q TGT_AD_DOMAIN && echo $TGT_AD_DOMAIN || echo "")
-    set -l ad_default n
-    test -n "$cur_domain"; and set ad_default y
-
-    set -l is_ad (_tgt_ask_confirm "Active Directory target?" $ad_default)
-    if test $status -ne 0
-        set_color brblack; echo "  aborted."; set_color normal
-        return 1
-    end
-    if test "$is_ad" = yes
-        set -l input_domain (_tgt_ask_text "Domain (TGT_AD_DOMAIN)" $cur_domain)
-        if test $status -ne 0
-            set_color brblack; echo "  aborted."; set_color normal
-            return 1
-        end
-        if test -n "$input_domain"
-            _tgt_export TGT_AD_DOMAIN $input_domain
-        end
-
-        set -l cur_dc (set -q TGT_DC && echo $TGT_DC || echo "")
-        set -l input_dc (_tgt_ask_text "DC hostname (e.g. DC01.DOMAIN.HTB)" $cur_dc)
-        if test $status -ne 0
-            set_color brblack; echo "  aborted."; set_color normal
-            return 1
-        end
-        if test -n "$input_dc"
-            _tgt_export TGT_DC $input_dc
-        end
-
-        if set -q TGT_DC
-            _tgt_hosts_add $hosts_scenario $hosts_target $TGT $TGT_DC
-        end
-
-        _tgt_update_krb5
-    else
-        if set -q TGT_AD_DOMAIN
-            set -l realm (string upper $TGT_AD_DOMAIN)
-            _tgt_clean_krb5 $realm
-        end
-        set -q TGT_AD_DOMAIN; and _tgt_unexport TGT_AD_DOMAIN
-        set -q TGT_DC; and _tgt_unexport TGT_DC
     end
 
     # ── Persist + summary ──

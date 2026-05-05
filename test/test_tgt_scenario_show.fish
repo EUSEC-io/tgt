@@ -17,24 +17,22 @@ set -l fields (string split \t -- $line)
     "$fields[2]" = "10.10.10.5"
 @test "inspect minimal: creds = N" \
     "$fields[3]" = N
-@test "inspect minimal: AD = N" \
-    "$fields[4]" = N
 @test "inspect minimal: hosts count = 0" \
-    "$fields[5]" = 0
+    "$fields[4]" = 0
 _test_teardown
 
 #
-# _tgt_target_inspect: fully-loaded target (TGT + creds + AD + hosts).
+# _tgt_target_inspect: fully-loaded target (TGT + creds + hosts).
+# AD info is no longer per-target — see test__tgt_dc_storage.fish.
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.10
 set -gx TGT_USERNAME admin
 set -gx TGT_PASSWORD secret
-set -gx TGT_AD_DOMAIN dante.local
 set -gx TGT_HOSTS dc01.dante.local dc01
 _tgt_target_save dante dc01
-set -e TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_HOSTS
+set -e TGT TGT_USERNAME TGT_PASSWORD TGT_HOSTS
 set -l line (_tgt_target_inspect dante dc01)
 set -l fields (string split \t -- $line)
 
@@ -42,10 +40,8 @@ set -l fields (string split \t -- $line)
     "$fields[2]" = "10.10.10.10"
 @test "inspect full: creds = Y" \
     "$fields[3]" = Y
-@test "inspect full: AD = Y" \
-    "$fields[4]" = Y
 @test "inspect full: hosts count = 2" \
-    "$fields[5]" = 2
+    "$fields[4]" = 2
 _test_teardown
 
 #
