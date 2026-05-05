@@ -25,6 +25,9 @@ set -e _v
 
 function _test_setup_krb5 --argument-names fixture
     set -gx TGT_TEST_MODE 1
+    # Free a previously-allocated tmpfile (e.g. from _test_setup_home)
+    # before claiming a new one for this fixture.
+    set -qg TGT_KRB5_FILE; and rm -f $TGT_KRB5_FILE
     set -gx TGT_KRB5_FILE (mktemp)
     cat $_test_dir/fixtures/krb5/$fixture > $TGT_KRB5_FILE
 end
@@ -41,11 +44,13 @@ end
 function _test_setup_home
     set -gx TGT_TEST_MODE 1
     set -gx TGT_HOME (mktemp -d)
-    # `tgt scenario new`/`switch` now hot-swap /etc/hosts, so any
-    # test that creates a scenario implicitly writes to whatever
-    # `_tgt_hosts_file` resolves to. Sandbox it here unless the
-    # caller has already pinned a fixture-backed file.
+    # `tgt scenario new`/`switch` now hot-swap /etc/hosts and
+    # /etc/krb5.conf, so any test that creates a scenario implicitly
+    # writes to whatever `_tgt_hosts_file` / `_tgt_krb5_file` resolve
+    # to. Sandbox both unless the caller has already pinned a
+    # fixture-backed file.
     set -qg TGT_HOSTS_FILE; or set -gx TGT_HOSTS_FILE (mktemp)
+    set -qg TGT_KRB5_FILE;  or set -gx TGT_KRB5_FILE (mktemp)
 end
 
 function _test_setup_fishfn_dir
