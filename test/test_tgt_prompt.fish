@@ -84,3 +84,42 @@ set -l raw (tgt_prompt | string collect)
 @test "tgt_prompt: label shows :8080" \
     (string match -rq ':8080\]' -- $raw; echo $status) -eq 0
 _test_teardown
+
+#
+# TGT_DC_NAME appended to the label as @<dc>.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_ACTIVE web01
+set -gx TGT 10.10.10.5
+set -gx TGT_PORT 445
+set -gx TGT_DC_NAME dc01
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: appends @<dc> when TGT_DC_NAME set" \
+    (string match -rq '\[dante:web01:445@dc01\]' -- $raw; echo $status) -eq 0
+_test_teardown
+
+#
+# TGT_DC_NAME alone (no TGT, no TGT_PORT) still triggers yellow.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_DC_NAME dc01
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: yellow SGR when only TGT_DC_NAME set" \
+    (string match -rq '\e\[33m' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: scenario@dc label" \
+    (string match -rq '\[dante@dc01\]' -- $raw; echo $status) -eq 0
+_test_teardown
+
+#
+# Active DC + creds → red still wins (creds beats DC alone).
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_ACTIVE web01
+set -gx TGT_PASSWORD secret
+set -gx TGT_DC_NAME dc01
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: red wins over @dc when creds also set" \
+    (string match -rq '\e\[31m' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: label still includes @dc01" \
+    (string match -rq '@dc01\]' -- $raw; echo $status) -eq 0
+_test_teardown
