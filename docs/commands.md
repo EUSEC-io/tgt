@@ -46,9 +46,18 @@ tgt ports comment <port>[/<proto>] <text>
 tgt ports clear                         drop all records
 tgt ports unset                         clear $TGT_PORT (keep records)
 
-# AD
-tgt --set-dc <DC_HOSTNAME>              writes krb5 realm + adds DC to hosts
-tgt ingest <user> <pass> [--zip]        bloodhound-python
+# AD / DCs (per scenario)
+tgt dc                                  list DCs (no verb)
+tgt dc list
+tgt dc show [alias]
+tgt dc new <alias> --domain <d> [--realm <R>]
+                   [--kdc-host <h>] [--kdc-ip <ip>]
+                   [--admin-host <h>] [--admin-ip <ip>]
+tgt dc new                              (no flags) drops into wizard
+tgt dc switch [alias]                   load DC env vars + set default_realm
+tgt dc unset                            clear $TGT_DC_* + per-scenario marker
+tgt dc rm [alias]
+tgt ingest <user> <pass> [--zip]        bloodhound-python (uses active DC)
 
 # workspace
 tgt cd   [alias|--scenario]
@@ -145,12 +154,70 @@ The default sets lean toward AD + common service exposure; see
 `functions/_tgt_ports_interesting_{tcp,udp}.fish`.
 
 
-## Active Directory
+## DCs
+
+DC entries (per-scenario krb5 realm definitions) hold the AD info
+that used to live on each target. Each entry maps to one realm
+block in `/etc/krb5.conf` and, when both host and IP are stored,
+one tagged line in `/etc/hosts`.
+
+| Command | Behavior |
+|---|---|
+| `tgt dc` / `tgt dc list` | List all DCs in the active scenario. |
+| `tgt dc show [alias]` | Detailed view; the kdc/admin lines render `host  →  ip` when both are stored. |
+| `tgt dc new <alias> ...` | Create a DC entry. Auto-activates. Drops into wizard with no data flags. |
+| `tgt dc switch [alias]` | Activate a DC (loads env vars, sets `default_realm`). |
+| `tgt dc unset` | Clear `$TGT_DC_*` and the per-scenario active marker. |
+| `tgt dc rm [alias]` | Remove a DC entry. Re-applies krb5 + hosts to clean up. |
+
+`tgt dc new` flags (or wizard prompts):
+
+| Flag | Meaning |
+|---|---|
+| `--domain <d>` | Lowercase AD domain — required (`dante.local`). |
+| `--realm <R>` | Kerberos realm — defaults to `upper(domain)`. Always uppercased on save. |
+| `--kdc-host <h>` | DC FQDN (used in krb5.conf when set). |
+| `--kdc-ip <ip>` | DC IP. Paired with `--kdc-host` writes `<ip> <host>` to `/etc/hosts` so name resolution works without DNS. |
+| `--admin-host <h>` / `--admin-ip <ip>` | Optional `admin_server` for kpasswd / password changes. |
+
+At least one of `--kdc-host` / `--kdc-ip` is required. For
+hostname-only entries krb5 uses the hostname directly (relies on
+DNS); IP-only entries use the IP. With both stored, krb5 gets the
+hostname and `/etc/hosts` makes resolution reliable.
+
+The active DC for each scenario is remembered across
+`tgt scenario switch`, so re-entering a scenario restores whichever
+DC you last had loaded.
+
+### Env vars (when a DC is active)
 
 ```
-tgt --set-dc <DC_HOSTNAME>       Set DC + update /etc/krb5.conf realm
-tgt ingest <user> <pass> [--zip] Run bloodhound-python
+TGT_DC_NAME=dc01                  # alias — surfaces in the prompt
+TGT_DC_DOMAIN=dante.local         # lowercase, for /d:, -d
+TGT_DC_REALM=DANTE.LOCAL          # uppercase
+TGT_DC=10.10.10.5                 # kdc value verbatim — drop-in for $TGT_DC scripts
+TGT_DC_HOST=dc01.dante.local      # FQDN if known
+TGT_DC_IP=10.10.10.5              # IP if known
 ```
+
+### Storage
+
+```
+scenarios/<scen>/
+├── .active-dc                    (alias of currently-active DC)
+└── dcs/
+    └── <alias>.fish              (raw fields; TGT_DC and TGT_DC_NAME derived at load)
+```
+
+
+## BloodHound ingest
+
+```
+tgt ingest <user> <pass> [--zip [collection] [zipname]]
+```
+
+Uses the active DC's `TGT_DC_DOMAIN` (for `-d`) and `TGT_DC_IP` (for
+`-ns`). Run `tgt dc switch <alias>` first if no DC is active.
 
 When the workspace folder for the active target exists on disk,
 `tgt ingest` runs from that target's `loot/` subfolder (created on
@@ -198,9 +265,12 @@ Refuses to overwrite an existing custom `fish_(right_)prompt` unless
 └── scenarios/
     └── <scenario>/
         ├── .archived       (when archived; remove to surface again)
-        └── targets/
-            ├── <alias>.fish    set -gx TGT 10.10.11.5 ...
-            └── <alias>.ports   port records (tab-separated)
+        ├── .active-dc      (alias of currently-active DC, when set)
+        ├── targets/
+        │   ├── <alias>.fish    set -gx TGT 10.10.11.5 ...
+        │   └── <alias>.ports   port records (tab-separated)
+        └── dcs/
+            └── <alias>.fish    set -gx TGT_DC_DOMAIN dante.local ...
 ```
 
 Workspace folders (when enabled) live under `$TGT_WORKSPACE_ROOT`,

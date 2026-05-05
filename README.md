@@ -13,7 +13,7 @@ tree in sync. Targets organize into **scenarios**, so a Pro Lab season
 or a client engagement is one namespace; switching targets pulls up
 every detail and updates the right system files.
 
-A few flagged extras: a colored `[scenario:target:port]` prompt segment,
+A few flagged extras: a colored `[scenario:target:port@dc]` prompt segment,
 fzf pickers, archive support to hide finished engagements, BloodHound
 ingest with auto-routed loot folders, nmap port-record import, and a
 gum-based config wizard when [`gum`](https://github.com/charmbracelet/gum)
@@ -107,7 +107,7 @@ tgt prompt install            # writes ~/.config/fish/functions/fish_right_promp
 tgt prompt install --left     # left prompt instead
 ```
 
-Renders `[scenario:target[:port]]` color-coded by damage potential.
+Renders `[scenario:target[:port][@dc]]` color-coded by damage potential.
 Details in [docs/commands.md](docs/commands.md#prompt-segment).
 
 
@@ -130,15 +130,24 @@ tgt scenario archive       # done — hide it from the default list
 ### Multi-target engagement (Pro Lab, client)
 
 ```fish
-tgt scenario new dante           # one scenario for the lab
-tgt new web01                    # first foothold
+tgt scenario new dante                       # one scenario for the lab
+tgt new web01                                # first foothold
 tgt --add-host web01.dante.local intranet.dante.local
-                                 # ... move laterally, find dc01 ...
-tgt new dc01                     # add the next target
-tgt --set-dc dc01.DANTE.LOCAL    # writes a krb5 realm + adds the DC to /etc/hosts
-tgt switch                       # fzf picker to jump between targets
-tgt ingest <user> <pass> --zip   # bloodhound JSON lands in dc01/loot/
+                                             # ... move laterally, find a DC ...
+tgt dc new dc01 \
+    --domain dante.local \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.5
+                                             # writes the realm to krb5.conf,
+                                             # the host→ip pair to /etc/hosts,
+                                             # and exports TGT_DC_*. Auto-active.
+tgt new dc01-host                            # the DC as a target (for SMB, etc.)
+tgt switch                                   # fzf picker to jump between targets
+tgt ingest <user> <pass> --zip               # bloodhound JSON lands in dc01-host/loot/
 ```
+
+A scenario can hold many DCs (`tgt dc new` again, or run with no
+flags for the wizard). `tgt dc switch <alias>` flips which one's
+active. The prompt picks up the change as `[scenario:target@dc-alias]`.
 
 ### Wrapping up
 
