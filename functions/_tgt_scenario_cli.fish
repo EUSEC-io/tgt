@@ -43,6 +43,9 @@ function _tgt_scenario_cli
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines (new scenario has no targets to add yet).
             _tgt_hosts_apply_scenario $name
+            # And /etc/krb5.conf — strips old tgt-managed realm
+            # blocks; new scenario has no DCs to add yet.
+            _tgt_krb5_apply_scenario $name
             echo "✓ scenario '$name' created and active"
             if _tgt_workspace_autocreate
                 if _tgt_workspace_create $name
@@ -234,6 +237,9 @@ function _tgt_scenario_cli
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines, add the new scenario's.
             _tgt_hosts_apply_scenario $name
+            # Same for /etc/krb5.conf — managed realm blocks flip
+            # to whatever DCs exist in the new scenario.
+            _tgt_krb5_apply_scenario $name
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack
@@ -339,6 +345,15 @@ function _tgt_scenario_cli
                     _tgt_clean_krb5 $r
                     echo "  ✓ removed $r from /etc/krb5.conf"
                 end
+            end
+            # Re-apply krb5 so the removed scenario's tgt-managed DC
+            # blocks are stripped. If another scenario is still active,
+            # apply that; otherwise pass the removed name (which now
+            # has no DCs, so it just strips and adds nothing).
+            if set -q TGT_SCENARIO
+                _tgt_krb5_apply_scenario $TGT_SCENARIO
+            else
+                _tgt_krb5_apply_scenario $name
             end
             echo "✓ scenario '$name' removed"
             if set -q _flag_purge_workspace

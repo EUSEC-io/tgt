@@ -143,6 +143,7 @@ function _tgt_dc_cli
             end
 
             test $rc -eq 0; or return $rc
+            _tgt_krb5_apply_scenario $scenario
             set_color green; echo "✓ DC '$alias' created in '$scenario'"; set_color normal
             return 0
 
@@ -162,6 +163,7 @@ function _tgt_dc_cli
                 return 1
             end
             _tgt_dc_destroy $scenario $alias
+            _tgt_krb5_apply_scenario $scenario
             set_color green; echo "✓ DC '$alias' removed from '$scenario'"; set_color normal
             return 0
 
