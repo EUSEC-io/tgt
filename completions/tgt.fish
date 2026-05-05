@@ -85,7 +85,7 @@ complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subco
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt scenario <verb> ────────────────────────────────────────────
-set -l scenario_subs new list show switch rm rename archive unarchive import
+set -l scenario_subs new list show switch rm rename clone archive unarchive import
 
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a new       -d 'Create a new scenario, switch to it'
@@ -101,6 +101,8 @@ complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_su
     -a unarchive -d 'Surface an archived scenario again'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a rename    -d 'Rename a scenario; retags /etc/hosts and moves workspace folder'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a clone     -d 'Copy a scenario (targets + DCs) into a new one; workspace not copied'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a rm        -d 'Delete a scenario'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
@@ -126,8 +128,8 @@ complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcom
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch' \
     -s a -l all      -d 'Include archived in the picker'
 
-# tgt scenario {switch,show,rm} <name>
-complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm rename archive unarchive' \
+# tgt scenario {switch,show,rm,...} <name>
+complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from switch show rm rename clone archive unarchive' \
     -a '(__tgt_complete_scenarios)' -d scenario
 complete -c tgt -n '__fish_seen_subcommand_from scenario; and __fish_seen_subcommand_from rm' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'

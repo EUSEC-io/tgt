@@ -15,6 +15,7 @@ tgt scenario list [--all|--archived]    active by default
 tgt scenario show [name]                per-scenario dashboard
 tgt scenario switch [--all] [name]      no name → fzf
 tgt scenario rename [<old>] <new>       retags hosts + moves workspace
+tgt scenario clone  [<src>] <new>       copy targets+DCs (NOT workspace)
 tgt scenario archive   [name]           hide from default list
 tgt scenario unarchive [name]           surface again
 tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]
@@ -83,6 +84,7 @@ tgt prompt uninstall
 | `tgt scenario show [name]` | Dashboard: details + per-target table (host, creds, AD, hostname count). |
 | `tgt scenario switch [--all] [name]` | Switch active scenario; no arg → fzf picker. Archived hidden by default; `--all` to surface them. |
 | `tgt scenario rename [<old>] <new>` | Rename a scenario; retags every target's `/etc/hosts` lines and moves the workspace folder. |
+| `tgt scenario clone [<src>] <new>` | Duplicate the source scenario's registry state (targets, port records, DCs, active-DC marker) into a new scenario. Does NOT copy the workspace folder. No-arg form drops into a picker for src + prompt for new name. Doesn't activate the clone. |
 | `tgt scenario archive [name]` / `unarchive [name]` | Hide a scenario from the default list (touches `.archived` marker), or surface it again. |
 | `tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]` | Bulk-import each subdir under `<path>` as a scenario. |
 | `tgt scenario rm [name] [--purge-workspace]` | Delete scenario + `/etc/hosts` entries; `--purge-workspace` also `rm -rf`s its folder. |

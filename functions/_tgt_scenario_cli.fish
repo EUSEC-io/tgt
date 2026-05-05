@@ -259,6 +259,49 @@ function _tgt_scenario_cli
             _tgt_scenario_import $rest
             return $status
 
+        case clone
+            set -l src ""
+            set -l new ""
+            if test (count $rest) -ge 2
+                set src $rest[1]
+                set new $rest[2]
+            else if test (count $rest) -ge 1
+                if not set -q TGT_SCENARIO
+                    echo "tgt scenario clone: no active scenario. Specify <src> <new>." >&2
+                    return 1
+                end
+                set src $TGT_SCENARIO
+                set new $rest[1]
+            else
+                # Interactive mode: pick source, then ask for new name.
+                set -l scenarios (_tgt_scenario_list)
+                if test (count $scenarios) -eq 0
+                    echo "tgt scenario clone: no scenarios to clone" >&2
+                    return 1
+                end
+                set src (_tgt_pick "scenario to clone" $scenarios)
+                test -z "$src"; and return 1
+                set new (_tgt_ask_text "new scenario name" "")
+                if test -z "$new"
+                    set_color brblack; echo "  cancelled."; set_color normal
+                    return 1
+                end
+            end
+            if test "$src" = "$new"
+                echo "tgt scenario clone: source and target names match, nothing to do" >&2
+                return 1
+            end
+            _tgt_scenario_clone $src $new
+            or return $status
+            set_color green; echo "✓ scenario '$src' cloned to '$new'"; set_color normal
+            set -l target_count (count (_tgt_target_list $new))
+            set -l dc_count (count (_tgt_dc_list $new))
+            set_color brblack
+            echo "  carried over: $target_count target(s), $dc_count DC(s)"
+            echo "  workspace folder NOT copied — `tgt scenario switch $new` to enter it"
+            set_color normal
+            return 0
+
         case rename
             set -l old ""
             set -l new ""
