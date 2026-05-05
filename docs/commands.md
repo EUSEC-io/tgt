@@ -55,6 +55,7 @@ tgt dc new <alias> --domain <d> [--realm <R>]
                    [--kdc-host <h>] [--kdc-ip <ip>]
                    [--admin-host <h>] [--admin-ip <ip>]
 tgt dc new                              (no flags) drops into wizard
+tgt dc edit [alias]                     wizard with current values prefilled
 tgt dc switch [alias]                   load DC env vars + set default_realm
 tgt dc unset                            clear $TGT_DC_* + per-scenario marker
 tgt dc rm [alias]
@@ -168,6 +169,7 @@ one tagged line in `/etc/hosts`.
 | `tgt dc` / `tgt dc list` | List all DCs in the active scenario. |
 | `tgt dc show [alias]` | Detailed view; the kdc/admin lines render `host  →  ip` when both are stored. |
 | `tgt dc new <alias> ...` | Create a DC entry. Auto-activates. Drops into wizard with no data flags. |
+| `tgt dc edit [alias]` | Re-open the wizard for an existing entry with current values prefilled. Empty answers keep the current value (clearing a field isn't supported via the wizard — `tgt dc rm` + `tgt dc new` if you need to drop one). |
 | `tgt dc switch [alias]` | Activate a DC (loads env vars, sets `default_realm`). |
 | `tgt dc unset` | Clear `$TGT_DC_*` and the per-scenario active marker. |
 | `tgt dc rm [alias]` | Remove a DC entry. Re-applies krb5 + hosts to clean up. |

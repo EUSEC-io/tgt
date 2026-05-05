@@ -8,6 +8,7 @@
 #                      [--admin-host <h>] [--admin-ip <ip>]
 #   tgt dc switch [alias]       activate (loads env, sets default_realm)
 #   tgt dc unset                clear active-DC env vars + per-scenario marker
+#   tgt dc edit [alias]         interactive editor with current values prefilled
 #   tgt dc rm   [alias]         remove a DC entry
 #
 # Active-DC behavior: `tgt dc new` auto-activates the just-created
@@ -192,6 +193,24 @@ function _tgt_dc_cli
                 echo "- no DC was active"
             end
             return 0
+
+        case edit
+            set -l alias $rest[1]
+            if test -z "$alias"
+                set -l aliases (_tgt_dc_list $scenario)
+                if test (count $aliases) -eq 0
+                    echo "tgt dc edit: no DCs in scenario '$scenario'" >&2
+                    return 1
+                end
+                set alias (_tgt_pick "DC to edit" $aliases)
+                test -z "$alias"; and return 1
+            end
+            if not _tgt_dc_exists $scenario $alias
+                echo "tgt dc edit: DC '$alias' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            _tgt_dc_edit_wizard $scenario $alias
+            return $status
 
         case rm
             set -l alias $rest[1]
