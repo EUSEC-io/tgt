@@ -9,6 +9,7 @@
 #   tgt dc switch [alias]       activate (loads env, sets default_realm)
 #   tgt dc unset                clear active-DC env vars + per-scenario marker
 #   tgt dc edit [alias]         interactive editor with current values prefilled
+#   tgt dc rename [<old>] <new> rename a DC entry (alias the active one when <old> omitted)
 #   tgt dc rm   [alias]         remove a DC entry
 #
 # Active-DC behavior: `tgt dc new` auto-activates the just-created
@@ -192,6 +193,67 @@ function _tgt_dc_cli
                 _tgt_dc_clear_active $scenario
                 echo "- no DC was active"
             end
+            return 0
+
+        case rename
+            set -l old ""
+            set -l new ""
+            if test (count $rest) -ge 2
+                set old $rest[1]
+                set new $rest[2]
+            else if test (count $rest) -ge 1
+                set old (_tgt_dc_get_active $scenario 2>/dev/null)
+                if test -z "$old"
+                    echo "tgt dc rename: no active DC. Specify <old> <new>." >&2
+                    return 1
+                end
+                set new $rest[1]
+            else
+                echo "Usage: tgt dc rename [<old>] <new>" >&2
+                return 1
+            end
+            if test "$old" = "$new"
+                echo "tgt dc rename: same name, nothing to do" >&2
+                return 1
+            end
+            if not _tgt_dc_validate_name $new
+                echo "tgt dc rename: invalid name '$new' (allowed: A-Z a-z 0-9 _ -)" >&2
+                return 1
+            end
+            if not _tgt_dc_exists $scenario $old
+                echo "tgt dc rename: DC '$old' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            if _tgt_dc_exists $scenario $new
+                echo "tgt dc rename: DC '$new' already exists in scenario '$scenario'" >&2
+                return 1
+            end
+
+            set -l old_file (_tgt_dc_file $scenario $old)
+            set -l new_file (_tgt_dc_file $scenario $new)
+            if not command mv -- $old_file $new_file
+                echo "tgt dc rename: failed to move registry file" >&2
+                return 1
+            end
+
+            # If the renamed DC was active, repoint the marker and
+            # the in-shell TGT_DC_NAME (when this scenario is the
+            # active one).
+            set -l active (_tgt_dc_get_active $scenario 2>/dev/null)
+            if test "$active" = "$old"
+                _tgt_dc_set_active $scenario $new
+                if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$scenario"
+                    and set -q TGT_DC_NAME; and test "$TGT_DC_NAME" = "$old"
+                    _tgt_export TGT_DC_NAME $new
+                end
+            end
+
+            # Re-emit krb5 + hosts so the `# tgt:dc:<scen>:<alias>`
+            # comment markers carry the new name.
+            _tgt_krb5_apply_scenario $scenario
+            _tgt_hosts_apply_scenario $scenario
+
+            set_color green; echo "✓ renamed DC '$old' → '$new'"; set_color normal
             return 0
 
         case edit

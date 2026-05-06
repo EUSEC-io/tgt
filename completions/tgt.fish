@@ -187,7 +187,7 @@ complete -c tgt -n "__fish_seen_subcommand_from ports; and not __fish_seen_subco
 complete -c tgt -n '__fish_seen_subcommand_from ports; and __fish_seen_subcommand_from add' -F
 
 # ── tgt dc <verb> ──────────────────────────────────────────────────
-set -l dc_subs list show rm new switch unset edit
+set -l dc_subs list show rm new switch unset edit rename
 
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a list   -d 'List DCs in the active scenario'
@@ -198,14 +198,16 @@ complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcomma
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a edit   -d 'Edit an existing DC entry (wizard with prefilled defaults)'
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
+    -a rename -d 'Rename a DC entry (alias the active one with single arg)'
+complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a switch -d 'Activate a DC (loads env, sets default_realm)'
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a unset  -d 'Clear active-DC env vars + per-scenario marker'
 complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcommand_from $dc_subs" \
     -a rm     -d 'Remove a DC entry'
 
-# show / rm / switch / edit: complete from active-scenario DC aliases
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from show rm switch edit' \
+# show / rm / switch / edit / rename: complete from active-scenario DC aliases
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from show rm switch edit rename' \
     -a '(__tgt_complete_active_dcs)' -d dc
 
 # `tgt dc new` flag completions
