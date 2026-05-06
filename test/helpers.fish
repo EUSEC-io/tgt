@@ -8,20 +8,52 @@
 
 set -g _test_dir (status dirname)
 
-# Sourced from every test file: erase any TGT_* globals inherited
-# from the user's environment (exported by their config.fish or
-# `tgt config`). Tests are isolated from the user's real settings —
-# without this, any global set by the user's shell would leak in
-# and break "default / unset" assertions.
-for _v in TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_HOSTS \
-          TGT_DC TGT_DC_NAME TGT_DC_DOMAIN TGT_DC_REALM \
-          TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP \
-          TGT_SCENARIO TGT_ACTIVE \
-          TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
-          TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE
+# Vars the test suite expects to start unset. Any of these set in
+# the calling shell (global or universal) would leak into tests
+# that assert "default / unset" state.
+set -g _tgt_test_isolated_vars \
+    TGT TGT_PORT TGT_USERNAME TGT_PASSWORD TGT_HOSTS \
+    TGT_DC TGT_DC_NAME TGT_DC_DOMAIN TGT_DC_REALM \
+    TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP \
+    TGT_SCENARIO TGT_ACTIVE \
+    TGT_WORKSPACE_ROOT TGT_WORKSPACE_LAYOUT TGT_WORKSPACE_AUTOCREATE \
+    TGT_WORKSPACE_TARGET_TEMPLATE TGT_WORKSPACE_SCENARIO_TEMPLATE
+
+# Per-test-file: erase any inherited globals.
+for _v in $_tgt_test_isolated_vars
     set -qg $_v; and set -eg $_v
 end
 set -e _v
+
+# One-shot per fishtape session: snapshot any universals that real
+# `tgt` use leaves behind (TGT_SCENARIO / TGT_ACTIVE / etc.), erase
+# them so tests see a clean shell, and register a fish_exit handler
+# to restore them when the test process ends. The sentinel keeps
+# repeated `source helpers.fish` from re-snapshotting an already-
+# emptied state.
+if not set -q __tgt_test_universals_isolated
+    set -gx __tgt_test_universals_isolated 1
+    set -g _tgt_test_snapshot_keys
+    set -g _tgt_test_snapshot_vals
+    for _v in $_tgt_test_isolated_vars
+        set -qU $_v; or continue
+        set -a _tgt_test_snapshot_keys $_v
+        # Encode list values as space-joined for portability —
+        # restore re-splits. Empty universals get an empty token.
+        set -a _tgt_test_snapshot_vals (string join \x1f -- $$_v)
+    end
+    for _v in $_tgt_test_isolated_vars
+        set -qU $_v; and set -eU $_v
+    end
+    set -e _v
+
+    function __tgt_test_restore_universals --on-event fish_exit
+        for i in (seq (count $_tgt_test_snapshot_keys))
+            set -l items (string split \x1f -- $_tgt_test_snapshot_vals[$i])
+            set -Ux $_tgt_test_snapshot_keys[$i] $items
+        end
+    end
+end
 
 function _test_setup_krb5 --argument-names fixture
     set -gx TGT_TEST_MODE 1
