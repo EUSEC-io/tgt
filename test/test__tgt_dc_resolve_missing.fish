@@ -68,13 +68,14 @@ _tgt_scenario_cli new dante >/dev/null
 tgt dc new dc01 --domain dante.local --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 >/dev/null
 
 # Edit: keep domain/realm, change host to ms01 (which IS in /etc/hosts),
-# explicitly clear the IP (empty + y).
+# explicitly clear the IP via the `!` sentinel.
 set -gx TGT_ASK_QUEUE \
     "" \
     "" \
     ms01.dante.local \
-    "" y \
-    "" ""
+    "!" \
+    "" \
+    ""
 _tgt_dc_edit_wizard dante dc01 >/dev/null
 
 _tgt_dc_clear_runtime

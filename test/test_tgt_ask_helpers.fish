@@ -60,22 +60,21 @@ set -l empty_text_result (echo "" | _tgt_ask_text "Port" "")
 @test "ask_password: non-empty input returned verbatim" \
     (echo "hunter2" | _tgt_ask_password "Password" no) = "hunter2"
 
-# When has_current=yes and input is empty, ask_password fires a
-# clear-confirm. The default (no answer / EOF) keeps the current
-# password — signalled to the caller via "<KEEP>".
+# When has_current=yes and input is empty, ask_password returns
+# the "<KEEP>" sentinel — caller interprets that as "leave the
+# current password alone".
 set -l empty_pw_keep (echo "" | _tgt_ask_password "Password" yes)
-@test "ask_password: empty + has_current=yes → <KEEP> (default keeps)" \
+@test "ask_password: empty + has_current=yes → <KEEP>" \
     "$empty_pw_keep" = "<KEEP>"
 
-# Same scenario but the user explicitly confirms clearing → empty.
-set -gx TGT_ASK_QUEUE "" y
-set -l empty_pw_clear (_tgt_ask_password "Password" yes)
-@test "ask_password: empty + confirm yes → empty (clear intent)" \
-    -z "$empty_pw_clear"
-set -e TGT_ASK_QUEUE
+# To clear, the user types a literal `!` (the explicit delete
+# sentinel). Helper returns empty.
+set -l clear_pw (echo "!" | _tgt_ask_password "Password" yes)
+@test "ask_password: '!' + has_current=yes → empty (clear)" \
+    -z "$clear_pw"
 
 set -l empty_pw_no (echo "" | _tgt_ask_password "Password" no)
-@test "ask_password: empty + has_current=no → empty (no confirm)" \
+@test "ask_password: empty + has_current=no → empty (skip)" \
     -z "$empty_pw_no"
 
 set -e TGT_TEST_MODE

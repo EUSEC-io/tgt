@@ -12,10 +12,10 @@ tgt dc new dc01 \
     --admin-host dc01.dante.local --admin-ip 10.10.10.5 \
     >/dev/null
 
-# Optional fields (kdc_host, kdc_ip, admin_host, admin_ip) all have
-# non-empty defaults, so each empty answer fires a clear-confirm
-# prompt (defaults to "n"). Queue: 6 field-prompts + 4 confirms.
-set -gx TGT_ASK_QUEUE "" "" "" "" "" "" "" "" "" ""
+# All-empty answers keep every field at its current value. Six
+# prompts in order: domain, realm, kdc-host, kdc-ip, admin-host,
+# admin-ip.
+set -gx TGT_ASK_QUEUE "" "" "" "" "" ""
 _tgt_dc_edit_wizard dante dc01 >/dev/null
 
 @test "edit (all-defaults): TGT_DC_DOMAIN unchanged" \
@@ -33,9 +33,9 @@ _tgt_dc_edit_wizard dante dc01 >/dev/null
 _test_teardown
 
 #
-# Edit + confirm-clear: user explicitly clears the kdc-host while
-# keeping kdc-ip. The cleared field's /etc/hosts mapping is dropped
-# but the IP-only kdc line remains in krb5.
+# Edit + clear via `!` sentinel: user types `!` for kdc-host to
+# drop it. kdc-ip stays via empty (keep). Resulting state: krb5
+# falls back to IP, /etc/hosts entry dropped.
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
@@ -44,24 +44,39 @@ tgt dc new dc01 \
     --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 \
     >/dev/null
 
-# Queue order:
-#   domain "" (keep — _tgt_ask_text, no confirm)
-#   realm "" (keep)
-#   kdc_host "" (empty input → confirm) + "y" (clear it)
-#   kdc_ip "" (empty input → confirm) + "n" (keep)
-#   admin_host "" (empty default → no confirm fires)
-#   admin_ip "" (empty default → no confirm fires)
-set -gx TGT_ASK_QUEUE "" "" "" y "" n "" ""
+# Queue order: domain, realm, kdc-host, kdc-ip, admin-host, admin-ip.
+# `!` clears, "" keeps the default.
+set -gx TGT_ASK_QUEUE "" "" "!" "" "" ""
 _tgt_dc_edit_wizard dante dc01 >/dev/null
 
-@test "edit (clear kdc-host): TGT_DC_HOST cleared" \
+@test "edit (clear kdc-host with '!'): TGT_DC_HOST cleared" \
     (set -q TGT_DC_HOST; echo $status) -ne 0
-@test "edit (clear kdc-host): TGT_DC_IP retained" \
+@test "edit (clear kdc-host with '!'): TGT_DC_IP retained" \
     "$TGT_DC_IP" = 10.10.10.5
-@test "edit (clear kdc-host): krb5 kdc switched from host to IP" \
+@test "edit (clear kdc-host with '!'): krb5 kdc switched from host to IP" \
     (cat $TGT_KRB5_FILE | string match -q '*kdc = 10.10.10.5*'; echo $status) -eq 0
-@test "edit (clear kdc-host): /etc/hosts entry dropped" \
+@test "edit (clear kdc-host with '!'): /etc/hosts entry dropped" \
     (cat $TGT_HOSTS_FILE | string match -q '*tgt:dc:dante:dc01*'; echo $status) -ne 0
+_test_teardown
+
+#
+# Clearing the IP via `!` and keeping the host: IP stays cleared.
+# The resolver doesn't re-fill it (skip-on-explicit-clear).
+#
+_test_setup_home
+echo "10.10.10.5 dc01.dante.local" > $TGT_HOSTS_FILE
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 --domain dante.local --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 >/dev/null
+
+# Queue: domain "" (keep), realm "" (keep), kdc-host "" (keep),
+# kdc-ip "!" (clear), admin-host "" (keep), admin-ip "" (keep).
+set -gx TGT_ASK_QUEUE "" "" "" "!" "" ""
+_tgt_dc_edit_wizard dante dc01 >/dev/null
+
+@test "edit (clear kdc-ip with '!'): TGT_DC_IP cleared" \
+    (set -q TGT_DC_IP; echo $status) -ne 0
+@test "edit (clear kdc-ip with '!'): TGT_DC_HOST retained" \
+    "$TGT_DC_HOST" = dc01.dante.local
 _test_teardown
 
 #
