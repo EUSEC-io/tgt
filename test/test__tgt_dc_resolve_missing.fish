@@ -90,6 +90,44 @@ _tgt_dc_load dante dc01
 _test_teardown
 
 #
+# In-wizard resolution: typing a hostname makes the IP prompt's
+# default the freshly-resolved value. User accepting it (empty
+# input) yields IP_SOURCE = the resolver's source.
+#
+_test_setup_home
+echo "10.20.20.7 srv.example.com" > $TGT_HOSTS_FILE
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT_ASK_QUEUE example.com "" srv.example.com "" "" ""
+_tgt_dc_wizard dante dc01 >/dev/null
+
+_tgt_dc_clear_runtime
+_tgt_dc_load dante dc01
+
+@test "in-wizard resolve: IP filled from default (resolved at host prompt)" \
+    "$TGT_DC_IP" = 10.20.20.7
+@test "in-wizard resolve: source attributed to the resolver" \
+    "$TGT_DC_IP_SOURCE" = hosts
+_test_teardown
+
+#
+# In-wizard resolution: user can override the suggested IP.
+#
+_test_setup_home
+echo "10.20.20.7 srv.example.com" > $TGT_HOSTS_FILE
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT_ASK_QUEUE example.com "" srv.example.com 1.2.3.4 "" ""
+_tgt_dc_wizard dante dc01 >/dev/null
+
+_tgt_dc_clear_runtime
+_tgt_dc_load dante dc01
+
+@test "in-wizard resolve override: IP is user's choice" \
+    "$TGT_DC_IP" = 1.2.3.4
+@test "in-wizard resolve override: source = user" \
+    "$TGT_DC_IP_SOURCE" = user
+_test_teardown
+
+#
 # Edit: user changes host but leaves IP empty (it was already empty).
 # Resolver fires for the new host because no explicit-clear intent
 # was registered (cur_kdc_ip was empty too).

@@ -171,7 +171,7 @@ one tagged line in `/etc/hosts`.
 | `tgt dc` / `tgt dc list` | List all DCs in the active scenario. |
 | `tgt dc show [alias]` | Detailed view; the kdc/admin lines render `host  →  ip` when both are stored. |
 | `tgt dc new <alias> ...` | Create a DC entry. Auto-activates. Drops into wizard with no data flags. |
-| `tgt dc edit [alias]` | Re-open the wizard for an existing entry with current values prefilled. Empty input keeps the current value. Type a single `!` on an optional field (kdc-host, kdc-ip, admin-host, admin-ip) to clear it. |
+| `tgt dc edit [alias]` | Re-open the wizard for an existing entry with current values prefilled. Empty input keeps the current value. To clear an optional field, type `!` (or `<existing-value>!` if your prompt pre-filled — gum does that). When you supply or change a hostname, the wizard immediately resolves the IP and pre-fills the IP prompt with it. |
 | `tgt dc rename [<old>] <new>` | Rename a DC entry. Re-emits the krb5 + `/etc/hosts` comment markers with the new alias. With one arg, renames the active DC. |
 | `tgt dc switch [alias]` | Activate a DC (loads env vars, sets `default_realm`). |
 | `tgt dc unset` | Clear `$TGT_DC_*` and the per-scenario active marker. |
@@ -193,12 +193,14 @@ DNS); IP-only entries use the IP. With both stored, krb5 gets the
 hostname and `/etc/hosts` makes resolution reliable.
 
 **IP resolution at create/edit time:** when you supply only a
-hostname, `tgt dc` tries to fill in the IP itself — first by
-scanning `/etc/hosts` for a matching entry, then by a short DNS
-probe. The discovered IP is saved with a `*_SOURCE` field
+hostname, `tgt dc` resolves the IP as soon as you finish typing
+the host — first by scanning manual `/etc/hosts` entries, then by
+a short DNS probe. The resolved value pre-fills the IP prompt;
+press Enter to accept, type a different value to override, or `!`
+to clear. The chosen value is saved with a `*_SOURCE` field
 (`user`, `hosts`, or `dns`) so `tgt dc show` can attribute it.
-Resolution only runs at create/edit; subsequent scenario switches
-just use whatever's stored.
+Resolution only runs at create/edit; scenario switches just use
+whatever's stored.
 
 **Lowercase in `/etc/hosts`:** hostnames are lowercased on the
 way into `/etc/hosts` (DNS is case-insensitive — this prevents

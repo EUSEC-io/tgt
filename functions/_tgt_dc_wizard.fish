@@ -45,7 +45,23 @@ function _tgt_dc_wizard --argument-names scenario init_alias
     echo "    • both         krb5 uses the hostname; /etc/hosts maps it to the IP"
     set_color normal
     set -l kdc_host (_tgt_ask_text "KDC hostname (optional)" "")
-    set -l kdc_ip   (_tgt_ask_text "KDC IP (optional)" "")
+
+    # In-wizard resolution: if the user supplied a hostname, try
+    # to resolve it now so the IP prompt's default is the freshly
+    # discovered value. Press Enter to accept, or type a different IP.
+    set -l kdc_ip_default ""
+    set -l kdc_ip_default_src ""
+    if test -n "$kdc_host"
+        set -l result (_tgt_resolve_ip $kdc_host)
+        if test (count $result) -ge 2
+            set kdc_ip_default $result[1]
+            set kdc_ip_default_src $result[2]
+            set_color brblack >&2
+            echo "    [resolved $kdc_host → $result[1] via $result[2]]" >&2
+            set_color normal >&2
+        end
+    end
+    set -l kdc_ip (_tgt_ask_text "KDC IP (optional)" $kdc_ip_default)
     if test -z "$kdc_host"; and test -z "$kdc_ip"
         echo "tgt dc new: at least one of KDC hostname or IP is required" >&2
         return 1
@@ -57,7 +73,20 @@ function _tgt_dc_wizard --argument-names scenario init_alias
     echo "  admin_server (optional — used for password changes via kpasswd):"
     set_color normal
     set -l admin_host (_tgt_ask_text "admin_server hostname (optional)" "")
-    set -l admin_ip   (_tgt_ask_text "admin_server IP (optional)" "")
+
+    set -l admin_ip_default ""
+    set -l admin_ip_default_src ""
+    if test -n "$admin_host"
+        set -l result (_tgt_resolve_ip $admin_host)
+        if test (count $result) -ge 2
+            set admin_ip_default $result[1]
+            set admin_ip_default_src $result[2]
+            set_color brblack >&2
+            echo "    [resolved $admin_host → $result[1] via $result[2]]" >&2
+            set_color normal >&2
+        end
+    end
+    set -l admin_ip (_tgt_ask_text "admin_server IP (optional)" $admin_ip_default)
 
     # Clear stale state first — absent answers should land as
     # unset, not pick up the previously-active DC's values.
@@ -67,8 +96,18 @@ function _tgt_dc_wizard --argument-names scenario init_alias
     set -gx TGT_DC_REALM $realm
     test -n "$kdc_host"   ; and set -gx TGT_DC_HOST $kdc_host
     test -n "$kdc_ip"     ; and set -gx TGT_DC_IP $kdc_ip
+    # IP source: if user accepted the in-wizard resolved default,
+    # attribute to the resolver. Otherwise it's user input — and
+    # `_tgt_dc_finalize_new` will mark TGT_DC_IP_SOURCE=user via
+    # its own logic when SOURCE isn't already set.
+    if test -n "$kdc_ip"; and test "$kdc_ip" = "$kdc_ip_default"; and test -n "$kdc_ip_default_src"
+        set -gx TGT_DC_IP_SOURCE $kdc_ip_default_src
+    end
     test -n "$admin_host" ; and set -gx TGT_DC_ADMIN_HOST $admin_host
     test -n "$admin_ip"   ; and set -gx TGT_DC_ADMIN_IP $admin_ip
+    if test -n "$admin_ip"; and test "$admin_ip" = "$admin_ip_default"; and test -n "$admin_ip_default_src"
+        set -gx TGT_DC_ADMIN_IP_SOURCE $admin_ip_default_src
+    end
 
     _tgt_dc_finalize_new $scenario $alias
     or return $status

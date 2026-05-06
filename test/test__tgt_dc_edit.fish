@@ -60,6 +60,24 @@ _tgt_dc_edit_wizard dante dc01 >/dev/null
 _test_teardown
 
 #
+# Gum's input pre-fill puts the cursor at the end of the default
+# value, so typing `!` without first deleting yields "<default>!".
+# That form is also recognized as a clear-intent.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 --domain dante.local --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 >/dev/null
+
+set -gx TGT_ASK_QUEUE "" "" "" "10.10.10.5!" "" ""
+_tgt_dc_edit_wizard dante dc01 >/dev/null
+
+@test "edit (gum-prefill clear: '<default>!'): IP cleared" \
+    (set -q TGT_DC_IP; echo $status) -ne 0
+@test "edit (gum-prefill clear: '<default>!'): host retained" \
+    "$TGT_DC_HOST" = dc01.dante.local
+_test_teardown
+
+#
 # Clearing the IP via `!` and keeping the host: IP stays cleared.
 # The resolver doesn't re-fill it (skip-on-explicit-clear).
 #

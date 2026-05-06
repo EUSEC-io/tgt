@@ -4,12 +4,15 @@
 # delete sentinel.
 #
 # Behavior:
-#   default empty + input empty   → returns empty (nothing to keep,
-#                                                  nothing to clear)
-#   default empty + input X       → returns X
-#   default non-empty + input ""  → returns default (keep)
-#   default non-empty + input "!" → returns empty (clear)
-#   default non-empty + input X   → returns X (replace)
+#   default empty + input empty       → returns empty
+#   default empty + input X           → returns X
+#   default non-empty + input ""      → returns default (keep)
+#   default non-empty + input "!"     → returns empty (clear)
+#   default non-empty + input "X!"    → also clear when X == default
+#                                       (gum pre-fills the input;
+#                                        users typing "!" on top
+#                                        of the default get default!)
+#   default non-empty + input X       → returns X (replace)
 #
 # Use this for OPTIONAL fields in edit wizards where the user
 # might want to drop the value rather than just keep or replace it.
@@ -21,7 +24,7 @@ function _tgt_ask_text_optional --argument-names label default
     if set -q TGT_ASK_QUEUE; and test (count $TGT_ASK_QUEUE) -gt 0
         set -l value $TGT_ASK_QUEUE[1]
         set -e TGT_ASK_QUEUE[1]
-        if test "$value" = "!"
+        if test "$value" = "!"; or begin; test -n "$default"; and test "$value" = "$default!"; end
             echo ""
             return 0
         end
@@ -49,7 +52,7 @@ function _tgt_ask_text_optional --argument-names label default
         set -l rc $status
         echo "" >&2
         test $rc -ne 0; and return $rc
-        if test "$value" = "!"
+        if test "$value" = "!"; or begin; test -n "$default"; and test "$value" = "$default!"; end
             echo ""
             return 0
         end
