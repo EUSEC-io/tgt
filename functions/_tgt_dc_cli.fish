@@ -229,8 +229,12 @@ function _tgt_dc_cli
             end
             _tgt_dc_destroy $scenario $alias
             # Clear active marker (and current-shell runtime) if we
-            # just removed the active DC.
-            if test "$alias" = (_tgt_dc_get_active $scenario 2>/dev/null)
+            # just removed the active DC. Capture the active alias
+            # into a local first — splicing the command sub directly
+            # into `test ... = ...` breaks when there's no active DC
+            # (the empty expansion eats the third arg).
+            set -l active (_tgt_dc_get_active $scenario 2>/dev/null)
+            if test "$alias" = "$active"
                 _tgt_dc_clear_active $scenario
                 _tgt_dc_clear_runtime
             end
