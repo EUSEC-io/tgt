@@ -1,7 +1,27 @@
 # Ask a yes/no question. `default_yn` is 'y' or 'n'.
 # Echoes 'yes' or 'no' on stdout and returns 0 on a clean answer.
 # Returns non-zero only on abort (Ctrl-C / gum failure).
+#
+# Test injection: when `TGT_ASK_QUEUE` is set and non-empty, pop
+# the first entry and use it as the answer. Same queue as
+# `_tgt_ask_text` so multi-prompt wizard tests can drive both.
 function _tgt_ask_confirm --argument-names label default_yn
+    if set -q TGT_ASK_QUEUE; and test (count $TGT_ASK_QUEUE) -gt 0
+        set -l value $TGT_ASK_QUEUE[1]
+        set -e TGT_ASK_QUEUE[1]
+        if test -z "$value"
+            test "$default_yn" = y; and echo yes; or echo no
+            return 0
+        end
+        switch (string lower -- $value)
+            case y yes 1 true
+                echo yes
+            case '*'
+                echo no
+        end
+        return 0
+    end
+
     if command -q gum; and not set -q TGT_TEST_MODE; and not set -q TGT_NO_GUM
         echo "" >&2
         if test "$default_yn" = y

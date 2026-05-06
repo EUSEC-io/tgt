@@ -53,13 +53,13 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
 
     echo
     set_color brblack
-    echo "  KDC — hostname, IP, or both. Empty answers clear the field:"
+    echo "  KDC — hostname, IP, or both. Empty answer prompts to clear the field:"
     echo "    • host alone   krb5 uses the hostname (DNS must resolve it)"
     echo "    • IP alone     krb5 uses the IP directly"
     echo "    • both         krb5 uses the hostname; /etc/hosts maps it to the IP"
     set_color normal
-    set -l kdc_host (_tgt_ask_text "KDC hostname (optional)" $cur_kdc_host)
-    set -l kdc_ip   (_tgt_ask_text "KDC IP (optional)" $cur_kdc_ip)
+    set -l kdc_host (_tgt_ask_text_optional "KDC hostname (optional)" $cur_kdc_host)
+    set -l kdc_ip   (_tgt_ask_text_optional "KDC IP (optional)" $cur_kdc_ip)
     if test -z "$kdc_host"; and test -z "$kdc_ip"
         echo "tgt dc edit: at least one of KDC hostname or IP is required" >&2
         return 1
@@ -69,8 +69,8 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
     set_color brblack
     echo "  admin_server (optional — used for password changes via kpasswd):"
     set_color normal
-    set -l admin_host (_tgt_ask_text "admin_server hostname (optional)" $cur_admin_host)
-    set -l admin_ip   (_tgt_ask_text "admin_server IP (optional)" $cur_admin_ip)
+    set -l admin_host (_tgt_ask_text_optional "admin_server hostname (optional)" $cur_admin_host)
+    set -l admin_ip   (_tgt_ask_text_optional "admin_server IP (optional)" $cur_admin_ip)
 
     # Clear staging slots first so blanked answers actually drop the
     # corresponding TGT_DC_* line instead of inheriting old state.

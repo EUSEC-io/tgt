@@ -171,7 +171,7 @@ one tagged line in `/etc/hosts`.
 | `tgt dc` / `tgt dc list` | List all DCs in the active scenario. |
 | `tgt dc show [alias]` | Detailed view; the kdc/admin lines render `host  →  ip` when both are stored. |
 | `tgt dc new <alias> ...` | Create a DC entry. Auto-activates. Drops into wizard with no data flags. |
-| `tgt dc edit [alias]` | Re-open the wizard for an existing entry with current values prefilled. Empty answers keep the current value (clearing a field isn't supported via the wizard — `tgt dc rm` + `tgt dc new` if you need to drop one). |
+| `tgt dc edit [alias]` | Re-open the wizard for an existing entry with current values prefilled. Empty input on an optional field with a current value triggers a "Clear?" confirm — `n` (default) keeps, `y` clears. Required fields (`domain`, `realm`) just keep on empty. |
 | `tgt dc rename [<old>] <new>` | Rename a DC entry. Re-emits the krb5 + `/etc/hosts` comment markers with the new alias. With one arg, renames the active DC. |
 | `tgt dc switch [alias]` | Activate a DC (loads env vars, sets `default_realm`). |
 | `tgt dc unset` | Clear `$TGT_DC_*` and the per-scenario active marker. |
