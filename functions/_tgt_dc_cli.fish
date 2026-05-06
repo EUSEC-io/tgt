@@ -32,7 +32,7 @@ function _tgt_dc_cli
     end
 
     switch $verb
-        case '' list
+        case list
             set -l aliases (_tgt_dc_list $scenario)
             if test (count $aliases) -eq 0
                 echo "(no DCs recorded for $scenario)"
@@ -46,6 +46,17 @@ function _tgt_dc_cli
                     $fields[1] $fields[2] $fields[3] $fields[4] $fields[5]
             end
             return 0
+
+        case ''
+            # No verb → drop into the switch picker (mirrors `tgt
+            # switch` / `tgt ports`). `tgt dc list` is for just-show-me.
+            set -l aliases (_tgt_dc_list $scenario)
+            if test (count $aliases) -eq 0
+                echo "(no DCs recorded for $scenario — `tgt dc new` to add one)"
+                return 0
+            end
+            _tgt_dc_cli switch
+            return $status
 
         case show
             set -l alias $rest[1]

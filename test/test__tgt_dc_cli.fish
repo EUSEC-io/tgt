@@ -266,6 +266,28 @@ _tgt_dc_cli new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
 _test_teardown
 
 #
+# `tgt dc` (no verb) drops into the switch picker, NOT a list dump.
+# Empty-DC case shows a friendly note instead.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -l out (_tgt_dc_cli 2>&1 | string collect)
+@test "dc_cli (no args, empty): friendly note" \
+    (string match -q '*no DCs recorded*' -- $out; echo $status) -eq 0
+
+# With DCs: bare `_tgt_dc_cli` should activate whichever the picker
+# returns. Use TGT_PICKER_TEST_RESULT to bypass the interactive bit.
+tgt dc new dc01 --domain dante.local --kdc-ip 1.1.1.1 >/dev/null
+tgt dc new dc02 --domain dante.local --kdc-ip 1.1.1.2 >/dev/null
+# dc02 is active (last-added). Picker returns dc01 → switch activates it.
+set -gx TGT_PICKER_TEST_RESULT dc01
+_tgt_dc_cli >/dev/null
+@test "dc_cli (no args, with DCs): picker activates the chosen one" \
+    "$TGT_DC_NAME" = dc01
+set -e TGT_PICKER_TEST_RESULT
+_test_teardown
+
+#
 # Top-level dispatch: `tgt dc list` reaches _tgt_dc_cli.
 #
 _test_setup_home
