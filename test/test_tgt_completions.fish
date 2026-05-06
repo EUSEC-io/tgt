@@ -188,3 +188,36 @@ set -l switch_names2 (_complete_names 'tgt switch ')
 @test "switch (dante active): does NOT list 'api'" \
     (contains api $switch_names2; echo $status) -ne 0
 _test_teardown
+
+#
+# `tgt dc rm <TAB>` lists only DC aliases — target aliases must NOT
+# bleed in even though `rm` is also a target verb.
+#
+_test_setup_home
+_test_setup_hosts empty.txt
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new web01 --no-edit >/dev/null
+tgt dc new dcX --domain dante.local --kdc-ip 10.10.10.5 >/dev/null
+set -l dc_rm_names (_complete_names 'tgt dc rm ')
+@test "dc rm completion: lists 'dcX' (DC alias)" \
+    (contains dcX $dc_rm_names; echo $status) -eq 0
+@test "dc rm completion: does NOT bleed in 'web01' (target alias)" \
+    (contains web01 $dc_rm_names; echo $status) -ne 0
+@test "dc switch completion: only DC aliases too" \
+    (contains web01 (_complete_names 'tgt dc switch '); echo $status) -ne 0
+@test "dc edit completion: only DC aliases too" \
+    (contains web01 (_complete_names 'tgt dc edit '); echo $status) -ne 0
+
+# Inverse: `tgt rm <TAB>` (top-level target rm) lists only targets,
+# not DCs.
+set -l tgt_rm_names (_complete_names 'tgt rm ')
+@test "tgt rm completion: lists 'web01'" \
+    (contains web01 $tgt_rm_names; echo $status) -eq 0
+@test "tgt rm completion: does NOT include 'dcX' (DC alias)" \
+    (contains dcX $tgt_rm_names; echo $status) -ne 0
+
+# Same for `tgt ports rm <TAB>` — target aliases must not appear.
+set -l ports_rm_names (_complete_names 'tgt ports rm ')
+@test "ports rm completion: does NOT include 'web01'" \
+    (contains web01 $ports_rm_names; echo $status) -ne 0
+_test_teardown

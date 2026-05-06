@@ -57,19 +57,19 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -s h -l help -d 'Show help'
 
 # ── tgt switch / rm / edit <target> (top-level, not scenario) ───────
-complete -c tgt -n '__fish_seen_subcommand_from switch; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from switch; and not __fish_seen_subcommand_from scenario dc ports' \
     -a '(__tgt_complete_active_targets)' -d target
-complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario dc ports' \
     -a '(__tgt_complete_active_targets)' -d target
-complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from rm; and not __fish_seen_subcommand_from scenario dc ports' \
     -l purge-workspace -d 'Also rm -rf the workspace folder'
-complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario dc ports' \
     -a '(__tgt_complete_active_targets)' -d target
-complete -c tgt -n '__fish_seen_subcommand_from rename; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from rename; and not __fish_seen_subcommand_from scenario dc ports' \
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt new (top-level): can take --no-edit ─────────────────────────
-complete -c tgt -n '__fish_seen_subcommand_from new; and not __fish_seen_subcommand_from scenario' \
+complete -c tgt -n '__fish_seen_subcommand_from new; and not __fish_seen_subcommand_from scenario dc ports' \
     -l no-edit -d 'Create the slot but skip the wizard'
 
 # ── tgt cd / tgt path ──────────────────────────────────────────────
