@@ -72,6 +72,15 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
     set -l admin_host (_tgt_ask_text_optional "admin_server hostname (optional)" $cur_admin_host)
     set -l admin_ip   (_tgt_ask_text_optional "admin_server IP (optional)" $cur_admin_ip)
 
+    # Capture explicit "user just cleared this" intent — we'll
+    # tell the resolver to skip these fields so the IP isn't
+    # quietly re-filled from a leftover /etc/hosts entry or DNS
+    # record after the user said "Clear it".
+    set -l skip_kdc 0
+    set -l skip_admin 0
+    test -n "$cur_kdc_ip"   ; and test -z "$kdc_ip"   ; and set skip_kdc 1
+    test -n "$cur_admin_ip" ; and test -z "$admin_ip" ; and set skip_admin 1
+
     # Clear staging slots first so blanked answers actually drop the
     # corresponding TGT_DC_* line instead of inheriting old state.
     for v in TGT_DC_DOMAIN TGT_DC_REALM \
@@ -91,9 +100,9 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
     _tgt_dc_save $scenario $alias
     or return $status
 
-    # Resolve any missing IPs (host given, ip empty) — the user
-    # may have just cleared the IP, or only provided the hostname.
-    _tgt_dc_resolve_missing $scenario $alias
+    # Resolve any missing IPs (host given, ip empty). Skip flags
+    # honor the "user cleared this" intent.
+    _tgt_dc_resolve_missing $scenario $alias $skip_kdc $skip_admin
 
     _tgt_krb5_apply_scenario $scenario
     _tgt_hosts_apply_scenario $scenario

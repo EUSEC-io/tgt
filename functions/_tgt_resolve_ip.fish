@@ -16,12 +16,16 @@ function _tgt_resolve_ip --argument-names host_name
     test -z "$host_name"; and return 1
     set -l lc (string lower -- $host_name)
 
-    # ── Step 1: /etc/hosts lookup ────────────────────────────
+    # ── Step 1: /etc/hosts lookup (manual entries only) ─────
+    # Skip tgt-tagged lines — those were written by us, so
+    # consulting them creates a feedback loop: clearing a field
+    # would re-fill itself from the entry's own previous
+    # /etc/hosts line.
     set -l hosts_file (_tgt_hosts_file)
     if test -f $hosts_file
         while read -l line
             string match -rq '^\s*#' -- $line; and continue
-            # Strip an inline trailing comment, then split on whitespace.
+            string match -q '*# tgt:*' -- $line; and continue
             set -l body (string replace -r '\s*#.*$' '' -- $line)
             set -l fields (string split -n " " -- $body)
             test (count $fields) -lt 2; and continue

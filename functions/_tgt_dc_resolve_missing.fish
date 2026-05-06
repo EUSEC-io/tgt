@@ -6,7 +6,12 @@
 # Only runs at create/edit time — the apply_scenario step doesn't
 # trigger this. DNS probes are too expensive to repeat on every
 # scenario switch.
-function _tgt_dc_resolve_missing --argument-names scenario alias
+#
+# Per-field skip flags (third + fourth args, "1" to skip):
+# the edit wizard sets these when the user explicitly cleared a
+# field, so an "I want this empty" intent isn't quietly undone by
+# the resolver re-filling from /etc/hosts or DNS.
+function _tgt_dc_resolve_missing --argument-names scenario alias skip_kdc skip_admin
     set -l file (_tgt_dc_file $scenario $alias)
     test -f $file; or return 1
 
@@ -38,21 +43,25 @@ function _tgt_dc_resolve_missing --argument-names scenario alias
 
     set -l changed 0
 
-    if test -n "$host"; and test -z "$ip"
-        set -l result (_tgt_resolve_ip $host)
-        if test (count $result) -ge 2
-            set ip $result[1]
-            set ip_src $result[2]
-            set changed 1
+    if test "$skip_kdc" != "1"
+        if test -n "$host"; and test -z "$ip"
+            set -l result (_tgt_resolve_ip $host)
+            if test (count $result) -ge 2
+                set ip $result[1]
+                set ip_src $result[2]
+                set changed 1
+            end
         end
     end
 
-    if test -n "$admin_host"; and test -z "$admin_ip"
-        set -l result (_tgt_resolve_ip $admin_host)
-        if test (count $result) -ge 2
-            set admin_ip $result[1]
-            set admin_ip_src $result[2]
-            set changed 1
+    if test "$skip_admin" != "1"
+        if test -n "$admin_host"; and test -z "$admin_ip"
+            set -l result (_tgt_resolve_ip $admin_host)
+            if test (count $result) -ge 2
+                set admin_ip $result[1]
+                set admin_ip_src $result[2]
+                set changed 1
+            end
         end
     end
 
