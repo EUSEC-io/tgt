@@ -28,9 +28,10 @@ tgt edit [alias]                        switch (if needed) + wizard
 tgt rename [<old>] <new>                retags hosts + moves workspace
 tgt list                                targets in active scenario
 tgt rm [alias] [--purge-workspace]
-tgt                                     no args → interactive setup
-tgt --show                              env + hosts + krb5 + workspace
-tgt --revoke                            clear runtime; keep scenario
+tgt                                     no args → action picker (gum + TTY)
+tgt show                                env + hosts + krb5 + workspace
+tgt revoke                              clear runtime; keep scenario
+                                        (--show / --revoke also accepted)
 
 # /etc/hosts
 tgt hosts                               multi-line editor
@@ -101,9 +102,9 @@ tgt prompt uninstall
 | `tgt rename [<old>] <new>` | Rename a target; retags `/etc/hosts` and moves its workspace folder. |
 | `tgt list` | List targets in active scenario. |
 | `tgt rm [alias] [--purge-workspace]` | Delete target + `/etc/hosts` entries. `--purge-workspace` also removes target's folder (nested layout only). |
-| `tgt` (no args) | Interactive setup; auto-saves to active target. |
-| `tgt --show` | Print env vars + `/etc/hosts` + krb5 + workspace tree for active target. |
-| `tgt --revoke` | Clear runtime state + `/etc/hosts` for active target; deselects target (keeps scenario). |
+| `tgt` (no args) | Interactive action picker (gum + TTY) — switch / new / show / edit / hosts / ports / dc / scenario / revoke. Falls back to help text in scripts/CI/no-gum environments. |
+| `tgt show` (or `--show`) | Print env vars + active DC + `/etc/hosts` + krb5 + workspace tree for active target. |
+| `tgt revoke` (or `--revoke`) | Clear runtime state + `/etc/hosts` for active target; deselects target (keeps scenario). |
 
 
 ## `/etc/hosts`

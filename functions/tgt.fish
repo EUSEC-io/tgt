@@ -8,9 +8,10 @@ function tgt --description 'Set penetration testing target environment variables
         echo "  tgt — target environment manager"
         echo ""
         echo "  USAGE"
-        echo "    tgt                          Interactive setup (host, creds, hostnames)"
-        echo "    tgt --show                   Show current target + active DC + /etc/hosts + krb5"
-        echo "    tgt --revoke                 Clear target runtime (env vars, /etc/hosts entries)"
+        echo "    tgt                          Interactive action picker (gum + TTY)"
+        echo "    tgt show                     Show current target + active DC + /etc/hosts + krb5"
+        echo "    tgt revoke                   Clear target runtime (env vars, /etc/hosts entries)"
+        echo "    (--show / --revoke also work for backward compat.)"
         echo ""
         echo "  HOSTNAMES"
         echo "    tgt --add-host <h1> [h2..]   Add hostnames to /etc/hosts for \$TGT (deduplicates)"
@@ -68,7 +69,7 @@ function tgt --description 'Set penetration testing target environment variables
     set -l hosts_target   (_tgt_active_target_name)
 
     # ── Revoke ──────────────────────────────────────────────
-    if test (count $argv) -ge 1 && test $argv[1] = "--revoke"
+    if test (count $argv) -ge 1; and begin; test $argv[1] = "--revoke"; or test $argv[1] = "revoke"; end
         # Clean /etc/hosts
         if set -q TGT
             set -l existing (_tgt_hosts_get $hosts_scenario $hosts_target)
@@ -88,7 +89,7 @@ function tgt --description 'Set penetration testing target environment variables
     end
 
     # ── Show current state ──────────────────────────────────
-    if test (count $argv) -ge 1 && test $argv[1] = "--show"
+    if test (count $argv) -ge 1; and begin; test $argv[1] = "--show"; or test $argv[1] = "show"; end
         echo ""
         echo "─────────────────────────────────"
         set -q TGT            && echo "  TGT           = $TGT"            || echo "  TGT           = (not set)"
@@ -277,6 +278,10 @@ function tgt --description 'Set penetration testing target environment variables
         return 1
     end
 
-    # ── Interactive setup (no args) ─────────────────────────
-    _tgt_wizard
+    # ── No args: action picker (gum + TTY) or help text ────
+    if command -q gum; and not set -q TGT_TEST_MODE; and isatty stdin
+        _tgt_action_menu
+        return $status
+    end
+    tgt --help
 end

@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc show revoke
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -29,6 +29,10 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a ports     -d 'Per-target port records (list, import, pick → TGT_PORT)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a dc        -d 'Per-scenario DC entries (krb5 realm definitions)'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a show      -d 'Show current target + active DC + /etc/hosts + krb5'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a revoke    -d 'Clear target runtime (env vars, /etc/hosts entries)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a cd        -d 'cd to active target / scenario folder'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \

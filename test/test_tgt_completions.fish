@@ -83,6 +83,10 @@ set -l names_dc_new (_complete_names 'tgt dc new -')
 #
 @test "top-level: dc offered" \
     (contains dc $names; echo $status) -eq 0
+@test "top-level: show offered" \
+    (contains show $names; echo $status) -eq 0
+@test "top-level: revoke offered" \
+    (contains revoke $names; echo $status) -eq 0
 set -l names_dash (_complete_names 'tgt -')
 @test "top-level: --revoke offered after dash" \
     (contains -- --revoke $names_dash; echo $status) -eq 0
