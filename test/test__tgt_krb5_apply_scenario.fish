@@ -46,21 +46,21 @@ set -gx TGT_DC_ADMIN_IP 10.10.10.5
 _tgt_dc_save dante dc01
 set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP
 
-set -l block (_tgt_krb5_render_dc dante dc01 | string collect)
-@test "render_dc: comment marker present" \
+set -l block (_tgt_krb5_render_realm dante DANTE.LOCAL dc01 | string collect)
+@test "render_realm: comment marker carries the alias" \
     (string match -q '*# tgt:dc:dante:dc01*' -- $block; echo $status) -eq 0
-@test "render_dc: realm = open brace" \
+@test "render_realm: realm = open brace" \
     (string match -q '*DANTE.LOCAL = {*' -- $block; echo $status) -eq 0
-@test "render_dc: kdc uses HOST (preferred over IP)" \
+@test "render_realm: kdc uses HOST (preferred over IP)" \
     (string match -q '*kdc = dc01.dante.local*' -- $block; echo $status) -eq 0
-@test "render_dc: admin_server line present" \
+@test "render_realm: admin_server line present" \
     (string match -q '*admin_server = dc01.dante.local*' -- $block; echo $status) -eq 0
-@test "render_dc: closing brace present" \
+@test "render_realm: closing brace present" \
     (string match -q '*}*' -- $block; echo $status) -eq 0
 _test_teardown
 
 #
-# render_dc: ip-only entry → kdc = IP.
+# render_realm: ip-only entry → kdc = IP.
 #
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
@@ -70,15 +70,15 @@ set -gx TGT_DC_IP 10.10.10.5
 _tgt_dc_save dante ip-only
 set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_IP
 
-set -l block (_tgt_krb5_render_dc dante ip-only | string collect)
-@test "render_dc (ip-only): kdc = IP" \
+set -l block (_tgt_krb5_render_realm dante DANTE.LOCAL ip-only | string collect)
+@test "render_realm (ip-only): kdc = IP" \
     (string match -q '*kdc = 10.10.10.5*' -- $block; echo $status) -eq 0
-@test "render_dc (ip-only): no admin_server line" \
+@test "render_realm (ip-only): no admin_server line" \
     (string match -q '*admin_server*' -- $block; echo $status) -ne 0
 _test_teardown
 
 #
-# render_dc: no kdc data at all → non-zero, no output.
+# render_realm: no kdc data → non-zero, no output.
 #
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
@@ -86,8 +86,54 @@ set -gx TGT_DC_DOMAIN dante.local
 set -gx TGT_DC_REALM DANTE.LOCAL
 _tgt_dc_save dante bare
 set -e TGT_DC_DOMAIN TGT_DC_REALM
-@test "render_dc: bare entry → non-zero" \
-    (_tgt_krb5_render_dc dante bare 2>/dev/null; echo $status) -ne 0
+@test "render_realm: bare entry → non-zero" \
+    (_tgt_krb5_render_realm dante DANTE.LOCAL bare 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# render_realm: TWO DCs with the SAME realm collapse into one
+# block with multiple `kdc =` lines (the canonical kerberos form).
+# Identical kdc values are deduped.
+#
+_test_setup_home
+_tgt_scenario_create dante >/dev/null
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_REALM DANTE.LOCAL
+set -gx TGT_DC_HOST dc01.dante.local
+_tgt_dc_save dante dc01
+set -e TGT_DC_HOST
+set -gx TGT_DC_HOST dc02.dante.local
+_tgt_dc_save dante dc02
+set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST
+
+set -l block (_tgt_krb5_render_realm dante DANTE.LOCAL dc01 dc02 | string collect)
+@test "render_realm (merged): comment carries both aliases joined with +" \
+    (string match -q '*# tgt:dc:dante:dc01+dc02*' -- $block; echo $status) -eq 0
+@test "render_realm (merged): one realm = { line" \
+    (count (string match -ar '(?m)^\s+DANTE.LOCAL = \{' -- $block)) -eq 1
+@test "render_realm (merged): kdc dc01 line present" \
+    (string match -q '*kdc = dc01.dante.local*' -- $block; echo $status) -eq 0
+@test "render_realm (merged): kdc dc02 line present" \
+    (string match -q '*kdc = dc02.dante.local*' -- $block; echo $status) -eq 0
+_test_teardown
+
+#
+# render_realm: same kdc value across two DCs is deduped.
+#
+_test_setup_home
+_tgt_scenario_create dante >/dev/null
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_REALM DANTE.LOCAL
+set -gx TGT_DC_HOST shared.dante.local
+_tgt_dc_save dante dc01
+_tgt_dc_save dante dc02
+set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST
+
+set -l block (_tgt_krb5_render_realm dante DANTE.LOCAL dc01 dc02 | string collect)
+@test "render_realm (dedup): one kdc line, not two" \
+    (count (string match -ar '(?m)^\s+kdc = ' -- $block)) -eq 1
+@test "render_realm (dedup): comment still references both aliases" \
+    (string match -q '*# tgt:dc:dante:dc01+dc02*' -- $block; echo $status) -eq 0
 _test_teardown
 
 #
@@ -113,12 +159,109 @@ set -l content (cat $TGT_KRB5_FILE | string collect)
 
 @test "apply_scenario: dc01 tgt comment present" \
     (string match -q '*# tgt:dc:dante:dc01*' -- $content; echo $status) -eq 0
-@test "apply_scenario: dc01 realm block present" \
-    (string match -q '*DANTE.LOCAL = {*kdc = dc01.dante.local*' -- $content; echo $status) -eq 0
+@test "apply_scenario: dc01 realm block opens" \
+    (string match -q '*DANTE.LOCAL = {*' -- $content; echo $status) -eq 0
+@test "apply_scenario: dc01 kdc line present" \
+    (string match -q '*kdc = dc01.dante.local*' -- $content; echo $status) -eq 0
 @test "apply_scenario: dc02 tgt comment present" \
     (string match -q '*# tgt:dc:dante:dc02*' -- $content; echo $status) -eq 0
 @test "apply_scenario: dc02 realm uses IP (no host given)" \
-    (string match -q '*DANTE2.LOCAL = {*kdc = 10.10.10.6*' -- $content; echo $status) -eq 0
+    (string match -q '*DANTE2.LOCAL = {*' -- $content; echo $status) -eq 0
+_test_teardown
+
+#
+# apply_scenario: TWO DCs sharing one realm collapse into ONE
+# block with TWO `kdc =` lines (canonical kerberos form). This is
+# the scenario that was emitting duplicate-realm blocks before the
+# merge fix landed.
+#
+_test_setup_home
+_test_setup_krb5 empty.conf
+_tgt_scenario_create dante >/dev/null
+
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_REALM DANTE.LOCAL
+set -gx TGT_DC_HOST dc01.dante.local
+_tgt_dc_save dante dc01
+set -e TGT_DC_HOST
+set -gx TGT_DC_HOST dc02.dante.local
+_tgt_dc_save dante dc02
+set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST
+
+_tgt_krb5_apply_scenario dante
+set -l content (cat $TGT_KRB5_FILE | string collect)
+
+@test "apply_scenario (same realm): merged comment lists both aliases" \
+    (string match -q '*# tgt:dc:dante:dc01+dc02*' -- $content; echo $status) -eq 0
+@test "apply_scenario (same realm): only ONE realm block emitted" \
+    (count (string match -ar '(?m)^\s+DANTE.LOCAL = \{' -- $content)) -eq 1
+@test "apply_scenario (same realm): kdc dc01 line present" \
+    (string match -q '*kdc = dc01.dante.local*' -- $content; echo $status) -eq 0
+@test "apply_scenario (same realm): kdc dc02 line present" \
+    (string match -q '*kdc = dc02.dante.local*' -- $content; echo $status) -eq 0
+@test "apply_scenario (same realm): no duplicate-realm orphan" \
+    (count (string match -ar '# tgt:dc:dante:dc01\n' -- (cat $TGT_KRB5_FILE | string collect))) -eq 0
+_test_teardown
+
+#
+# Removing one of two same-realm DCs collapses the merged block down
+# to a single-alias block that still references the surviving DC's
+# kdc — no orphaned-kdc cleanup needed because apply rebuilds from
+# the remaining dcs/ files.
+#
+_test_setup_home
+_test_setup_krb5 empty.conf
+_tgt_scenario_create dante >/dev/null
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_REALM DANTE.LOCAL
+set -gx TGT_DC_HOST dc01.dante.local
+_tgt_dc_save dante dc01
+set -e TGT_DC_HOST
+set -gx TGT_DC_HOST dc02.dante.local
+_tgt_dc_save dante dc02
+set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST
+_tgt_krb5_apply_scenario dante
+
+# Now drop dc01 — the surviving block should reference only dc02.
+_tgt_dc_destroy dante dc01
+_tgt_krb5_apply_scenario dante
+set -l content (cat $TGT_KRB5_FILE | string collect)
+
+@test "after rm one of two same-realm DCs: comment is just dc02" \
+    (string match -q '*# tgt:dc:dante:dc02*' -- $content; echo $status) -eq 0
+@test "after rm one of two same-realm DCs: dc01 alias gone from comment" \
+    (string match -q '*dc01*' -- $content; echo $status) -ne 0
+@test "after rm one of two same-realm DCs: dc02 kdc still present" \
+    (string match -q '*kdc = dc02.dante.local*' -- $content; echo $status) -eq 0
+@test "after rm one of two same-realm DCs: dc01 kdc dropped" \
+    (string match -q '*kdc = dc01.dante.local*' -- $content; echo $status) -ne 0
+_test_teardown
+
+#
+# Two DCs with the SAME realm AND SAME kdc value: dedupes to one
+# kdc line. Removing one DC leaves the surviving DC's identical kdc
+# value untouched.
+#
+_test_setup_home
+_test_setup_krb5 empty.conf
+_tgt_scenario_create dante >/dev/null
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_REALM DANTE.LOCAL
+set -gx TGT_DC_HOST shared.dante.local
+_tgt_dc_save dante dc01
+_tgt_dc_save dante dc02
+set -e TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST
+
+_tgt_krb5_apply_scenario dante
+@test "same realm + same kdc: only one kdc line emitted" \
+    (count (string match -ar '(?m)^\s+kdc = ' -- (cat $TGT_KRB5_FILE | string collect))) -eq 1
+
+_tgt_dc_destroy dante dc01
+_tgt_krb5_apply_scenario dante
+@test "after rm dc01: shared kdc still present (dc02 still references it)" \
+    (cat $TGT_KRB5_FILE | string match -q '*kdc = shared.dante.local*'; echo $status) -eq 0
+@test "after rm dc01: comment carries surviving alias only" \
+    (cat $TGT_KRB5_FILE | string match -q '*# tgt:dc:dante:dc02*'; echo $status) -eq 0
 _test_teardown
 
 #
