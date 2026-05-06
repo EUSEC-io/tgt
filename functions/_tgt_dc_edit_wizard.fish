@@ -74,18 +74,27 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
 
     # Clear staging slots first so blanked answers actually drop the
     # corresponding TGT_DC_* line instead of inheriting old state.
-    for v in TGT_DC_DOMAIN TGT_DC_REALM TGT_DC_HOST TGT_DC_IP TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP
+    for v in TGT_DC_DOMAIN TGT_DC_REALM \
+             TGT_DC_HOST TGT_DC_IP TGT_DC_IP_SOURCE \
+             TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP TGT_DC_ADMIN_IP_SOURCE
         set -q $v; and _tgt_unexport $v
     end
     set -gx TGT_DC_DOMAIN $domain
     set -gx TGT_DC_REALM $realm
     test -n "$kdc_host"   ; and set -gx TGT_DC_HOST $kdc_host
     test -n "$kdc_ip"     ; and set -gx TGT_DC_IP $kdc_ip
+    test -n "$kdc_ip"     ; and set -gx TGT_DC_IP_SOURCE user
     test -n "$admin_host" ; and set -gx TGT_DC_ADMIN_HOST $admin_host
     test -n "$admin_ip"   ; and set -gx TGT_DC_ADMIN_IP $admin_ip
+    test -n "$admin_ip"   ; and set -gx TGT_DC_ADMIN_IP_SOURCE user
 
     _tgt_dc_save $scenario $alias
     or return $status
+
+    # Resolve any missing IPs (host given, ip empty) — the user
+    # may have just cleared the IP, or only provided the hostname.
+    _tgt_dc_resolve_missing $scenario $alias
+
     _tgt_krb5_apply_scenario $scenario
     _tgt_hosts_apply_scenario $scenario
 

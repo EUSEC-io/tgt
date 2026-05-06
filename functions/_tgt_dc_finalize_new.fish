@@ -8,8 +8,21 @@
 #   at least one of TGT_DC_HOST / TGT_DC_IP
 #   admin_* fields are optional
 function _tgt_dc_finalize_new --argument-names scenario alias
+    # Mark user-supplied IPs so source attribution is right when
+    # the resolver doesn't need to fill them in.
+    set -q TGT_DC_IP; and not set -q TGT_DC_IP_SOURCE
+        and set -gx TGT_DC_IP_SOURCE user
+    set -q TGT_DC_ADMIN_IP; and not set -q TGT_DC_ADMIN_IP_SOURCE
+        and set -gx TGT_DC_ADMIN_IP_SOURCE user
+
     _tgt_dc_save $scenario $alias
     or return $status
+
+    # Resolve any missing IPs from /etc/hosts → DNS, recording the
+    # source. If anything was filled in, the helper re-saves the
+    # entry with the new fields.
+    _tgt_dc_resolve_missing $scenario $alias
+
     _tgt_dc_clear_runtime
     _tgt_krb5_apply_scenario $scenario
     _tgt_hosts_apply_scenario $scenario

@@ -137,6 +137,43 @@ set -l content (cat $TGT_HOSTS_FILE | string collect)
 _test_teardown
 
 #
+# Hostnames are lowercased on the way into /etc/hosts even when the
+# user types them mixed-case (DNS doesn't care; this prevents
+# duplicate-by-case rows). krb5.conf keeps the original case.
+#
+_test_setup_home
+_test_setup_hosts empty.txt
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 \
+    --domain dante.local \
+    --kdc-host DC01.Dante.LOCAL --kdc-ip 10.10.10.5 \
+    >/dev/null
+
+set -l hosts_content (cat $TGT_HOSTS_FILE | string collect)
+set -l krb5_content  (cat $TGT_KRB5_FILE  | string collect)
+
+@test "lowercase hosts: /etc/hosts has lowercase hostname" \
+    (string match -q '*10.10.10.5 dc01.dante.local*' -- $hosts_content; echo $status) -eq 0
+@test "lowercase hosts: /etc/hosts does NOT have mixed case" \
+    (string match -q '*DC01.Dante.LOCAL*' -- $hosts_content; echo $status) -ne 0
+@test "lowercase hosts: krb5 keeps original case for kdc" \
+    (string match -q '*kdc = DC01.Dante.LOCAL*' -- $krb5_content; echo $status) -eq 0
+_test_teardown
+
+#
+# Same lowercasing rule for target hostnames added via tgt --add-host.
+#
+_test_setup_home
+_test_setup_hosts empty.txt
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 10.10.10.10
+tgt new web01 --no-edit >/dev/null
+tgt --add-host Web01.DANTE.LOCAL >/dev/null
+@test "lowercase hosts: target hostname lowercased in /etc/hosts" \
+    (cat $TGT_HOSTS_FILE | string match -q '*10.10.10.10 web01.dante.local*'; echo $status) -eq 0
+_test_teardown
+
+#
 # Mixed scenario: target hosts AND dc hosts coexist under their own
 # tags.
 #

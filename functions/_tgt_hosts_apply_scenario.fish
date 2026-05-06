@@ -38,7 +38,11 @@ function _tgt_hosts_apply_scenario --argument-names scenario
             test -z "$tgt"; and continue
             test (count $hosts) -eq 0; and continue
             set -l tag "# tgt:$scenario:$target"
-            set -l names_str (string join " " -- $hosts)
+            # /etc/hosts is case-insensitive in DNS terms — lowercase
+            # the names so the file doesn't end up with both `Web01`
+            # and `web01` lines after a rename or re-typed alias.
+            set -l hosts_lc (string lower -- $hosts)
+            set -l names_str (string join " " -- $hosts_lc)
             set -a keep "$tgt $names_str $tag"
         end
 
@@ -69,12 +73,17 @@ function _tgt_hosts_apply_scenario --argument-names scenario
                 end
             end < $file
             set -l tag "# tgt:dc:$scenario:$dc_alias"
+            # Lowercase hostnames in /etc/hosts (DNS doesn't care).
+            # krb5.conf keeps the case from the DC entry — kerberos
+            # SPN lookups are case-sensitive.
+            set -l host_lc (string lower -- $host)
+            set -l admin_host_lc (string lower -- $admin_host)
             set -l pairs
-            if test -n "$host"; and test -n "$ip"
-                set -a pairs "$ip $host"
+            if test -n "$host_lc"; and test -n "$ip"
+                set -a pairs "$ip $host_lc"
             end
-            if test -n "$admin_host"; and test -n "$admin_ip"
-                set -l adm_pair "$admin_ip $admin_host"
+            if test -n "$admin_host_lc"; and test -n "$admin_ip"
+                set -l adm_pair "$admin_ip $admin_host_lc"
                 contains -- $adm_pair $pairs; or set -a pairs $adm_pair
             end
             for p in $pairs

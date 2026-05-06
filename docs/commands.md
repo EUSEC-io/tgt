@@ -192,6 +192,19 @@ hostname-only entries krb5 uses the hostname directly (relies on
 DNS); IP-only entries use the IP. With both stored, krb5 gets the
 hostname and `/etc/hosts` makes resolution reliable.
 
+**IP resolution at create/edit time:** when you supply only a
+hostname, `tgt dc` tries to fill in the IP itself — first by
+scanning `/etc/hosts` for a matching entry, then by a short DNS
+probe. The discovered IP is saved with a `*_SOURCE` field
+(`user`, `hosts`, or `dns`) so `tgt dc show` can attribute it.
+Resolution only runs at create/edit; subsequent scenario switches
+just use whatever's stored.
+
+**Lowercase in `/etc/hosts`:** hostnames are lowercased on the
+way into `/etc/hosts` (DNS is case-insensitive — this prevents
+duplicate-by-case rows). `/etc/krb5.conf` keeps the original case
+since kerberos SPN lookups are case-sensitive.
+
 The active DC for each scenario is remembered across
 `tgt scenario switch`, so re-entering a scenario restores whichever
 DC you last had loaded.

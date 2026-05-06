@@ -76,12 +76,16 @@ function _tgt_dc_cli
             set -l line (_tgt_dc_inspect $scenario $alias)
             set -l fields (string split \t -- $line)
             # Walk the file once more to surface the host/ip pair
-            # split that inspect collapses into a single kdc/admin.
+            # split that inspect collapses, plus the IP source
+            # attribution so the user can tell where the address
+            # came from (user input, /etc/hosts, or DNS probe).
             set -l file (_tgt_dc_file $scenario $alias)
             set -l kdc_host ""
             set -l kdc_ip ""
+            set -l kdc_ip_src ""
             set -l admin_host ""
             set -l admin_ip ""
+            set -l admin_ip_src ""
             while read -l ln
                 set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $ln)
                 test (count $m) -lt 3; and continue
@@ -90,19 +94,23 @@ function _tgt_dc_cli
                         set kdc_host $m[3]
                     case TGT_DC_IP
                         set kdc_ip $m[3]
+                    case TGT_DC_IP_SOURCE
+                        set kdc_ip_src $m[3]
                     case TGT_DC_ADMIN_HOST
                         set admin_host $m[3]
                     case TGT_DC_ADMIN_IP
                         set admin_ip $m[3]
+                    case TGT_DC_ADMIN_IP_SOURCE
+                        set admin_ip_src $m[3]
                 end
             end < $file
             set_color brblack; printf '  alias:        '; set_color normal; echo $fields[1]
             set_color brblack; printf '  domain:       '; set_color normal; echo $fields[2]
             set_color brblack; printf '  realm:        '; set_color normal; echo $fields[3]
             set_color brblack; printf '  kdc:          '; set_color normal
-            _tgt_dc_cli_emit_pair "$kdc_host" "$kdc_ip"
+            _tgt_dc_cli_emit_pair "$kdc_host" "$kdc_ip" "$kdc_ip_src"
             set_color brblack; printf '  admin_server: '; set_color normal
-            _tgt_dc_cli_emit_pair "$admin_host" "$admin_ip"
+            _tgt_dc_cli_emit_pair "$admin_host" "$admin_ip" "$admin_ip_src"
             return 0
 
         case new
@@ -155,8 +163,11 @@ function _tgt_dc_cli
             test -z "$realm"; and set realm $_flag_domain
             set realm (string upper -- $realm)
 
-            # Stage env vars and let the shared finalizer handle save,
-            # sync, and auto-activate.
+            # Clear any prior DC's runtime first so absent flags
+            # don't inherit stale values from the previously-active
+            # DC's saved state. Then stage and let the finalizer
+            # handle save / sync / auto-activate.
+            _tgt_dc_clear_runtime
             set -gx TGT_DC_DOMAIN $_flag_domain
             set -gx TGT_DC_REALM $realm
             test -n "$_flag_kdc_host"   ; and set -gx TGT_DC_HOST $_flag_kdc_host

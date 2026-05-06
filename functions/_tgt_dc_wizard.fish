@@ -59,6 +59,9 @@ function _tgt_dc_wizard --argument-names scenario init_alias
     set -l admin_host (_tgt_ask_text "admin_server hostname (optional)" "")
     set -l admin_ip   (_tgt_ask_text "admin_server IP (optional)" "")
 
+    # Clear stale state first — absent answers should land as
+    # unset, not pick up the previously-active DC's values.
+    _tgt_dc_clear_runtime
     # Stage env vars and finalize.
     set -gx TGT_DC_DOMAIN $domain
     set -gx TGT_DC_REALM $realm

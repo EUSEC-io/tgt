@@ -11,7 +11,10 @@ function _tgt_hosts_add
     set -l scenario $argv[1]
     set -l target $argv[2]
     set -l ip $argv[3]
-    set -l new_hosts $argv[4..]
+    # /etc/hosts is case-insensitive in DNS terms — lowercase here
+    # so duplicates can't sneak in via case differences. krb5 keeps
+    # the case from the DC entry (kerberos SPNs are case-sensitive).
+    set -l new_hosts (string lower -- $argv[4..])
 
     set -l hosts_file (_tgt_hosts_file)
     set -l tag (_tgt_hosts_tag $scenario $target)
