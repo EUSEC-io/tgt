@@ -28,16 +28,16 @@ set -l raw (tgt_prompt | string collect)
 _test_teardown
 
 #
-# With password set → red SGR (\e[31m) present.
+# With cred loaded → red SGR (\e[31m) present.
 #
 set -gx TGT_SCENARIO dante
 set -gx TGT_ACTIVE web01
-set -gx TGT_PASSWORD secret
+set -gx TGT_CRED_NAME admin
 set -l raw (tgt_prompt | string collect)
 @test "tgt_prompt: emits red SGR when creds loaded" \
     (string match -rq '\e\[31m' -- $raw; echo $status) -eq 0
-@test "tgt_prompt: still includes [dante:web01] when red" \
-    (string match -rq '\[dante:web01\]' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: still includes [dante:web01...] when red" \
+    (string match -rq '\[dante:web01\+admin\]' -- $raw; echo $status) -eq 0
 _test_teardown
 
 #
@@ -115,11 +115,37 @@ _test_teardown
 #
 set -gx TGT_SCENARIO dante
 set -gx TGT_ACTIVE web01
-set -gx TGT_PASSWORD secret
+set -gx TGT_CRED_NAME admin
 set -gx TGT_DC_NAME dc01
 set -l raw (tgt_prompt | string collect)
 @test "tgt_prompt: red wins over @dc when creds also set" \
     (string match -rq '\e\[31m' -- $raw; echo $status) -eq 0
 @test "tgt_prompt: label still includes @dc01" \
-    (string match -rq '@dc01\]' -- $raw; echo $status) -eq 0
+    (string match -rq '@dc01' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: label includes +cred suffix at end" \
+    (string match -rq '@dc01\+admin\]' -- $raw; echo $status) -eq 0
+_test_teardown
+
+#
+# TGT_CRED_NAME appended to the label as +<cred>.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_ACTIVE web01
+set -gx TGT 10.10.10.5
+set -gx TGT_CRED_NAME admin
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: appends +<cred> when TGT_CRED_NAME set" \
+    (string match -rq '\[dante:web01\+admin\]' -- $raw; echo $status) -eq 0
+@test "tgt_prompt: red SGR when cred loaded (no DC)" \
+    (string match -rq '\e\[31m' -- $raw; echo $status) -eq 0
+_test_teardown
+
+#
+# Scenario + cred only (no target, no DC) → +cred segment still rendered.
+#
+set -gx TGT_SCENARIO dante
+set -gx TGT_CRED_NAME admin
+set -l raw (tgt_prompt | string collect)
+@test "tgt_prompt: scenario+cred label (cred can stand alone)" \
+    (string match -rq '\[dante\+admin\]' -- $raw; echo $status) -eq 0
 _test_teardown
