@@ -10,7 +10,7 @@ function _tgt_target_save --argument-names scenario target
     set -l file (_tgt_target_file $scenario $target)
     set -l tmp (command mktemp)
 
-    for var in TGT TGT_USERNAME TGT_PASSWORD TGT_HOSTS
+    for var in TGT TGT_HOSTS
         if set -q $var
             set -l escaped (string escape -- $$var)
             echo "_tgt_export $var "(string join " " -- $escaped) >> $tmp

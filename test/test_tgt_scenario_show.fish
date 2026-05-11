@@ -2,6 +2,8 @@ source (status dirname)/helpers.fish
 
 #
 # _tgt_target_inspect: minimal target (TGT only) → defaults for the rest.
+# Fields are: alias, host, hosts_count (creds + AD moved to scenario-
+# level entries — see test__tgt_cred_storage.fish / test__tgt_dc_storage.fish).
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
@@ -15,33 +17,27 @@ set -l fields (string split \t -- $line)
     "$fields[1]" = minimal
 @test "inspect minimal: host is TGT (no port)" \
     "$fields[2]" = "10.10.10.5"
-@test "inspect minimal: creds = N" \
-    "$fields[3]" = N
 @test "inspect minimal: hosts count = 0" \
-    "$fields[4]" = 0
+    "$fields[3]" = 0
 _test_teardown
 
 #
-# _tgt_target_inspect: fully-loaded target (TGT + creds + hosts).
-# AD info is no longer per-target — see test__tgt_dc_storage.fish.
+# _tgt_target_inspect: TGT + hostnames. (Creds and AD moved out of
+# the target schema.)
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.10
-set -gx TGT_USERNAME admin
-set -gx TGT_PASSWORD secret
 set -gx TGT_HOSTS dc01.dante.local dc01
 _tgt_target_save dante dc01
-set -e TGT TGT_USERNAME TGT_PASSWORD TGT_HOSTS
+set -e TGT TGT_HOSTS
 set -l line (_tgt_target_inspect dante dc01)
 set -l fields (string split \t -- $line)
 
 @test "inspect full: host is TGT" \
     "$fields[2]" = "10.10.10.10"
-@test "inspect full: creds = Y" \
-    "$fields[3]" = Y
 @test "inspect full: hosts count = 2" \
-    "$fields[4]" = 2
+    "$fields[3]" = 2
 _test_teardown
 
 #

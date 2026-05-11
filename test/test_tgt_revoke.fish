@@ -29,7 +29,9 @@ _test_setup_hosts empty.txt
 _test_setup_krb5 empty.conf
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.5
-set -gx TGT_PASSWORD secret
+# Note: credentials are scenario-level now — revoke doesn't drop
+# them. Test that the target half clears and the prompt loses its
+# :target segment without disturbing any active cred.
 _tgt_target_cli new web01 >/dev/null
 tgt --revoke >/dev/null
 set -l raw (tgt_prompt | string collect)
@@ -38,8 +40,6 @@ set -l raw (tgt_prompt | string collect)
     (string match -rq '\[dante\]' -- $raw; echo $status) -eq 0
 @test "revoke: prompt has no :target segment" \
     (string match -rq ':' -- $raw; echo $status) -ne 0
-@test "revoke: prompt no longer red (creds gone)" \
-    (string match -rq '\e\[31m' -- $raw; echo $status) -ne 0
 _test_teardown
 
 #

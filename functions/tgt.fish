@@ -9,8 +9,8 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         echo "  USAGE"
         echo "    tgt                          Interactive action picker (gum + TTY)"
-        echo "    tgt show                     Show current target + active DC + /etc/hosts + krb5"
-        echo "    tgt revoke                   Clear target runtime (env vars, /etc/hosts entries)"
+        echo "    tgt show                     Show current target + active cred + active DC + /etc/hosts + krb5"
+        echo "    tgt revoke                   Clear target runtime (TGT/PORT/HOSTS); creds + DC survive"
         echo "    (--show / --revoke also work for backward compat.)"
         echo ""
         echo "  HOSTNAMES"
@@ -51,7 +51,8 @@ function tgt --description 'Set penetration testing target environment variables
         echo "    tgt config reset             Revert all workspace settings to defaults"
         echo ""
         echo "  ENVIRONMENT VARIABLES"
-        echo "    target:    \$TGT  \$TGT_PORT  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_HOSTS"
+        echo "    target:    \$TGT  \$TGT_PORT  \$TGT_HOSTS"
+        echo "    cred:      \$TGT_CRED_NAME  \$TGT_USERNAME  \$TGT_PASSWORD  \$TGT_CRED_DOMAIN"
         echo "    AD/DC:     \$TGT_DC_NAME  \$TGT_DC_DOMAIN  \$TGT_DC_REALM"
         echo "               \$TGT_DC  \$TGT_DC_HOST  \$TGT_DC_IP"
         echo "    scope:     \$TGT_SCENARIO  \$TGT_ACTIVE"
@@ -80,10 +81,11 @@ function tgt --description 'Set penetration testing target environment variables
             end
         end
 
+        # Target-level runtime only — credentials and DC are
+        # scenario-level now and survive a target switch. Use
+        # `tgt cred unset` / `tgt dc unset` to clear those.
         set -q TGT            && _tgt_unexport TGT            && echo "✓ TGT unset"            || echo "- TGT was not set"
         set -q TGT_PORT       && _tgt_unexport TGT_PORT       && echo "✓ TGT_PORT unset"       || echo "- TGT_PORT was not set"
-        set -q TGT_USERNAME   && _tgt_unexport TGT_USERNAME   && echo "✓ TGT_USERNAME unset"   || echo "- TGT_USERNAME was not set"
-        set -q TGT_PASSWORD   && _tgt_unexport TGT_PASSWORD   && echo "✓ TGT_PASSWORD unset"   || echo "- TGT_PASSWORD was not set"
         set -q TGT_HOSTS      && _tgt_unexport TGT_HOSTS      && echo "✓ TGT_HOSTS unset"      || echo "- TGT_HOSTS was not set"
         set -q TGT_ACTIVE     && _tgt_unexport TGT_ACTIVE     && echo "✓ TGT_ACTIVE unset (target deselected; scenario kept)" || echo "- TGT_ACTIVE was not set"
         return 0
@@ -95,9 +97,16 @@ function tgt --description 'Set penetration testing target environment variables
         echo "─────────────────────────────────"
         set -q TGT            && echo "  TGT           = $TGT"            || echo "  TGT           = (not set)"
         set -q TGT_PORT       && echo "  TGT_PORT      = $TGT_PORT"       || echo "  TGT_PORT      = (not set)"
-        set -q TGT_USERNAME   && echo "  TGT_USERNAME  = $TGT_USERNAME"   || echo "  TGT_USERNAME  = (not set)"
-        set -q TGT_PASSWORD   && echo "  TGT_PASSWORD  = $TGT_PASSWORD"   || echo "  TGT_PASSWORD  = (not set)"
         set -q TGT_HOSTS      && echo "  TGT_HOSTS     = $TGT_HOSTS"      || echo "  TGT_HOSTS     = (not set)"
+        if set -q TGT_CRED_NAME
+            echo ""
+            echo "  active credential:"
+            echo "    alias       = $TGT_CRED_NAME"
+            set -q TGT_USERNAME     && echo "    username    = $TGT_USERNAME"
+            set -q TGT_PASSWORD     && echo "    password    = $TGT_PASSWORD"
+            set -q TGT_CRED_DOMAIN  && echo "    domain      = $TGT_CRED_DOMAIN"
+            set -q TGT_CRED_NOTES   && echo "    notes       = $TGT_CRED_NOTES"
+        end
         if set -q TGT_DC_NAME
             echo ""
             echo "  active DC:"

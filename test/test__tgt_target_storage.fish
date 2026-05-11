@@ -54,19 +54,17 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 172.16.10.20
-set -gx TGT_USERNAME admin
-set -gx TGT_PASSWORD hunter2
 set -gx TGT_HOSTS web01.dante.local intranet.dante.local
 _tgt_target_save dante web01
 set -l content (cat (_tgt_target_file dante web01))
 @test "save: TGT line present" \
     (string match -rq '_tgt_export TGT 172.16.10.20' -- $content; echo $status) -eq 0
-@test "save: TGT_USERNAME line present" \
-    (string match -rq '_tgt_export TGT_USERNAME admin' -- $content; echo $status) -eq 0
-@test "save: TGT_PASSWORD line present" \
-    (string match -rq '_tgt_export TGT_PASSWORD hunter2' -- $content; echo $status) -eq 0
 @test "save: TGT_HOSTS list serialized as multiple values" \
     (string match -rq '_tgt_export TGT_HOSTS .*web01.dante.local.*intranet.dante.local' -- $content; echo $status) -eq 0
+@test "save: TGT_USERNAME no longer in target file (moved to tgt cred)" \
+    (string match -rq 'TGT_USERNAME' -- $content; echo $status) -ne 0
+@test "save: TGT_PASSWORD no longer in target file (moved to tgt cred)" \
+    (string match -rq 'TGT_PASSWORD' -- $content; echo $status) -ne 0
 @test "save: TGT_AD_DOMAIN no longer in target file (moved to tgt dc)" \
     (string match -rq 'TGT_AD_DOMAIN' -- $content; echo $status) -ne 0
 _test_teardown
@@ -77,7 +75,7 @@ _test_teardown
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 10.10.10.5
-# TGT_USERNAME, TGT_PASSWORD, etc. are all unset
+# TGT_HOSTS, TGT_PORT are all unset
 _tgt_target_save dante web01
 set -l content (cat (_tgt_target_file dante web01))
 @test "save: only sets exports for set vars" \
@@ -87,33 +85,37 @@ set -l content (cat (_tgt_target_file dante web01))
 _test_teardown
 
 #
-# Save preserves values with spaces (via string escape).
+# Stale legacy fields (TGT_USERNAME / TGT_PASSWORD) in an existing
+# target file are filtered out by load — they're cred-level now.
 #
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
-set -gx TGT_PASSWORD 'pass word with spaces'
-_tgt_target_save dante web01
-# Clear and load
-set -e TGT_PASSWORD
-_tgt_target_load dante web01
-@test "save+load: password with spaces preserved" \
-    "$TGT_PASSWORD" = 'pass word with spaces'
+echo "_tgt_export TGT 10.10.10.5
+_tgt_export TGT_USERNAME stale-user
+_tgt_export TGT_PASSWORD stale-pw
+_tgt_export TGT_HOSTS host1 host2" > (_tgt_target_file dante old01)
+_tgt_target_load dante old01
+@test "load: TGT loaded from legacy file" "$TGT" = "10.10.10.5"
+@test "load: TGT_HOSTS loaded from legacy file" \
+    "$TGT_HOSTS[1]" = "host1"
+@test "load: legacy TGT_USERNAME line filtered out" \
+    (set -q TGT_USERNAME; echo $status) -ne 0
+@test "load: legacy TGT_PASSWORD line filtered out" \
+    (set -q TGT_PASSWORD; echo $status) -ne 0
 _test_teardown
 
 #
-# Save + load round-trip restores all fields.
+# Save + load round-trip for the current schema (TGT + TGT_HOSTS).
 #
 _test_setup_home
 _tgt_scenario_create dante >/dev/null
 set -gx TGT 172.16.10.20
-set -gx TGT_USERNAME admin
 set -gx TGT_HOSTS web01.dante.local intranet.dante.local
 _tgt_target_save dante web01
 # Clear env
-set -e TGT TGT_USERNAME TGT_HOSTS
+set -e TGT TGT_HOSTS
 _tgt_target_load dante web01
 @test "load: TGT restored" "$TGT" = "172.16.10.20"
-@test "load: TGT_USERNAME restored" "$TGT_USERNAME" = "admin"
 @test "load: TGT_HOSTS restored as list" (count $TGT_HOSTS) -eq 2
 @test "load: TGT_HOSTS[1] correct" "$TGT_HOSTS[1]" = "web01.dante.local"
 @test "load: TGT_HOSTS[2] correct" "$TGT_HOSTS[2]" = "intranet.dante.local"

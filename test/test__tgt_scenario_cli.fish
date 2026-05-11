@@ -52,22 +52,21 @@ set -l output (string replace -ar '\e\[[0-9;]*m' '' -- $raw | string replace -ar
 _test_teardown
 
 #
-# list: shows aggregate state per scenario (target count, creds,
-# dc count). DC count is read from the scenario's dcs/ via inspect.
+# list: shows aggregate state per scenario (target count, creds
+# count, dc count). Both creds and DCs are scenario-level entities.
 #
 _test_setup_home
 _tgt_scenario_cli new dante >/dev/null
 set -gx TGT 10.10.10.10
-set -gx TGT_USERNAME admin
-set -gx TGT_PASSWORD secret
 _tgt_target_cli new dc01 --no-edit >/dev/null
 _tgt_target_save dante dc01
 set -gx TGT 10.10.10.20
 _tgt_target_cli new web01 --no-edit >/dev/null
 _tgt_target_save dante web01
-set -e TGT TGT_USERNAME TGT_PASSWORD
-# One DC entry in dante so the DCs column shows >0.
+set -e TGT
+# One DC entry + one cred entry in dante so both columns show >0.
 tgt dc new realdc --domain dante.local --kdc-ip 10.10.10.10 >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
 
 _tgt_scenario_cli new acme >/dev/null   # empty scenario, no targets
 
@@ -77,10 +76,10 @@ set -l output (string replace -ar '\e\[[0-9;]*m' '' -- $raw2 | string replace -a
 
 @test "scenario list: dante row shows target count 2" \
     (string match -rq 'dante\s+2\s+' -- $output; echo $status) -eq 0
-@test "scenario list: dante row shows creds=Y, DCs=1" \
-    (string match -rq 'dante\s+2\s+Y\s+1' -- $output; echo $status) -eq 0
-@test "scenario list: acme row shows target count 0, DCs=0" \
-    (string match -rq 'acme\s+0\s+N\s+0' -- $output; echo $status) -eq 0
+@test "scenario list: dante row shows creds=1, DCs=1" \
+    (string match -rq 'dante\s+2\s+1\s+1' -- $output; echo $status) -eq 0
+@test "scenario list: acme row shows target count 0, creds=0, DCs=0" \
+    (string match -rq 'acme\s+0\s+0\s+0' -- $output; echo $status) -eq 0
 _test_teardown
 
 #

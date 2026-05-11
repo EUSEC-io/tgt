@@ -114,10 +114,10 @@ function _tgt_scenario_cli
                 printf '%-15s' $fields[1]
                 set_color normal
                 printf ' %-8d ' $fields[2]
-                if test "$fields[3]" = Y
-                    set_color red; printf '%-6s' Y; set_color normal
+                if test "$fields[3]" -gt 0
+                    set_color red; printf '%-6d' $fields[3]; set_color normal
                 else
-                    set_color brblack; printf '%-6s' N; set_color normal
+                    set_color brblack; printf '%-6d' 0; set_color normal
                 end
                 if test "$fields[4]" -gt 0
                     set_color yellow; printf '%-4d' $fields[4]; set_color normal
