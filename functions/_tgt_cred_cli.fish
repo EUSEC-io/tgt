@@ -2,8 +2,11 @@
 #
 #   tgt cred                       list + pick → set active (switch)
 #   tgt cred list                  list, no picker
-#   tgt cred show [alias]          detailed view (no arg → fzf picker)
-#   tgt cred new <alias> --username <u> [--password <p>] [--domain <d>] [--notes <n>]
+#   tgt cred show [alias] [--show-password]
+#                                  detailed view (no arg → fzf picker)
+#   tgt cred new [alias] --username <u> [--password <p>] [--domain <d>] [--notes <n>]
+#                                  if [alias] omitted, defaults to --username
+#                                  when the username is a valid alias
 #   tgt cred new                   (no data flags) drops into wizard
 #   tgt cred edit [alias]          wizard with current values prefilled
 #   tgt cred rename [<old>] <new>  rename a cred entry
@@ -58,7 +61,9 @@ function _tgt_cred_cli
             return $status
 
         case show
-            set -l alias $rest[1]
+            argparse --name='tgt cred show' 'show-password' -- $rest
+            or return 1
+            set -l alias $argv[1]
             if test -z "$alias"
                 set -l aliases (_tgt_cred_list $scenario)
                 if test (count $aliases) -eq 0
@@ -75,28 +80,37 @@ function _tgt_cred_cli
             # Re-read raw fields for the detailed display.
             set -l file (_tgt_cred_file $scenario $alias)
             set -l username ""
-            set -l has_password no
+            set -l password ""
             set -l domain ""
             set -l notes ""
             while read -l ln
                 set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $ln)
                 test (count $m) -lt 3; and continue
+                # `_tgt_cred_save` runs the value through `string escape`,
+                # which adds single-quote wrapping iff the value isn't
+                # bare-token-safe — reverse it on read.
+                set -l val (string unescape -- $m[3])
                 switch $m[2]
                     case TGT_CRED_USERNAME
-                        set username $m[3]
+                        set username $val
                     case TGT_CRED_PASSWORD
-                        test -n "$m[3]"; and set has_password yes
+                        set password $val
                     case TGT_CRED_DOMAIN
-                        set domain $m[3]
+                        set domain $val
                     case TGT_CRED_NOTES
-                        set notes $m[3]
+                        set notes $val
                 end
             end < $file
             set_color brblack; printf '  alias:    '; set_color normal; echo $alias
             set_color brblack; printf '  username: '; set_color normal; echo $username
             set_color brblack; printf '  password: '; set_color normal
-            test "$has_password" = yes; and begin; set_color red; echo "(set)"; set_color normal; end
-            test "$has_password" = no ; and begin; set_color brblack; echo "(not set)"; set_color normal; end
+            if test -z "$password"
+                set_color brblack; echo "(not set)"; set_color normal
+            else if set -q _flag_show_password
+                set_color red; echo $password; set_color normal
+            else
+                set_color red; echo "(set — pass --show-password to reveal)"; set_color normal
+            end
             set_color brblack; printf '  domain:   '; set_color normal
             test -n "$domain"; and echo $domain; or begin; set_color brblack; echo "(not set)"; set_color normal; end
             set_color brblack; printf '  notes:    '; set_color normal
@@ -120,12 +134,21 @@ function _tgt_cred_cli
                 return $status
             end
 
+            # No positional alias? Default it to --username when the
+             # username happens to be a valid alias. The username field
+            # itself is opaque (UTF-8, Windows DOMAIN\user, whatever),
+            # so this only kicks in for the common ASCII case.
+            if test -z "$alias"; and set -q _flag_username
+                and _tgt_cred_validate_name $_flag_username
+                set alias $_flag_username
+            end
             if test -z "$alias"
-                echo "Usage: tgt cred new <alias> --username <u> [--password <p>] [--domain <d>] [--notes <n>]" >&2
+                echo "Usage: tgt cred new [alias] --username <u> [--password <p>] [--domain <d>] [--notes <n>]" >&2
+                echo "  (alias defaults to --username when the username is a valid alias)" >&2
                 return 1
             end
             if not _tgt_cred_validate_name $alias
-                echo "tgt cred new: invalid alias '$alias' (allowed: A-Z a-z 0-9 _ -)" >&2
+                echo "tgt cred new: invalid alias '$alias' (allowed: A-Z a-z 0-9 _ - .; can't start with .)" >&2
                 return 1
             end
             if _tgt_cred_exists $scenario $alias

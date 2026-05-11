@@ -113,13 +113,58 @@ set -l out (_tgt_cred_cli show admin 2>&1 | string collect)
     (string match -q '*alias:*admin*' -- $out; echo $status) -eq 0
 @test "cred_cli show: username displayed" \
     (string match -q '*username:*Administrator*' -- $out; echo $status) -eq 0
-@test "cred_cli show: password noted as set (not the value)" \
-    (string match -q '*password:*(set)*' -- $out; echo $status) -eq 0
+@test "cred_cli show: password masked by default (not the value)" \
+    (string match -q '*password:*set*' -- $out; echo $status) -eq 0
+@test "cred_cli show: password value NOT echoed without --show-password" \
+    (string match -q '*hunter2*' -- $out; echo $status) -ne 0
 @test "cred_cli show: domain displayed" \
     (string match -q '*domain:*dante.local*' -- $out; echo $status) -eq 0
 @test "cred_cli show: notes displayed" \
     (string match -q '*notes:*default admin*' -- $out; echo $status) -eq 0
+
+# With --show-password, the actual value is printed.
+set -l out_shown (_tgt_cred_cli show admin --show-password 2>&1 | string collect)
+@test "cred_cli show --show-password: reveals password value" \
+    (string match -q '*hunter2*' -- $out_shown; echo $status) -eq 0
 _test_teardown
+
+#
+# Alias defaults to --username when no positional alias is passed,
+# but only when the username is itself a valid alias.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_cred_cli new --username svc.sql --password p >/dev/null
+@test "cred_cli new (no alias, valid username): alias = username" \
+    (_tgt_cred_exists dante svc.sql; echo $status) -eq 0
+@test "cred_cli new (no alias, valid username): TGT_CRED_NAME set" \
+    "$TGT_CRED_NAME" = svc.sql
+_test_teardown
+
+#
+# Alias defaults are skipped when the username isn't alias-safe
+# (e.g. `DOMAIN\user`, `张三`). User has to specify an alias explicitly.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+@test "cred_cli new (no alias, weird username): errors" \
+    (_tgt_cred_cli new --username 'DANTE\\admin' --password p 2>/dev/null; echo $status) -ne 0
+_test_teardown
+
+#
+# `.` is allowed inside an alias (e.g. j.doe, svc.sql) but not at
+# the start.
+#
+@test "cred_validate_name: allows dot inside" \
+    (_tgt_cred_validate_name j.doe; echo $status) -eq 0
+@test "cred_validate_name: allows dot inside (multi)" \
+    (_tgt_cred_validate_name svc.sql.prod; echo $status) -eq 0
+@test "cred_validate_name: rejects leading dot" \
+    (_tgt_cred_validate_name .hidden; echo $status) -ne 0
+@test "cred_validate_name: rejects bare ." \
+    (_tgt_cred_validate_name . ; echo $status) -ne 0
+@test "cred_validate_name: rejects bare .." \
+    (_tgt_cred_validate_name .. ; echo $status) -ne 0
 
 #
 # tgt cred switch: activates an existing cred.

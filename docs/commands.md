@@ -51,9 +51,11 @@ tgt ports unset                         clear $TGT_PORT (keep records)
 # credentials (per scenario)
 tgt cred                                no verb → picker (switch)
 tgt cred list
-tgt cred show [alias]
-tgt cred new <alias> --username <u> [--password <p>]
+tgt cred show [alias] [--show-password]
+tgt cred new [alias] --username <u> [--password <p>]
                      [--domain <d>] [--notes <n>]
+                                        alias defaults to --username when
+                                        the username is a valid alias
 tgt cred new                            (no flags) drops into wizard
 tgt cred edit [alias]                   wizard with current values prefilled
 tgt cred rename [<old>] <new>           rename a cred entry
@@ -183,8 +185,8 @@ the same target. `tgt cred switch` loads `TGT_USERNAME` /
 | Command | Behavior |
 |---|---|
 | `tgt cred` / `tgt cred list` | Bare `cred` drops into the switch picker; `list` is the read-only view (alias, username, `pw:Y/N`, domain, notes — notes truncated to 30 chars). |
-| `tgt cred show [alias]` | Detailed view (full notes). No arg → fzf picker. Password renders as `(set)` / `(not set)` — never echoed. |
-| `tgt cred new <alias> ...` | Create a cred entry. Auto-activates (loads env vars + writes `.active-cred`). Drops into wizard with no data flags. |
+| `tgt cred show [alias] [--show-password]` | Detailed view (full notes). No arg → fzf picker. Password is masked by default; pass `--show-password` to reveal it. |
+| `tgt cred new [alias] ...` | Create a cred entry. Auto-activates (loads env vars + writes `.active-cred`). If `[alias]` is omitted, defaults to `--username` when the username is itself a valid alias (the common ASCII case). Drops into wizard with no data flags. |
 | `tgt cred edit [alias]` | Re-open the wizard for an existing entry with current values prefilled (password masked as `<KEEP>` — Enter keeps it). To clear an optional field, type `!`. |
 | `tgt cred rename [<old>] <new>` | Rename a cred entry. With one arg, renames the active credential. |
 | `tgt cred switch [alias]` | Activate a credential (loads `TGT_USERNAME` / `TGT_PASSWORD` / `TGT_CRED_*`). |
@@ -195,7 +197,7 @@ the same target. `tgt cred switch` loads `TGT_USERNAME` /
 
 | Flag | Meaning |
 |---|---|
-| `--username <u>` | Required. Use `DOMAIN\user` or `user@domain` form if your tooling expects it; the field is opaque. |
+| `--username <u>` | Required. Field is opaque — UTF-8 anything, Windows `DOMAIN\user`, `user@domain`, Chinese characters, all fine. Only the *alias* has to be filename-safe (`A-Z a-z 0-9 _ - .`, can't start with `.`). |
 | `--password <p>` | Optional. Same field stores NT/AES hashes — paste them verbatim and tools that accept `:hash` syntax will pick it up. |
 | `--domain <d>` | Optional. Free-form note (workgroup, realm, whatever's relevant). |
 | `--notes <n>` | Free-form note. Truncated in `tgt cred list`; full text in `tgt cred show`. |

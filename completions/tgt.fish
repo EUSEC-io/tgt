@@ -237,13 +237,17 @@ complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand
 
 # `tgt cred new` flag completions
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
-    -l username -d 'Username (required)' -r
+    -l username -d 'Username (required; alias defaults to it if omitted)' -r
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
     -l password -d 'Plaintext password or NTLM hash' -r
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
     -l domain   -d 'AD domain (optional, e.g. dante.local)' -r
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
     -l notes    -d 'Free-form notes' -r
+
+# `tgt cred show` flag completions
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from show' \
+    -l show-password -d 'Reveal the stored password / hash value'
 
 # `tgt dc new` flag completions
 complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
