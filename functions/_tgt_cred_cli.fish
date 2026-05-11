@@ -47,6 +47,11 @@ function _tgt_cred_cli
                 echo "(no credentials recorded for $scenario)"
                 return 0
             end
+            set_color --bold
+            printf '  %-12s %-20s  %-20s  %-20s %s\n' \
+                alias username password domain notes
+            set_color normal
+            set -l active (_tgt_cred_get_active $scenario 2>/dev/null)
             for a in $aliases
                 set -l line (_tgt_cred_inspect $scenario $a)
                 set -l fields (string split \t -- $line)
@@ -56,8 +61,13 @@ function _tgt_cred_cli
                     set pw_cell (_tgt_cred_read_password $scenario $a)
                     test -z "$pw_cell"; and set pw_cell "—"
                 end
-                printf '  %-12s %-20s  %-20s  %-20s %s\n' \
+                set -l marker "  "
+                test "$a" = "$active"; and set marker "* "
+                printf '%s' $marker
+                test "$a" = "$active"; and set_color --bold green
+                printf '%-12s %-20s  %-20s  %-20s %s\n' \
                     $fields[1] $fields[2] $pw_cell $fields[4] $fields[5]
+                test "$a" = "$active"; and set_color normal
             end
             return 0
 

@@ -17,15 +17,19 @@ function _tgt_cred_inspect --argument-names scenario alias
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
         test (count $m) -lt 3; and continue
+        # `_tgt_cred_save` runs each value through `string escape`,
+        # which wraps it in single quotes iff it isn't bare-token-safe.
+        # Reverse it here so callers get the human-readable form.
+        set -l val (string unescape -- $m[3])
         switch $m[2]
             case TGT_CRED_USERNAME
-                set username $m[3]
+                set username $val
             case TGT_CRED_PASSWORD
-                test -n "$m[3]"; and set has_password Y
+                test -n "$val"; and set has_password Y
             case TGT_CRED_DOMAIN
-                set domain $m[3]
+                set domain $val
             case TGT_CRED_NOTES
-                set notes $m[3]
+                set notes $val
         end
     end < $file
 
