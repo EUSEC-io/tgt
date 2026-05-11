@@ -7,16 +7,18 @@ Tested on Arch, Parrot OS, and Kali.
 ## What it does
 
 `tgt` is the flagship command. It remembers everything about the box
-you're working on (IP, creds, AD domain, hostnames, ports) and keeps
-`/etc/hosts`, `/etc/krb5.conf`, and an optional per-engagement folder
-tree in sync. Targets organize into **scenarios**, so a Pro Lab season
-or a client engagement is one namespace; switching targets pulls up
-every detail and updates the right system files.
+you're working on (IP, hostnames, ports) plus the floating context
+around it — credentials and AD/DC entries are scenario-level so you
+can pivot users without rewriting each target — and keeps `/etc/hosts`,
+`/etc/krb5.conf`, and an optional per-engagement folder tree in sync.
+Targets organize into **scenarios**, so a Pro Lab season or a client
+engagement is one namespace; switching targets pulls up every detail
+and updates the right system files.
 
-A few flagged extras: a colored `[scenario:target:port@dc]` prompt segment,
-fzf pickers, archive support to hide finished engagements, BloodHound
-ingest with auto-routed loot folders, nmap port-record import, and a
-gum-based config wizard when [`gum`](https://github.com/charmbracelet/gum)
+A few flagged extras: a colored `[scenario:target:port@dc+cred]` prompt
+segment, fzf pickers, archive support to hide finished engagements,
+BloodHound ingest with auto-routed loot folders, nmap port-record import,
+and a gum-based config wizard when [`gum`](https://github.com/charmbracelet/gum)
 is installed.
 
 
@@ -24,8 +26,10 @@ is installed.
 
 | Term | What it means |
 |---|---|
-| **scenario** | An engagement, HTB Pro Lab season, or client. Holds many targets. |
-| **target** | One box / host. IP, creds, AD, hostnames, ports. |
+| **scenario** | An engagement, HTB Pro Lab season, or client. Holds many targets, credentials, and DCs. |
+| **target** | One box / host. IP, hostnames, ports. |
+| **credential** | A username / password (or hash) pair, scenario-level. You typically collect several (foothold, lateral, DA) and pivot with `tgt cred switch`. |
+| **DC** | A krb5 realm definition (per-scenario), used by `tgt ingest` and AD tools. |
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
@@ -34,10 +38,9 @@ is installed.
 ![dashboard](assets/dashboard.svg)
 
 `tgt scenario show` gives you a per-scenario dashboard: every target's
-host, credentials-loaded flag (red = damage potential), AD flag
-(yellow), and hostname count. Active target is starred and bolded
-green. The data is read straight from the registry — no shell env
-pollution to inspect it.
+host and hostname count, plus the scenario's credentials and DCs in
+their own sections (the active one in each is starred). Data is read
+straight from the registry — no shell env pollution to inspect it.
 
 
 ## Install
@@ -107,8 +110,8 @@ tgt prompt install            # writes ~/.config/fish/functions/fish_right_promp
 tgt prompt install --left     # left prompt instead
 ```
 
-Renders `[scenario:target[:port][@dc]]` color-coded by damage potential.
-Details in [docs/commands.md](docs/commands.md#prompt-segment).
+Renders `[scenario:target[:port][@dc][+cred]]` color-coded by damage
+potential. Details in [docs/commands.md](docs/commands.md#prompt-segment).
 
 
 ## Best practices
@@ -133,6 +136,7 @@ tgt scenario archive       # done — hide it from the default list
 tgt scenario new dante                       # one scenario for the lab
 tgt new web01                                # first foothold
 tgt --add-host web01.dante.local intranet.dante.local
+tgt cred new foothold --username svc-web --password 'Spring2026!'
                                              # ... move laterally, find a DC ...
 tgt dc new dc01 \
     --domain dante.local \
@@ -141,13 +145,20 @@ tgt dc new dc01 \
                                              # the host→ip pair to /etc/hosts,
                                              # and exports TGT_DC_*. Auto-active.
 tgt new dc01-host                            # the DC as a target (for SMB, etc.)
+tgt cred new admin --username Administrator --password hunter2
+                                             # found a DA cred — `tgt cred switch`
+                                             # between foothold/admin as needed
 tgt switch                                   # fzf picker to jump between targets
-tgt ingest <user> <pass> --zip               # bloodhound JSON lands in dc01-host/loot/
+tgt ingest                                   # bloodhound JSON lands in dc01-host/loot/
 ```
 
-A scenario can hold many DCs (`tgt dc new` again, or run with no
-flags for the wizard). `tgt dc switch <alias>` flips which one's
-active. The prompt picks up the change as `[scenario:target@dc-alias]`.
+A scenario can hold many DCs and many credentials. `tgt dc switch
+<alias>` flips which DC is active; `tgt cred switch <alias>` flips
+which credential is loaded into `$TGT_USERNAME` / `$TGT_PASSWORD`.
+The prompt picks up both as `[scenario:target@dc+cred]`. Credentials
+and DCs are not bound to any single target — they float at the
+scenario level, since real engagements usually involve several users
+and the same DC across multiple hosts.
 
 ### Wrapping up
 
@@ -182,8 +193,9 @@ for use in subsequent tools.
 ![prompt](assets/prompt.svg)
 
 `tgt_prompt` is color-coded by damage potential — neutral for
-scenario-only, yellow once a host or port is loaded (recon), red as
-soon as credentials are present.
+scenario-only, yellow once a host / port / DC is loaded (recon), red
+as soon as a credential is loaded. `@dc` and `+cred` segments appear
+when those are active.
 
 ### Hide finished engagements
 
@@ -212,10 +224,10 @@ targets. Type to filter, arrow + Enter to select.
 
 ![revoke](assets/revoke.svg)
 
-`tgt --revoke` clears the active target's runtime state — env vars,
-`/etc/hosts` entries, krb5 realm, `TGT_PORT` — but keeps the scenario
-active. The persisted target file on disk is untouched, so
-`tgt switch <name>` loads it back instantly.
+`tgt --revoke` clears the active target's runtime state — `$TGT`,
+`$TGT_HOSTS`, `$TGT_PORT` — but keeps the scenario, the active
+credential, and the active DC. The persisted target file on disk is
+untouched, so `tgt switch <name>` loads it back instantly.
 
 ### More
 

@@ -7,6 +7,19 @@ Older milestones live in `git log`.
 ## Unreleased
 
 ### Commands added
+- `tgt cred …` — credentials are now first-class scenario-level
+  entries, mirroring `tgt dc`. Subcommands: `list / show / new /
+  switch / edit / rename / unset / rm` (bare `tgt cred` drops into
+  the switch picker). One scenario holds many credentials (foothold,
+  lateral, DA…) and `tgt cred switch <alias>` loads
+  `TGT_USERNAME` / `TGT_PASSWORD` / `TGT_CRED_*`. The prompt picks
+  it up as `+<alias>`. Same field stores NT/AES hashes — no separate
+  `--hash` flag. The active credential per scenario is remembered
+  across `tgt scenario switch`. **Migration:** target files no longer
+  persist `TGT_USERNAME` / `TGT_PASSWORD` / `TGT_AD_DOMAIN`; legacy
+  lines are filtered on load, so existing target files keep working
+  but those fields are silently dropped on next save. Move your
+  creds into `tgt cred new` and they survive scenario switches.
 - `tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]`
   — bulk-import each subdir under `<path>` as a scenario. Default
   moves the dir into the workspace root; `--copy` keeps the source

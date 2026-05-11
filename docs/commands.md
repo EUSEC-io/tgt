@@ -48,6 +48,19 @@ tgt ports comment <port>[/<proto>] <text>
 tgt ports clear                         drop all records
 tgt ports unset                         clear $TGT_PORT (keep records)
 
+# credentials (per scenario)
+tgt cred                                no verb → picker (switch)
+tgt cred list
+tgt cred show [alias]
+tgt cred new <alias> --username <u> [--password <p>]
+                     [--domain <d>] [--notes <n>]
+tgt cred new                            (no flags) drops into wizard
+tgt cred edit [alias]                   wizard with current values prefilled
+tgt cred rename [<old>] <new>           rename a cred entry
+tgt cred switch [alias]                 load TGT_USERNAME / TGT_PASSWORD
+tgt cred unset                          clear $TGT_CRED_* + active marker
+tgt cred rm [alias]
+
 # AD / DCs (per scenario)
 tgt dc                                  list DCs (no verb)
 tgt dc list
@@ -83,8 +96,8 @@ tgt prompt uninstall
 |---|---|
 | `tgt scenario` | Interactive picker (gum + TTY) — new / switch / show / rm. Falls back to help text otherwise. |
 | `tgt scenario new <name>` | Create scenario, activate it. |
-| `tgt scenario list [--all\|--archived]` | Active scenarios with target count + creds/AD flags per row. `--all` adds archived (with `[archived]` tag); `--archived` shows only archived. `*` marks active. |
-| `tgt scenario show [name]` | Dashboard: details + per-target table (host, creds, AD, hostname count). |
+| `tgt scenario list [--all\|--archived]` | Active scenarios with target / creds / DC counts per row. `--all` adds archived (with `[archived]` tag); `--archived` shows only archived. `*` marks active. |
+| `tgt scenario show [name]` | Dashboard: details + per-target table (host, hostname count) + credentials + DCs. |
 | `tgt scenario switch [--all] [name]` | Switch active scenario; no arg → fzf picker. Archived hidden by default; `--all` to surface them. |
 | `tgt scenario rename [<old>] <new>` | Rename a scenario; retags every target's `/etc/hosts` lines and moves the workspace folder. |
 | `tgt scenario clone [<src>] <new>` | Duplicate the source scenario's registry state (targets, port records, DCs, active-DC marker) into a new scenario. Does NOT copy the workspace folder. No-arg form drops into a picker for src + prompt for new name. Doesn't activate the clone. |
@@ -157,6 +170,61 @@ set -gx TGT_INTERESTING_UDP 53 88 161 500
 
 The default sets lean toward AD + common service exposure; see
 `functions/_tgt_ports_interesting_{tcp,udp}.fish`.
+
+
+## Credentials
+
+Credential entries are per-scenario, not per-target — in practice
+you collect several users (foothold, lateral movement, domain
+admin) over an engagement and pivot between them, often against
+the same target. `tgt cred switch` loads `TGT_USERNAME` /
+`TGT_PASSWORD` and tags the prompt with `+<alias>`.
+
+| Command | Behavior |
+|---|---|
+| `tgt cred` / `tgt cred list` | Bare `cred` drops into the switch picker; `list` is the read-only view (alias, username, `pw:Y/N`, domain, notes — notes truncated to 30 chars). |
+| `tgt cred show [alias]` | Detailed view (full notes). No arg → fzf picker. Password renders as `(set)` / `(not set)` — never echoed. |
+| `tgt cred new <alias> ...` | Create a cred entry. Auto-activates (loads env vars + writes `.active-cred`). Drops into wizard with no data flags. |
+| `tgt cred edit [alias]` | Re-open the wizard for an existing entry with current values prefilled (password masked as `<KEEP>` — Enter keeps it). To clear an optional field, type `!`. |
+| `tgt cred rename [<old>] <new>` | Rename a cred entry. With one arg, renames the active credential. |
+| `tgt cred switch [alias]` | Activate a credential (loads `TGT_USERNAME` / `TGT_PASSWORD` / `TGT_CRED_*`). |
+| `tgt cred unset` | Clear `$TGT_USERNAME` / `$TGT_PASSWORD` / `$TGT_CRED_*` + the per-scenario active marker. |
+| `tgt cred rm [alias]` | Remove a cred entry. |
+
+`tgt cred new` flags (or wizard prompts):
+
+| Flag | Meaning |
+|---|---|
+| `--username <u>` | Required. Use `DOMAIN\user` or `user@domain` form if your tooling expects it; the field is opaque. |
+| `--password <p>` | Optional. Same field stores NT/AES hashes — paste them verbatim and tools that accept `:hash` syntax will pick it up. |
+| `--domain <d>` | Optional. Free-form note (workgroup, realm, whatever's relevant). |
+| `--notes <n>` | Free-form note. Truncated in `tgt cred list`; full text in `tgt cred show`. |
+
+The active credential for each scenario is remembered across
+`tgt scenario switch`, so re-entering a scenario restores whichever
+cred you last had loaded. There is no cred ↔ target binding —
+credentials float at the scenario level alongside DCs.
+
+### Env vars (when a credential is active)
+
+```
+TGT_CRED_NAME=admin                # alias — surfaces in the prompt as +admin
+TGT_CRED_USERNAME=Administrator    # raw field
+TGT_CRED_PASSWORD=hunter2          # raw field (or NT/AES hash)
+TGT_CRED_DOMAIN=DANTE              # optional, raw field
+TGT_CRED_NOTES=domain admin        # optional, raw field
+TGT_USERNAME=Administrator         # derived (mirror of TGT_CRED_USERNAME)
+TGT_PASSWORD=hunter2               # derived (mirror of TGT_CRED_PASSWORD)
+```
+
+### Storage
+
+```
+scenarios/<scen>/
+├── .active-cred                   (alias of currently-active credential)
+└── creds/
+    └── <alias>.fish               (raw TGT_CRED_* fields; TGT_USERNAME / TGT_PASSWORD derived at load)
+```
 
 
 ## DCs
@@ -271,9 +339,13 @@ tgt prompt status                               show what's installed
 tgt prompt uninstall                            remove the managed file
 ```
 
-Renders `[scenario:target[:port]]` color-coded by damage potential
-(red = creds loaded, yellow = host or port set, default = scenario
-only). The `:port` segment appears once you pick one via `tgt ports`.
+Renders `[scenario:target[:port][@dc][+cred]]` color-coded by damage
+potential (red = credential loaded, yellow = host / port / DC set,
+default = scenario only). Segments appear as you pick them: `:port`
+via `tgt ports`, `@dc` via `tgt dc switch`, `+cred` via
+`tgt cred switch`. Cred uses `+` so it stays unambiguous next to
+`:port` and `@dc`, and survives `tgt revoke` (which only drops the
+target half).
 
 Refuses to overwrite an existing custom `fish_(right_)prompt` unless
 `--force` is passed (your file is backed up to `<file>.tgt-bak`).
@@ -288,11 +360,14 @@ Refuses to overwrite an existing custom `fish_(right_)prompt` unless
     └── <scenario>/
         ├── .archived       (when archived; remove to surface again)
         ├── .active-dc      (alias of currently-active DC, when set)
+        ├── .active-cred    (alias of currently-active credential, when set)
         ├── targets/
         │   ├── <alias>.fish    set -gx TGT 10.10.11.5 ...
         │   └── <alias>.ports   port records (tab-separated)
-        └── dcs/
-            └── <alias>.fish    set -gx TGT_DC_DOMAIN dante.local ...
+        ├── dcs/
+        │   └── <alias>.fish    set -gx TGT_DC_DOMAIN dante.local ...
+        └── creds/
+            └── <alias>.fish    set -gx TGT_CRED_USERNAME admin ...
 ```
 
 Workspace folders (when enabled) live under `$TGT_WORKSPACE_ROOT`,
