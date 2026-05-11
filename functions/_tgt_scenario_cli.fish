@@ -41,6 +41,7 @@ function _tgt_scenario_cli
             set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
             _tgt_clear_target_runtime
             _tgt_dc_clear_runtime
+            _tgt_cred_clear_runtime
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines (new scenario has no targets/DCs to add yet).
             _tgt_hosts_apply_scenario $name
@@ -235,17 +236,20 @@ function _tgt_scenario_cli
                 _tgt_unexport TGT_ACTIVE
                 _tgt_clear_target_runtime
             end
-            # Clear the prior scenario's DC runtime — about to be
-            # replaced (or left empty if the new scenario has none).
+            # Clear the prior scenario's DC + cred runtime — about
+            # to be replaced (or left empty if the new scenario has
+            # none of either).
             _tgt_dc_clear_runtime
+            _tgt_cred_clear_runtime
             # Hot-swap /etc/hosts: revoke the previous scenario's
             # lines, add the new scenario's.
             _tgt_hosts_apply_scenario $name
             # Same for /etc/krb5.conf — managed realm blocks flip
             # to whatever DCs exist in the new scenario.
             _tgt_krb5_apply_scenario $name
-            # Restore the new scenario's remembered active DC, if any.
+            # Restore the new scenario's remembered active DC + cred.
             _tgt_dc_restore_active $name
+            _tgt_cred_restore_active $name
             echo "✓ active scenario: $name"
             _tgt_scenario_archived $name; and begin
                 set_color brblack
@@ -380,6 +384,7 @@ function _tgt_scenario_cli
             if set -q TGT_SCENARIO; and test "$TGT_SCENARIO" = "$name"
                 _tgt_unexport TGT_SCENARIO
                 _tgt_dc_clear_runtime
+                _tgt_cred_clear_runtime
             end
             # Re-apply krb5 so the removed scenario's tgt-managed DC
             # blocks are stripped. If another scenario is still active,

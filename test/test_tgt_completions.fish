@@ -85,6 +85,27 @@ set -l names_dc_new (_complete_names 'tgt dc new -')
 #
 @test "top-level: dc offered" \
     (contains dc $names; echo $status) -eq 0
+@test "top-level: cred offered" \
+    (contains cred $names; echo $status) -eq 0
+
+#
+# `tgt cred <TAB>` offers cred verbs.
+#
+set -l names_cred (_complete_names 'tgt cred ')
+@test "cred: offers list" \
+    (contains list $names_cred; echo $status) -eq 0
+@test "cred: offers new" \
+    (contains new $names_cred; echo $status) -eq 0
+@test "cred: offers switch" \
+    (contains switch $names_cred; echo $status) -eq 0
+@test "cred: offers edit" \
+    (contains edit $names_cred; echo $status) -eq 0
+@test "cred: offers rename" \
+    (contains rename $names_cred; echo $status) -eq 0
+@test "cred: offers unset" \
+    (contains unset $names_cred; echo $status) -eq 0
+@test "cred: offers rm" \
+    (contains rm $names_cred; echo $status) -eq 0
 @test "top-level: show offered" \
     (contains show $names; echo $status) -eq 0
 @test "top-level: revoke offered" \

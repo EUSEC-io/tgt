@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc show revoke
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc cred show revoke
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -29,6 +29,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a ports     -d 'Per-target port records (list, import, pick → TGT_PORT)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a dc        -d 'Per-scenario DC entries (krb5 realm definitions)'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a cred      -d 'Per-scenario credentials (floating across targets)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a show      -d 'Show current target + active DC + /etc/hosts + krb5'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -209,6 +211,39 @@ complete -c tgt -n "__fish_seen_subcommand_from dc; and not __fish_seen_subcomma
 # show / rm / switch / edit / rename: complete from active-scenario DC aliases
 complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from show rm switch edit rename' \
     -a '(__tgt_complete_active_dcs)' -d dc
+
+# ── tgt cred <verb> ───────────────────────────────────────────────
+set -l cred_subs list show rm new switch unset edit rename
+
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a list   -d 'List credentials in the active scenario'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a show   -d 'Show details for a credential'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a new    -d 'Create a credential entry (auto-activates)'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a edit   -d 'Edit an existing credential entry'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a rename -d 'Rename a credential entry'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a switch -d 'Activate a credential (loads TGT_USERNAME / TGT_PASSWORD)'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a unset  -d 'Clear active-credential env vars + per-scenario marker'
+complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcommand_from $cred_subs" \
+    -a rm     -d 'Remove a credential entry'
+
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from show rm switch edit rename' \
+    -a '(__tgt_complete_active_creds)' -d credential
+
+# `tgt cred new` flag completions
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
+    -l username -d 'Username (required)' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
+    -l password -d 'Plaintext password or NTLM hash' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
+    -l domain   -d 'AD domain (optional, e.g. dante.local)' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
+    -l notes    -d 'Free-form notes' -r
 
 # `tgt dc new` flag completions
 complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \

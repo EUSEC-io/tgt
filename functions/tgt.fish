@@ -22,6 +22,7 @@ function tgt --description 'Set penetration testing target environment variables
         echo ""
         echo "  ACTIVE DIRECTORY"
         echo "    tgt dc                       Per-scenario DC entries: new / switch / list / rm"
+        echo "    tgt cred                     Per-scenario credentials: new / switch / list / rm"
         echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
         echo "  SCENARIOS & TARGETS"
@@ -265,6 +266,12 @@ function tgt --description 'Set penetration testing target environment variables
     # ── DCs (per-scenario krb5 realm definitions) ───────────
     if test (count $argv) -ge 1 && test $argv[1] = "dc"
         _tgt_dc_cli $argv[2..]
+        return $status
+    end
+
+    # ── Credentials (per-scenario, floating across targets) ─
+    if test (count $argv) -ge 1 && test $argv[1] = "cred"
+        _tgt_cred_cli $argv[2..]
         return $status
     end
 

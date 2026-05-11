@@ -11,15 +11,18 @@ function _tgt_action_menu
     set -q TGT_ACTIVE; and set targ $TGT_ACTIVE
     set -l dc "(none)"
     set -q TGT_DC_NAME; and set dc $TGT_DC_NAME
+    set -l cred "(none)"
+    set -q TGT_CRED_NAME; and set cred $TGT_CRED_NAME
     set_color brblack
     echo "    scenario: $scen"
     echo "    target:   $targ"
     echo "    dc:       $dc"
+    echo "    cred:     $cred"
     set_color normal
 
     # Order by expected frequency. `cancel` is always last.
     set -l choice (_tgt_ask_choice "Action" switch \
-        switch new show edit hosts ports dc scenario revoke cancel)
+        switch new show edit hosts ports dc cred scenario revoke cancel)
     if test $status -ne 0
         set_color brblack; echo "  cancelled."; set_color normal
         return 1
