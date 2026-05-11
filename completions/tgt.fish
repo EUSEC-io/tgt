@@ -245,9 +245,9 @@ complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
     -l notes    -d 'Free-form notes' -r
 
-# `tgt cred show` flag completions
-complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from show' \
-    -l show-password -d 'Reveal the stored password / hash value'
+# `tgt cred list` flag completions
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from list' \
+    -l show-passwords -d 'Render the actual password / hash value (default: pw:Y/N)'
 
 # `tgt dc new` flag completions
 complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \

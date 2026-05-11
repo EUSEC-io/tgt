@@ -1,9 +1,14 @@
 # Dispatch for `tgt cred …` — per-scenario credential entries.
 #
 #   tgt cred                       list + pick → set active (switch)
-#   tgt cred list                  list, no picker
-#   tgt cred show [alias] [--show-password]
-#                                  detailed view (no arg → fzf picker)
+#   tgt cred list [--show-passwords]
+#                                  list — by default the password column
+#                                  reads `pw:Y/N`; with the flag the actual
+#                                  value is rendered (handy when you want
+#                                  to copy-paste, dangerous when others can
+#                                  see your screen).
+#   tgt cred show [alias]          detailed view (no arg → fzf picker). The
+#                                  password is shown — you asked for it.
 #   tgt cred new [alias] --username <u> [--password <p>] [--domain <d>] [--notes <n>]
 #                                  if [alias] omitted, defaults to --username
 #                                  when the username is a valid alias
@@ -35,6 +40,8 @@ function _tgt_cred_cli
 
     switch $verb
         case list
+            argparse --name='tgt cred list' 'show-passwords' -- $rest
+            or return 1
             set -l aliases (_tgt_cred_list $scenario)
             if test (count $aliases) -eq 0
                 echo "(no credentials recorded for $scenario)"
@@ -43,9 +50,14 @@ function _tgt_cred_cli
             for a in $aliases
                 set -l line (_tgt_cred_inspect $scenario $a)
                 set -l fields (string split \t -- $line)
-                # alias  username  has_password  domain  notes
-                printf '  %-12s %-20s  pw:%s  %-20s %s\n' \
-                    $fields[1] $fields[2] $fields[3] $fields[4] $fields[5]
+                # alias  username  has_password(Y/N)  domain  notes
+                set -l pw_cell "pw:$fields[3]"
+                if set -q _flag_show_passwords
+                    set pw_cell (_tgt_cred_read_password $scenario $a)
+                    test -z "$pw_cell"; and set pw_cell "—"
+                end
+                printf '  %-12s %-20s  %-20s  %-20s %s\n' \
+                    $fields[1] $fields[2] $pw_cell $fields[4] $fields[5]
             end
             return 0
 
@@ -61,9 +73,7 @@ function _tgt_cred_cli
             return $status
 
         case show
-            argparse --name='tgt cred show' 'show-password' -- $rest
-            or return 1
-            set -l alias $argv[1]
+            set -l alias $rest[1]
             if test -z "$alias"
                 set -l aliases (_tgt_cred_list $scenario)
                 if test (count $aliases) -eq 0
@@ -77,39 +87,19 @@ function _tgt_cred_cli
                 echo "tgt cred show: credential '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            # Re-read raw fields for the detailed display.
-            set -l file (_tgt_cred_file $scenario $alias)
-            set -l username ""
-            set -l password ""
-            set -l domain ""
-            set -l notes ""
-            while read -l ln
-                set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $ln)
-                test (count $m) -lt 3; and continue
-                # `_tgt_cred_save` runs the value through `string escape`,
-                # which adds single-quote wrapping iff the value isn't
-                # bare-token-safe — reverse it on read.
-                set -l val (string unescape -- $m[3])
-                switch $m[2]
-                    case TGT_CRED_USERNAME
-                        set username $val
-                    case TGT_CRED_PASSWORD
-                        set password $val
-                    case TGT_CRED_DOMAIN
-                        set domain $val
-                    case TGT_CRED_NOTES
-                        set notes $val
-                end
-            end < $file
+            set -l line (_tgt_cred_read_fields $scenario $alias)
+            set -l fields (string split \t -- $line)
+            set -l username $fields[1]
+            set -l password $fields[2]
+            set -l domain   $fields[3]
+            set -l notes    $fields[4]
             set_color brblack; printf '  alias:    '; set_color normal; echo $alias
             set_color brblack; printf '  username: '; set_color normal; echo $username
             set_color brblack; printf '  password: '; set_color normal
             if test -z "$password"
                 set_color brblack; echo "(not set)"; set_color normal
-            else if set -q _flag_show_password
-                set_color red; echo $password; set_color normal
             else
-                set_color red; echo "(set — pass --show-password to reveal)"; set_color normal
+                set_color red; echo $password; set_color normal
             end
             set_color brblack; printf '  domain:   '; set_color normal
             test -n "$domain"; and echo $domain; or begin; set_color brblack; echo "(not set)"; set_color normal; end

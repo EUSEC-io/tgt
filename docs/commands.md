@@ -50,8 +50,8 @@ tgt ports unset                         clear $TGT_PORT (keep records)
 
 # credentials (per scenario)
 tgt cred                                no verb → picker (switch)
-tgt cred list
-tgt cred show [alias] [--show-password]
+tgt cred list [--show-passwords]        default masks pw column as pw:Y/N
+tgt cred show [alias]                   detailed view — password shown
 tgt cred new [alias] --username <u> [--password <p>]
                      [--domain <d>] [--notes <n>]
                                         alias defaults to --username when
@@ -184,8 +184,8 @@ the same target. `tgt cred switch` loads `TGT_USERNAME` /
 
 | Command | Behavior |
 |---|---|
-| `tgt cred` / `tgt cred list` | Bare `cred` drops into the switch picker; `list` is the read-only view (alias, username, `pw:Y/N`, domain, notes — notes truncated to 30 chars). |
-| `tgt cred show [alias] [--show-password]` | Detailed view (full notes). No arg → fzf picker. Password is masked by default; pass `--show-password` to reveal it. |
+| `tgt cred` / `tgt cred list [--show-passwords]` | Bare `cred` drops into the switch picker; `list` is the read-only view (alias, username, `pw:Y/N`, domain, notes — notes truncated to 30 chars). Pass `--show-passwords` to render the actual values in the password column (useful for copy-paste; dangerous on shared screens). |
+| `tgt cred show [alias]` | Detailed view (full notes + actual password). No arg → fzf picker. The password is rendered as-is — this is the "you asked for it" view. |
 | `tgt cred new [alias] ...` | Create a cred entry. Auto-activates (loads env vars + writes `.active-cred`). If `[alias]` is omitted, defaults to `--username` when the username is itself a valid alias (the common ASCII case). Drops into wizard with no data flags. |
 | `tgt cred edit [alias]` | Re-open the wizard for an existing entry with current values prefilled (password masked as `<KEEP>` — Enter keeps it). To clear an optional field, type `!`. |
 | `tgt cred rename [<old>] <new>` | Rename a cred entry. With one arg, renames the active credential. |
