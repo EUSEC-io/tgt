@@ -39,7 +39,10 @@ _tgt_scenario_clone src dest
 _test_teardown
 
 #
-# clone DOES NOT copy the workspace folder, even when the source has one.
+# clone DOES NOT copy source's workspace contents (scans, loot, etc.) —
+# but the CLI `tgt scenario clone` does auto-create an empty workspace
+# folder for the clone when TGT_WORKSPACE_AUTOCREATE is on (mirrors
+# `tgt scenario new`).
 #
 _test_setup_home
 set -gx TGT_WORKSPACE_ROOT (mktemp -d)
@@ -51,12 +54,42 @@ _tgt_target_cli new web01 --no-edit >/dev/null
 mkdir -p $TGT_WORKSPACE_ROOT/src/scans
 echo "fake scan" > $TGT_WORKSPACE_ROOT/src/scans/nmap.txt
 
+# Helper-level clone: no autocreate — just registry copy.
+_tgt_scenario_clone src dest
+@test "clone (helper): source workspace untouched" \
+    (test -f $TGT_WORKSPACE_ROOT/src/scans/nmap.txt; echo $status) -eq 0
+@test "clone (helper): dest workspace dir NOT created (helper doesn't autocreate)" \
+    (test -d $TGT_WORKSPACE_ROOT/dest; echo $status) -ne 0
+
+# CLI clone: autocreate kicks in.
+_tgt_scenario_cli clone src dest2 >/dev/null
+@test "clone (CLI, autocreate): dest workspace dir IS created" \
+    (test -d $TGT_WORKSPACE_ROOT/dest2; echo $status) -eq 0
+@test "clone (CLI, autocreate): source's scan file NOT copied to dest2" \
+    (test -f $TGT_WORKSPACE_ROOT/dest2/scans/nmap.txt; echo $status) -ne 0
+_test_teardown
+
+#
+# clone copies credentials + the .active-cred marker (mirror of DC).
+#
+_test_setup_home
+_tgt_scenario_cli new src >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
+tgt cred new svc --username svc-web --password p2 >/dev/null
+# admin was created first, svc is currently active (last-new wins).
+# Switch back to admin so the active marker matches.
+tgt cred switch admin >/dev/null
+
 _tgt_scenario_clone src dest
 
-@test "clone: source workspace untouched" \
-    (test -f $TGT_WORKSPACE_ROOT/src/scans/nmap.txt; echo $status) -eq 0
-@test "clone: dest workspace dir NOT created" \
-    (test -d $TGT_WORKSPACE_ROOT/dest; echo $status) -ne 0
+@test "clone: admin cred carried over" \
+    (_tgt_cred_exists dest admin; echo $status) -eq 0
+@test "clone: svc cred carried over" \
+    (_tgt_cred_exists dest svc; echo $status) -eq 0
+@test "clone: cred count matches source (2)" \
+    (count (_tgt_cred_list dest)) -eq 2
+@test "clone: .active-cred marker carried over" \
+    (_tgt_cred_get_active dest) = admin
 _test_teardown
 
 #

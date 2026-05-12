@@ -47,5 +47,20 @@ function _tgt_scenario_clone --argument-names src new
         command cp -- $src_dir/.active-dc $new_dir/.active-dc
     end
 
+    # creds/ — same as dcs/. Credential entries are config (which
+    # user identities to pivot between), not engagement output, so
+    # they belong on a clone.
+    if test -d $src_dir/creds
+        command mkdir -p $new_dir/creds
+        for f in $src_dir/creds/*
+            test -e $f; or continue
+            command cp -- $f $new_dir/creds/(basename $f)
+        end
+    end
+
+    if test -f $src_dir/.active-cred
+        command cp -- $src_dir/.active-cred $new_dir/.active-cred
+    end
+
     # `.archived` is intentionally left behind — clones start active.
 end

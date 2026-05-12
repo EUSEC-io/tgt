@@ -326,9 +326,20 @@ function _tgt_scenario_cli
             set_color green; echo "✓ scenario '$src' cloned to '$new'"; set_color normal
             set -l target_count (count (_tgt_target_list $new))
             set -l dc_count (count (_tgt_dc_list $new))
+            set -l cred_count (count (_tgt_cred_list $new))
             set_color brblack
-            echo "  carried over: $target_count target(s), $dc_count DC(s)"
-            echo "  workspace folder NOT copied — `tgt scenario switch $new` to enter it"
+            echo "  carried over: $target_count target(s), $dc_count DC(s), $cred_count cred(s)"
+            # Auto-create an empty workspace folder for the clone when
+            # the user opted in. Source's scan/loot files are NOT
+            # copied — clones are for carrying config forward, not
+            # duplicating engagement output. Mirrors `scenario new`.
+            if _tgt_workspace_autocreate
+                if _tgt_workspace_create $new
+                    echo "  workspace: "(_tgt_workspace_dir $new)" (empty — source files not copied)"
+                end
+            else
+                echo "  workspace folder NOT copied — `tgt scenario switch $new` to enter it"
+            end
             set_color normal
             return 0
 
