@@ -259,6 +259,32 @@ function _tgt_scenario_cli
             _tgt_scenario_followup $name
             return 0
 
+        case unload
+            # Pure runtime clear — nothing on disk is removed. The
+            # umbrella verb: drops target half (TGT / TGT_PORT /
+            # TGT_HOSTS / TGT_ACTIVE), cred half (TGT_USERNAME /
+            # TGT_PASSWORD / TGT_CRED_*), DC half (TGT_DC_*), and
+            # finally TGT_SCENARIO itself. After this the prompt
+            # collapses to nothing and you can pick a different
+            # scenario fresh (or stay scenario-less for a while).
+            if not set -q TGT_SCENARIO
+                echo "- no scenario was loaded"
+                # Still clear any orphan TGT_* runtime, just in case.
+                _tgt_cred_clear_runtime
+                _tgt_dc_clear_runtime
+                _tgt_clear_target_runtime
+                set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
+                return 0
+            end
+            set -l prev $TGT_SCENARIO
+            _tgt_cred_clear_runtime
+            _tgt_dc_clear_runtime
+            _tgt_clear_target_runtime
+            set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
+            _tgt_unexport TGT_SCENARIO
+            set_color green; echo "✓ scenario '$prev' unloaded — all TGT_* runtime cleared"; set_color normal
+            return 0
+
         case import
             _tgt_scenario_import $rest
             return $status

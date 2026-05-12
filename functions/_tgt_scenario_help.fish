@@ -12,6 +12,8 @@ function _tgt_scenario_help
     echo "    tgt scenario switch [--all] [name]"
     echo "                                 Make a scenario active (no-arg → fzf;"
     echo "                                 --all to include archived in the picker)"
+    echo "    tgt scenario unload          Clear all TGT_* runtime (scenario / target /"
+    echo "                                 cred / DC). Nothing on disk is removed."
     echo "    tgt scenario archive [name]  Hide a scenario from the default list"
     echo "    tgt scenario unarchive [name] Surface an archived scenario again"
     echo "    tgt scenario import <path> [--copy] [--dry-run] [--prefix <p>]"

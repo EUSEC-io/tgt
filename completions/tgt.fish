@@ -91,7 +91,7 @@ complete -c tgt -n '__fish_seen_subcommand_from workspace; and __fish_seen_subco
     -a '(__tgt_complete_active_targets)' -d target
 
 # ── tgt scenario <verb> ────────────────────────────────────────────
-set -l scenario_subs new list show switch rm rename clone archive unarchive import
+set -l scenario_subs new list show switch unload rm rename clone archive unarchive import
 
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a new       -d 'Create a new scenario, switch to it'
@@ -101,6 +101,8 @@ complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_su
     -a show      -d 'Show scenario details'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a switch    -d 'Make a scenario active'
+complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
+    -a unload    -d 'Clear all TGT_* runtime (scenario / target / cred / DC)'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \
     -a archive   -d 'Hide a scenario from the default list'
 complete -c tgt -n "__fish_seen_subcommand_from scenario; and not __fish_seen_subcommand_from $scenario_subs" \

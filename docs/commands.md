@@ -14,6 +14,7 @@ tgt scenario new <name>                 create + activate
 tgt scenario list [--all|--archived]    active by default
 tgt scenario show [name]                per-scenario dashboard
 tgt scenario switch [--all] [name]      no name → fzf
+tgt scenario unload                     clear ALL TGT_* runtime (scenario+target+cred+DC)
 tgt scenario rename [<old>] <new>       retags hosts + moves workspace
 tgt scenario clone  [<src>] <new>       copy targets+DCs (NOT workspace)
 tgt scenario archive   [name]           hide from default list
@@ -101,6 +102,7 @@ tgt prompt uninstall
 | `tgt scenario list [--all\|--archived]` | Active scenarios with target / creds / DC counts per row. `--all` adds archived (with `[archived]` tag); `--archived` shows only archived. `*` marks active. |
 | `tgt scenario show [name]` | Dashboard: details + per-target table (host, hostname count) + credentials + DCs. |
 | `tgt scenario switch [--all] [name]` | Switch active scenario; no arg → fzf picker. Archived hidden by default; `--all` to surface them. |
+| `tgt scenario unload` | Pure runtime clear — drops `$TGT_SCENARIO`, target half (`TGT` / `TGT_PORT` / `TGT_HOSTS` / `TGT_ACTIVE`), cred half (`TGT_USERNAME` / `TGT_PASSWORD` / `TGT_CRED_*`), DC half (`TGT_DC_*`). Nothing on disk is touched, so `tgt scenario switch <name>` restores everything (including each scenario's last-active cred + DC). Use this when you want to step out of the current engagement without opening a new shell. |
 | `tgt scenario rename [<old>] <new>` | Rename a scenario; retags every target's `/etc/hosts` lines and moves the workspace folder. |
 | `tgt scenario clone [<src>] <new>` | Duplicate the source scenario's registry state (targets, port records, DCs, active-DC marker) into a new scenario. Does NOT copy the workspace folder. No-arg form drops into a picker for src + prompt for new name. Doesn't activate the clone. |
 | `tgt scenario archive [name]` / `unarchive [name]` | Hide a scenario from the default list (touches `.archived` marker), or surface it again. |

@@ -104,6 +104,69 @@ _tgt_scenario_cli new dante >/dev/null
 _test_teardown
 
 #
+# unload: clears all TGT_* runtime (scenario / target / cred / DC).
+# Nothing on disk should be touched — re-loading should restore.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+set -gx TGT 10.10.10.5
+set -gx TGT_PORT 445
+set -gx TGT_HOSTS web01.dante.local
+_tgt_target_cli new web01 --no-edit >/dev/null
+tgt dc new dc01 --domain dante.local --kdc-ip 10.10.10.10 >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
+
+# Sanity: everything is loaded.
+@test "unload (pre): TGT_SCENARIO set" "$TGT_SCENARIO" = dante
+@test "unload (pre): TGT_ACTIVE set" "$TGT_ACTIVE" = web01
+@test "unload (pre): TGT_DC_NAME set" "$TGT_DC_NAME" = dc01
+@test "unload (pre): TGT_CRED_NAME set" "$TGT_CRED_NAME" = admin
+
+_tgt_scenario_cli unload >/dev/null
+
+@test "unload: TGT_SCENARIO cleared" \
+    (set -q TGT_SCENARIO; echo $status) -ne 0
+@test "unload: TGT_ACTIVE cleared" \
+    (set -q TGT_ACTIVE; echo $status) -ne 0
+@test "unload: TGT cleared" \
+    (set -q TGT; echo $status) -ne 0
+@test "unload: TGT_PORT cleared" \
+    (set -q TGT_PORT; echo $status) -ne 0
+@test "unload: TGT_HOSTS cleared" \
+    (set -q TGT_HOSTS; echo $status) -ne 0
+@test "unload: TGT_CRED_NAME cleared" \
+    (set -q TGT_CRED_NAME; echo $status) -ne 0
+@test "unload: TGT_USERNAME cleared" \
+    (set -q TGT_USERNAME; echo $status) -ne 0
+@test "unload: TGT_PASSWORD cleared" \
+    (set -q TGT_PASSWORD; echo $status) -ne 0
+@test "unload: TGT_DC_NAME cleared" \
+    (set -q TGT_DC_NAME; echo $status) -ne 0
+@test "unload: scenario still exists on disk" \
+    (_tgt_scenario_exists dante; echo $status) -eq 0
+@test "unload: target still exists on disk" \
+    (_tgt_target_exists dante web01; echo $status) -eq 0
+
+# Re-entering restores everything from disk (cred + DC active markers).
+_tgt_scenario_cli switch dante >/dev/null
+@test "unload + switch back: TGT_SCENARIO restored" "$TGT_SCENARIO" = dante
+@test "unload + switch back: TGT_CRED_NAME restored (active marker honored)" \
+    "$TGT_CRED_NAME" = admin
+@test "unload + switch back: TGT_DC_NAME restored (active marker honored)" \
+    "$TGT_DC_NAME" = dc01
+_test_teardown
+
+#
+# unload: idempotent / safe when nothing was loaded.
+#
+_test_setup_home
+@test "unload (clean state): exits 0" \
+    (_tgt_scenario_cli unload >/dev/null 2>&1; echo $status) -eq 0
+@test "unload (clean state): TGT_SCENARIO still unset" \
+    (set -q TGT_SCENARIO; echo $status) -ne 0
+_test_teardown
+
+#
 # show: defaults to active scenario
 #
 _test_setup_home
