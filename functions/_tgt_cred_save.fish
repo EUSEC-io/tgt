@@ -15,10 +15,15 @@ function _tgt_cred_save --argument-names scenario alias
     set -l tmp (command mktemp)
 
     for var in TGT_CRED_USERNAME TGT_CRED_PASSWORD TGT_CRED_DOMAIN TGT_CRED_NOTES
-        if set -q $var
-            set -l escaped (string escape -- $$var)
-            echo "_tgt_export $var "(string join " " -- $escaped) >> $tmp
-        end
+        # Skip both unset and empty — fish's `set -q` returns true
+        # for vars assigned the empty string, so without this check
+        # a stray `set -gx TGT_CRED_DOMAIN ""` upstream would persist
+        # an `_tgt_export TGT_CRED_DOMAIN ''` line. We want empty to
+        # mean "field absent" everywhere.
+        set -q $var; or continue
+        test -n "$$var"; or continue
+        set -l escaped (string escape -- $$var)
+        echo "_tgt_export $var "(string join " " -- $escaped) >> $tmp
     end
 
     command mv $tmp $file

@@ -17,10 +17,12 @@ function _tgt_dc_save --argument-names scenario alias
     for var in TGT_DC_DOMAIN TGT_DC_REALM \
                TGT_DC_HOST TGT_DC_IP TGT_DC_IP_SOURCE \
                TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP TGT_DC_ADMIN_IP_SOURCE
-        if set -q $var
-            set -l escaped (string escape -- $$var)
-            echo "_tgt_export $var "(string join " " -- $escaped) >> $tmp
-        end
+        # Skip both unset and empty — see _tgt_cred_save for context.
+        # Empty means "field absent"; never serialize `''` as a value.
+        set -q $var; or continue
+        test -n "$$var"; or continue
+        set -l escaped (string escape -- $$var)
+        echo "_tgt_export $var "(string join " " -- $escaped) >> $tmp
     end
 
     command mv $tmp $file
