@@ -89,19 +89,20 @@ function _tgt_dc_cli
             while read -l ln
                 set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $ln)
                 test (count $m) -lt 3; and continue
+                set -l val (string unescape -- $m[3])
                 switch $m[2]
                     case TGT_DC_HOST
-                        set kdc_host $m[3]
+                        set kdc_host $val
                     case TGT_DC_IP
-                        set kdc_ip $m[3]
+                        set kdc_ip $val
                     case TGT_DC_IP_SOURCE
-                        set kdc_ip_src $m[3]
+                        set kdc_ip_src $val
                     case TGT_DC_ADMIN_HOST
-                        set admin_host $m[3]
+                        set admin_host $val
                     case TGT_DC_ADMIN_IP
-                        set admin_ip $m[3]
+                        set admin_ip $val
                     case TGT_DC_ADMIN_IP_SOURCE
-                        set admin_ip_src $m[3]
+                        set admin_ip_src $val
                 end
             end < $file
             set_color brblack; printf '  alias:        '; set_color normal; echo $fields[1]

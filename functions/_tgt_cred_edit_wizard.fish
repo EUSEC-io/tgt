@@ -22,15 +22,22 @@ function _tgt_cred_edit_wizard --argument-names scenario alias
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
         test (count $m) -lt 3; and continue
+        # `_tgt_cred_save` runs each value through `string escape`,
+        # so reverse it here. Otherwise the wizard re-saves the
+        # escaped form on every "keep" cycle, accumulating wrapping
+        # layers until the value collapses to junk (e.g. a value
+        # with a space gets wrapped in single quotes, those quotes
+        # get re-escaped as `"'"` next cycle, and so on).
+        set -l val (string unescape -- $m[3])
         switch $m[2]
             case TGT_CRED_USERNAME
-                set cur_username $m[3]
+                set cur_username $val
             case TGT_CRED_PASSWORD
-                set cur_password $m[3]
+                set cur_password $val
             case TGT_CRED_DOMAIN
-                set cur_domain $m[3]
+                set cur_domain $val
             case TGT_CRED_NOTES
-                set cur_notes $m[3]
+                set cur_notes $val
         end
     end < $file
 

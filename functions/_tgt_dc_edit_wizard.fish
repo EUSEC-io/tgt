@@ -24,19 +24,24 @@ function _tgt_dc_edit_wizard --argument-names scenario alias
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
         test (count $m) -lt 3; and continue
+        # `_tgt_dc_save` runs each value through `string escape`, so
+        # reverse it on read — otherwise the wizard re-saves the
+        # escaped form on every keep cycle and wrapping layers
+        # accumulate (same bug as the cred edit wizard).
+        set -l val (string unescape -- $m[3])
         switch $m[2]
             case TGT_DC_DOMAIN
-                set cur_domain $m[3]
+                set cur_domain $val
             case TGT_DC_REALM
-                set cur_realm $m[3]
+                set cur_realm $val
             case TGT_DC_HOST
-                set cur_kdc_host $m[3]
+                set cur_kdc_host $val
             case TGT_DC_IP
-                set cur_kdc_ip $m[3]
+                set cur_kdc_ip $val
             case TGT_DC_ADMIN_HOST
-                set cur_admin_host $m[3]
+                set cur_admin_host $val
             case TGT_DC_ADMIN_IP
-                set cur_admin_ip $m[3]
+                set cur_admin_ip $val
         end
     end < $file
 

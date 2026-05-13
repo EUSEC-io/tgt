@@ -13,11 +13,14 @@ function _tgt_target_inspect --argument-names scenario alias
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
         test (count $m) -lt 3; and continue
+        # `_tgt_target_save` runs each value through `string escape` —
+        # reverse it on read.
+        set -l val (string unescape -- $m[3])
         switch $m[2]
             case TGT
-                set tgt $m[3]
+                set tgt $val
             case TGT_HOSTS
-                set hosts_count (count (string split " " -- $m[3]))
+                set hosts_count (count (string split " " -- $val))
         end
     end < $file
 

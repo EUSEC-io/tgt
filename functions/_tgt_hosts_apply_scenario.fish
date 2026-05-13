@@ -28,11 +28,12 @@ function _tgt_hosts_apply_scenario --argument-names scenario
             while read -l line
                 set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
                 test (count $m) -lt 3; and continue
+                set -l val (string unescape -- $m[3])
                 switch $m[2]
                     case TGT
-                        set tgt $m[3]
+                        set tgt $val
                     case TGT_HOSTS
-                        set hosts (string split " " -- $m[3])
+                        set hosts (string split " " -- $val)
                 end
             end < $file
             test -z "$tgt"; and continue
@@ -61,15 +62,16 @@ function _tgt_hosts_apply_scenario --argument-names scenario
             while read -l line
                 set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
                 test (count $m) -lt 3; and continue
+                set -l val (string unescape -- $m[3])
                 switch $m[2]
                     case TGT_DC_HOST
-                        set host $m[3]
+                        set host $val
                     case TGT_DC_IP
-                        set ip $m[3]
+                        set ip $val
                     case TGT_DC_ADMIN_HOST
-                        set admin_host $m[3]
+                        set admin_host $val
                     case TGT_DC_ADMIN_IP
-                        set admin_ip $m[3]
+                        set admin_ip $val
                 end
             end < $file
             set -l tag "# tgt:dc:$scenario:$dc_alias"

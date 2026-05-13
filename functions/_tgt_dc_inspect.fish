@@ -18,19 +18,22 @@ function _tgt_dc_inspect --argument-names scenario alias
     while read -l line
         set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
         test (count $m) -lt 3; and continue
+        # `_tgt_dc_save` runs each value through `string escape` —
+        # reverse it on read so quoted forms don't leak into displays.
+        set -l val (string unescape -- $m[3])
         switch $m[2]
             case TGT_DC_DOMAIN
-                set domain $m[3]
+                set domain $val
             case TGT_DC_REALM
-                set realm $m[3]
+                set realm $val
             case TGT_DC_HOST
-                set host $m[3]
+                set host $val
             case TGT_DC_IP
-                set ip $m[3]
+                set ip $val
             case TGT_DC_ADMIN_HOST
-                set admin_host $m[3]
+                set admin_host $val
             case TGT_DC_ADMIN_IP
-                set admin_ip $m[3]
+                set admin_ip $val
         end
     end < $file
 

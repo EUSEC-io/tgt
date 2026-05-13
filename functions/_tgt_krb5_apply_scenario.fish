@@ -25,7 +25,7 @@ function _tgt_krb5_apply_scenario --argument-names scenario
         set -l realm ""
         while read -l ln
             set -l m (string match -r '^_tgt_export\s+TGT_DC_REALM\s+(.*)$' -- $ln)
-            test (count $m) -ge 2; and set realm $m[2]; and break
+            test (count $m) -ge 2; and set realm (string unescape -- $m[2]); and break
         end < $file
         test -z "$realm"; and continue
 
