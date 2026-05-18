@@ -369,7 +369,7 @@ source (status dirname)/helpers.fish
 @test "passes correct args to bloodhound-python" (
     _test_setup_tmp
     set -gx TGT 10.10.10.5
-    set -gx TGT_AD_DOMAIN htb.local
+    set -gx TGT_DC_DOMAIN htb.local
     set -gx TGT_DC DC01.htb.local
 
     function bloodhound-python --inherit-variable TGT_TEST_LOG

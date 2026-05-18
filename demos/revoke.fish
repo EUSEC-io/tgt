@@ -4,11 +4,12 @@
 source (status dirname)/_baseline.fish
 
 _tgt_scenario_cli new dante >/dev/null
+# Credentials and DC info are scenario-level now — set them via
+# the proper CLI verbs rather than direct $TGT_* assignment.
+tgt cred new admin --username admin --password secret >/dev/null
+tgt dc new dc01 --domain dante.local \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.10 >/dev/null
 set -gx TGT 10.10.10.10
-set -gx TGT_USERNAME admin
-set -gx TGT_PASSWORD secret
-set -gx TGT_AD_DOMAIN dante.local
-set -gx TGT_DC DC01.dante.local
 set -gx TGT_HOSTS dc01.dante.local
 _tgt_target_cli new dc01 --no-edit >/dev/null
 _tgt_hosts_add dante dc01 10.10.10.10 dc01.dante.local

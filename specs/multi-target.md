@@ -67,17 +67,29 @@ keeps working unchanged.
         dc01.fish
 ```
 
-Target file (sketch):
+Target file (sketch — current schema as of the cred/DC migration):
 
 ```fish
 # ~/.config/fish/tgt/scenarios/dante/targets/web01.fish
-set -gx TGT 172.16.10.20
-set -gx TGT_PORT 80
-set -gx TGT_USERNAME admin
-set -gx TGT_PASSWORD hunter2
-set -gx TGT_AD_DOMAIN dante.local
-set -gx TGT_DC DC01.dante.local
-set -gx TGT_HOSTS web01.dante.local intranet.dante.local
+# Only TGT + TGT_HOSTS are per-target now. Credentials and AD/DC
+# info moved to per-scenario entries under creds/ and dcs/, since
+# real engagements pivot multiple users across multiple targets.
+_tgt_export TGT 172.16.10.20
+_tgt_export TGT_HOSTS web01.dante.local intranet.dante.local
+```
+
+```fish
+# ~/.config/fish/tgt/scenarios/dante/creds/admin.fish
+_tgt_export TGT_CRED_USERNAME admin
+_tgt_export TGT_CRED_PASSWORD hunter2
+```
+
+```fish
+# ~/.config/fish/tgt/scenarios/dante/dcs/dc01.fish
+_tgt_export TGT_DC_DOMAIN dante.local       # lowercase, for /d:, -d
+_tgt_export TGT_DC_REALM DANTE.LOCAL        # uppercase
+_tgt_export TGT_DC_HOST dc01.dante.local
+_tgt_export TGT_DC_IP 10.10.10.5
 ```
 
 ### Interactive picker (the workflow you asked about)

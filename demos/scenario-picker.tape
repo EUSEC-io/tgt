@@ -16,10 +16,10 @@ Hide
 Type "tgt scenario new dante >/dev/null"
 Enter
 Sleep 80ms
-Type "set -gx TGT 10.10.10.5; tgt new web01 --no-edit >/dev/null; tgt scenario new dante >/dev/null 2>&1; set -gx TGT 10.10.10.10; set -gx TGT_USERNAME admin; set -gx TGT_PASSWORD secret; set -gx TGT_AD_DOMAIN dante.local; set -gx TGT_HOSTS dc01.dante.local; tgt new dc01 --no-edit >/dev/null; _tgt_target_save dante dc01"
+Type "set -gx TGT 10.10.10.5; tgt new web01 --no-edit >/dev/null; tgt scenario new dante >/dev/null 2>&1; tgt cred new admin --username admin --password secret >/dev/null; tgt dc new dc01 --domain dante.local --kdc-host dc01.dante.local --kdc-ip 10.10.10.10 >/dev/null; set -gx TGT 10.10.10.10; set -gx TGT_HOSTS dc01.dante.local; tgt new dc01 --no-edit >/dev/null; _tgt_target_save dante dc01"
 Enter
 Sleep 80ms
-Type "set -e TGT TGT_USERNAME TGT_PASSWORD TGT_AD_DOMAIN TGT_HOSTS"
+Type "set -e TGT TGT_HOSTS"
 Enter
 Sleep 80ms
 Type "set -gx TGT_SCENARIO dante; set -gx TGT_ACTIVE dc01"
