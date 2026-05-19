@@ -171,10 +171,13 @@ async function act(name, params) {
 }
 
 // Whether the action-result panel renders in collapsed (status-pill)
-// form. Toggled by the user via the −/+ button; persists across
-// subsequent actions so a quick power-user flow ("fire ten actions,
-// only peek if I see red") works without re-collapsing every time.
-let _actionPanelCollapsed = false;
+// form. Toggled by the user via the −/+ button; persists in
+// localStorage so it survives reloads — same pattern as the theme
+// preference, consistent power-user expectation.
+let _actionPanelCollapsed = (() => {
+  try { return localStorage.getItem('tgt-ap-collapsed') === '1'; }
+  catch (e) { return false; }
+})();
 
 // Render the sticky action-result panel. Headline always visible;
 // "details" toggle reveals argv + full stdout + stderr. Replaced
@@ -240,17 +243,23 @@ function actionResult(name, r) {
     };
   }
 
-  // Collapse/expand toggle. Persists in _actionPanelCollapsed so the
-  // next action lands in whichever state the user last chose.
+  // Collapse/expand toggle. Persists in _actionPanelCollapsed (and
+  // localStorage) so the next action — and the next reload — land in
+  // whichever state the user last chose.
+  const apLabel = (c) => c ? 'expand action panel' : 'minimize action panel';
   const collapse = el('button', {
     class: 'ap-collapse', type: 'button',
     title: _actionPanelCollapsed ? 'expand' : 'minimize',
+    'aria-label': apLabel(_actionPanelCollapsed),
   }, _actionPanelCollapsed ? '+' : '−');
   collapse.onclick = () => {
     _actionPanelCollapsed = !_actionPanelCollapsed;
     panel.classList.toggle('collapsed', _actionPanelCollapsed);
     collapse.textContent = _actionPanelCollapsed ? '+' : '−';
     collapse.title = _actionPanelCollapsed ? 'expand' : 'minimize';
+    collapse.setAttribute('aria-label', apLabel(_actionPanelCollapsed));
+    try { localStorage.setItem('tgt-ap-collapsed', _actionPanelCollapsed ? '1' : '0'); }
+    catch (e) {}
   };
   head.append(collapse);
 
