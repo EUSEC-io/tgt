@@ -139,8 +139,17 @@ async function _previewArgv(name, params) {
 // modal with that preview rendered alongside the message. On accept,
 // dispatch the real action. The fetch is sub-50ms on localhost so
 // the modal-open delay is imperceptible.
+//
+// Sequence-guard: two clicks fired back-to-back race on the preview
+// fetch. Without the guard, an earlier-issued slower preview can
+// overwrite a later-issued faster one — modal shows action A's
+// confirm but the user clicked B last. The seq counter discards
+// any result that's been superseded by a later confirmAct call.
+let _confirmActSeq = 0;
 async function confirmAct(opts, name, params) {
+  const seq = ++_confirmActSeq;
   const preview = await _previewArgv(name, params);
+  if (seq !== _confirmActSeq) return;
   confirmThen({...opts, preview}, () => act(name, params));
 }
 
