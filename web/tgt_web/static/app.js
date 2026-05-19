@@ -43,24 +43,115 @@ function el(tag, attrs, ...children) {
   return e;
 }
 
+// Open the reusable confirm modal, then run `fn` on accept. Used to
+// gate destructive operations (archive, rm, unset, revoke, unload).
+// The Alpine store lives at $store.confirm — registered in alpine:init.
+function confirmThen(opts, fn) {
+  const c = window.Alpine?.store('confirm');
+  if (!c) { fn(); return; }   // fail open if Alpine isn't ready
+  c.open = true;
+  c.title = opts.title || 'Are you sure?';
+  c.message = opts.message || '';
+  c.confirmLabel = opts.confirmLabel || 'confirm';
+  c._fn = fn;
+}
+
+// Shorthand: confirm then dispatch a single web action.
+function confirmAct(opts, name, params) {
+  confirmThen(opts, () => act(name, params));
+}
+
 async function act(name, params) {
   try {
     const r = await api('/api/action', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: name, params: params || {} }),
     });
-    if (r.rc === 0) toast('✓ ' + (r.stdout.trim().split('\n').pop() || name), 'success');
-    else toast('error: ' + (r.stderr || '').trim(), 'error');
+    actionResult(name, r);
     await refresh(true);
-  } catch (e) { toast('error: ' + e.message, 'error'); }
+  } catch (e) {
+    actionResult(name, { rc: -1, stdout: '', stderr: e.message, argv: [] });
+  }
 }
 
-async function revealPassword(scenario, alias, span) {
-  try {
-    const r = await api(`/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`);
-    const replacement = el('span', {class: 'pw-value'}, r.password || '(empty)');
-    span.replaceWith(replacement);
-  } catch (e) { toast('reveal failed: ' + e.message, 'error'); }
+// Render the sticky action-result panel. Headline always visible;
+// "details" toggle reveals argv + full stdout + stderr. Replaced
+// every time a new action fires; manual × to dismiss.
+function actionResult(name, r) {
+  const panel = document.getElementById('action-panel');
+  const ok = r.rc === 0;
+  const lastLine = (s) => (s || '').trim().split('\n').filter(Boolean).pop() || '';
+  const headline = ok
+    ? '✓ ' + (lastLine(r.stdout) || name)
+    : '✗ ' + (lastLine(r.stderr) || lastLine(r.stdout) || `${name} (rc=${r.rc})`);
+
+  panel.className = 'action-panel ' + (ok ? 'success' : 'error');
+  panel.hidden = false;
+  panel.innerHTML = '';
+
+  const head = el('div', {class: 'ap-head'});
+  head.append(el('span', {class: 'ap-headline'}, headline));
+
+  const hasBody = (r.stdout && r.stdout.trim())
+              || (r.stderr && r.stderr.trim())
+              || (r.argv && r.argv.length);
+
+  let details = null;
+  if (hasBody) {
+    const toggle = el('button', {class: 'ap-toggle', type: 'button'}, 'details');
+    head.append(toggle);
+    details = el('div', {class: 'ap-details', hidden: ''});
+    if (r.argv && r.argv.length) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'command'));
+      sec.append(el('pre', {class: 'ap-argv'},
+                    '$ tgt ' + r.argv.map(a => /\s/.test(a) ? `'${a}'` : a).join(' ')));
+      details.append(sec);
+    }
+    if (r.stdout && r.stdout.trim()) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'stdout'));
+      sec.append(el('pre', {class: 'stdout'}, r.stdout.replace(/\n+$/, '')));
+      details.append(sec);
+    }
+    if (r.stderr && r.stderr.trim()) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'stderr'));
+      sec.append(el('pre', {class: 'stderr'}, r.stderr.replace(/\n+$/, '')));
+      details.append(sec);
+    }
+    {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'exit code'));
+      sec.append(el('pre', {}, String(r.rc)));
+      details.append(sec);
+    }
+    toggle.onclick = () => {
+      if (details.hasAttribute('hidden')) {
+        details.removeAttribute('hidden');
+        toggle.textContent = 'hide';
+      } else {
+        details.setAttribute('hidden', '');
+        toggle.textContent = 'details';
+      }
+    };
+  }
+
+  const close = el('button', {class: 'ap-close', type: 'button', title: 'dismiss'}, '×');
+  close.onclick = () => { panel.hidden = true; };
+  head.append(close);
+
+  panel.append(head);
+  if (details) panel.append(details);
+}
+
+// Password reveal — Alpine-driven. Each cell carries its own
+// `{revealed, value}` state via x-data; the click handler fetches
+// the password and assigns it to `value`. No imperative DOM swap.
+// `passwordUrl()` returns the encoded fetch URL for a (scenario, alias)
+// pair; called from the inline @click expression.
+function passwordUrl(scenario, alias) {
+  return `/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`;
 }
 
 // ────────────────────────── render: startup banner ────────────────────
@@ -152,14 +243,28 @@ function renderDetail() {
   // Scenario-level actions
   const actions = el('div', {class: 'scen-actions'});
   if (d.active) {
-    actions.append(el('button', {onclick: () => act('scenario_unload')}, 'unload'));
+    actions.append(el('button', {onclick: () => confirmAct({
+      title: 'Unload active scenario?',
+      message: `This clears the active scenario marker and all live TGT_* runtime in fish. The scenario itself stays on disk.`,
+      confirmLabel: 'unload',
+    }, 'scenario_unload')}, 'unload'));
   } else {
     actions.append(el('button', {class: 'primary',
       onclick: () => act('scenario_switch', {name: d.name})}, 'switch to'));
   }
-  actions.append(el('button', {
-    onclick: () => act(d.archived ? 'scenario_unarchive' : 'scenario_archive', {name: d.name})
-  }, d.archived ? 'unarchive' : 'archive'));
+  if (d.archived) {
+    actions.append(el('button', {
+      onclick: () => act('scenario_unarchive', {name: d.name}),
+    }, 'unarchive'));
+  } else {
+    actions.append(el('button', {
+      onclick: () => confirmAct({
+        title: `Archive scenario "${d.name}"?`,
+        message: 'Archived scenarios are hidden from the default list (toggle "show archived" to see them). Nothing on disk is deleted.',
+        confirmLabel: 'archive',
+      }, 'scenario_archive', {name: d.name}),
+    }, 'archive'));
+  }
   main.append(actions);
 
   // Targets
@@ -175,17 +280,37 @@ function renderDetail() {
       el('td', {}, d.active
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
         : ''))))));
+  // (target_revoke is exposed elsewhere — there's no per-target
+  // revoke today; the scenario-level "unload" subsumes it.)
 
-  // Creds
-  main.append(el('h2', {}, `credentials (${d.creds.length})`));
-  if (d.creds.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
-  else main.append(el('table', {},
+  // Creds — wrapped in an Alpine scope so the "+ new" button can
+  // open the inline create form (state: open / fields / submitting /
+  // error). See `credNewForm` factory at the bottom of this file.
+  const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
+  credSection.append(el('h2', {},
+    `credentials (${d.creds.length}) `,
+    el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
+      '+ new'),
+  ));
+  credSection.append(buildCredNewForm());
+  if (d.creds.length === 0) credSection.append(el('div', {class: 'empty'}, '(none)'));
+  else credSection.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
     el('tbody', {}, ...d.creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', {class: 'reveal', onclick: function() { revealPassword(d.name, c.alias, this); }}, 'reveal')
+        ? el('span', { 'x-data': "{revealed: false, value: ''}" },
+            el('span', {
+              'class': 'reveal',
+              'x-show': '!revealed',
+              '@click': `revealed = true; fetch('${passwordUrl(d.name, c.alias)}').then(r => r.json()).then(j => value = j.password || '(empty)')`,
+            }, 'reveal'),
+            el('span', {
+              'class': 'pw-value',
+              'x-show': 'revealed',
+              'x-text': "value || '…'",
+            }))
         : document.createTextNode('—');
       return el('tr', {},
         el('td', {class: c.active ? 'active' : ''}, c.alias),
@@ -193,11 +318,26 @@ function renderDetail() {
         el('td', {}, pwCell),
         el('td', {}, c.domain || '—'),
         el('td', {}, c.notes || '—'),
-        el('td', {},
+        el('td', {class: 'row-actions'},
           d.active && !c.active
             ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
-            : (c.active ? el('button', {onclick: () => act('cred_unset')}, 'unset') : '')));
+            : (c.active ? el('button', {onclick: () => confirmAct({
+                title: 'Unset active credential?',
+                message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
+                confirmLabel: 'unset',
+              }, 'cred_unset')}, 'unset') : ''),
+          el('button', {onclick: () => {
+            const next = window.prompt(`Rename "${c.alias}" to:`, c.alias);
+            if (!next || next === c.alias) return;
+            act('cred_rename', {old: c.alias, new: next});
+          }}, 'rename'),
+          el('button', {onclick: () => confirmAct({
+            title: `Delete credential "${c.alias}"?`,
+            message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,
+            confirmLabel: 'delete',
+          }, 'cred_rm', {alias: c.alias})}, 'rm')));
     }))));
+  main.append(credSection);
 
   // DCs
   main.append(el('h2', {}, `DCs (${d.dcs.length})`));
@@ -214,7 +354,11 @@ function renderDetail() {
       el('td', {}, dc.admin_host || dc.admin_ip || '—'),
       el('td', {}, d.active && !dc.active
         ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
-        : (dc.active ? el('button', {onclick: () => act('dc_unset')}, 'unset') : '')))))));
+        : (dc.active ? el('button', {onclick: () => confirmAct({
+            title: 'Unset active DC?',
+            message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
+            confirmLabel: 'unset',
+          }, 'dc_unset')}, 'unset') : '')))))));
 }
 
 // ────────────────────────── refresh orchestrator ──────────────────────
@@ -252,6 +396,129 @@ async function refresh(force) {
 }
 
 // ────────────────────────── input wiring ──────────────────────────────
+document.getElementById('filter').addEventListener('input', (e) => {
+  state.filter = e.target.value;
+  renderSidebar();
+});
+document.getElementById('show-archived').addEventListener('change', (e) => {
+  state.showArchived = e.target.checked;
+  renderSidebar();
+});
+
+// ────────────────────────── forms: cred new ───────────────────────────
+// Inline form for `tgt cred new`. Pattern to repeat for other forms:
+//   - `buildXForm()` returns the DOM (Alpine binds via attributes)
+//   - `xForm()` factory registered on `alpine:init` owns state + submit
+function buildCredNewForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'new credential'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          'x-model.trim': 'alias', 'required': '', 'autocomplete': 'off',
+          'placeholder': 'e.g. admin',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'username'),
+        el('input', {
+          'x-model.trim': 'username', 'required': '', 'autocomplete': 'off',
+          'placeholder': "e.g. Administrator or DOMAIN\\user",
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'password'),
+        el('input', {
+          'x-model': 'password', 'type': 'password',
+          'autocomplete': 'new-password',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'domain'),
+        el('input', {
+          'x-model.trim': 'domain', 'autocomplete': 'off',
+          'placeholder': 'optional',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'notes'),
+        el('textarea', { 'x-model': 'notes', 'rows': '2' })),
+      el('div', {class: 'form-buttons'},
+        el('button', {
+          'type': 'button', '@click': 'cancel()',
+        }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'create'",
+        }))));
+}
+
+document.addEventListener('alpine:init', () => {
+  // Global confirm-modal state. `accept` invokes the stored callback;
+  // `cancel` just closes. Both reset the callback so a stale fn
+  // can't fire on a later open.
+  window.Alpine.store('confirm', {
+    open: false,
+    title: '',
+    message: '',
+    confirmLabel: 'confirm',
+    _fn: null,
+    accept() {
+      const fn = this._fn;
+      this.open = false;
+      this._fn = null;
+      if (fn) fn();
+    },
+    cancel() {
+      this.open = false;
+      this._fn = null;
+    },
+  });
+
+  window.Alpine.data('credNewForm', (scenario) => ({
+    open: false,
+    submitting: false,
+    error: '',
+    alias: '', username: '', password: '', domain: '', notes: '',
+    reset() {
+      this.alias = ''; this.username = ''; this.password = '';
+      this.domain = ''; this.notes = '';
+      this.error = ''; this.submitting = false;
+    },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const r = await fetch('/api/action', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            action: 'cred_new',
+            params: {
+              alias: this.alias, username: this.username,
+              password: this.password, domain: this.domain, notes: this.notes,
+            },
+          }),
+        });
+        const result = await r.json();
+        actionResult('cred_new', result);
+        if (r.ok && result.rc === 0) {
+          this.open = false;
+          this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+});
+
+// ────────────────────────── input wiring ──────────────────────────────
+// (re-attached at module load; alpine:init above runs at the same time
+// because both Alpine and app.js are deferred-loaded.)
 document.getElementById('filter').addEventListener('input', (e) => {
   state.filter = e.target.value;
   renderSidebar();

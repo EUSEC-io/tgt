@@ -66,7 +66,45 @@ button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
 button:hover { background: #30363d; }
 button.primary { background: #1f6feb; border-color: #1f6feb; color: white; }
 button.primary:hover { background: #388bfd; }
+button.primary:disabled { background: #1f3a5f; border-color: #1f3a5f; cursor: not-allowed; }
 button.refresh { padding: 4px 10px; font-size: 11px; }
+button.add { font-size: 10px; padding: 2px 8px; margin-left: 6px;
+             text-transform: none; letter-spacing: 0; vertical-align: middle; }
+
+/* Inline create/edit forms. One per entity section; styling stays
+   plain so future forms (target/dc/scenario) can reuse the classes. */
+.form-card { background: #161b22; border: 1px solid #30363d;
+             border-radius: 4px; padding: 12px 14px; margin: 8px 0 16px; }
+.form-card[hidden], .form-card[x-cloak] { display: none; }
+.form-card .form-title { font-size: 12px; color: #58a6ff; font-weight: 600;
+                         margin-bottom: 10px; }
+.form-card .form-error { color: #f85149; background: #2d1216;
+                         border: 1px solid #5a1e22; padding: 6px 8px;
+                         border-radius: 3px; margin-bottom: 8px;
+                         font-size: 11px; white-space: pre-wrap; }
+.form-card label { display: grid; grid-template-columns: 90px 1fr;
+                   align-items: center; gap: 8px; margin-bottom: 6px; }
+.form-card .form-label { color: #8b949e; font-size: 11px;
+                         text-transform: uppercase; letter-spacing: 0.5px; }
+.form-card input, .form-card textarea {
+    background: #0d1117; color: #c9d1d9; border: 1px solid #30363d;
+    padding: 5px 8px; border-radius: 3px;
+    font-family: inherit; font-size: 12px; width: 100%;
+}
+.form-card input:focus, .form-card textarea:focus {
+    outline: none; border-color: #58a6ff;
+}
+.form-card textarea { resize: vertical; min-height: 38px; }
+.form-card .form-buttons { display: flex; gap: 8px; justify-content: flex-end;
+                           margin-top: 10px; padding-top: 10px;
+                           border-top: 1px solid #21262d; }
+.form-card .form-buttons button { font-size: 11px; padding: 4px 12px; }
+
+/* Per-row action button cluster — keeps multiple inline buttons
+   readable when a row exposes more than one operation. */
+td.row-actions { white-space: nowrap; }
+td.row-actions button { margin-right: 4px; }
+td.row-actions button:last-child { margin-right: 0; }
 
 .toast { position: fixed; bottom: 20px; right: 20px; background: #21262d;
          border: 1px solid #30363d; padding: 8px 12px; border-radius: 4px;
@@ -75,5 +113,63 @@ button.refresh { padding: 4px 10px; font-size: 11px; }
 .toast.show { opacity: 1; }
 .toast.error { border-color: #f85149; }
 .toast.success { border-color: #56d364; }
+
+/* Sticky action-result panel. Replaces the auto-fading toast for
+   `tgt`-action responses so users can read full output / errors
+   without retrying. Manual dismiss only. */
+.action-panel { position: fixed; bottom: 20px; right: 20px;
+                background: #161b22; border: 1px solid #30363d;
+                border-radius: 4px; max-width: 520px; min-width: 280px;
+                font-size: 12px; z-index: 110;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.action-panel[hidden] { display: none; }
+.action-panel.success { border-color: #56d364; }
+.action-panel.error { border-color: #f85149; }
+.action-panel .ap-head { display: flex; align-items: center; gap: 8px;
+                         padding: 8px 12px; cursor: default; }
+.action-panel .ap-headline { flex: 1; overflow: hidden;
+                             text-overflow: ellipsis; white-space: nowrap; }
+.action-panel.success .ap-headline { color: #56d364; }
+.action-panel.error   .ap-headline { color: #f85149; }
+.action-panel .ap-toggle, .action-panel .ap-close {
+    background: transparent; border: none; color: #8b949e;
+    padding: 2px 6px; font-family: inherit; font-size: 11px; cursor: pointer;
+    border-radius: 3px;
+}
+.action-panel .ap-toggle:hover, .action-panel .ap-close:hover {
+    background: #21262d; color: #c9d1d9;
+}
+.action-panel .ap-details { padding: 0 12px 8px; border-top: 1px solid #21262d; }
+.action-panel .ap-details[hidden] { display: none; }
+.action-panel .ap-section { margin-top: 8px; }
+.action-panel .ap-label { color: #6e7681; font-size: 10px;
+                          text-transform: uppercase; letter-spacing: 0.5px;
+                          margin-bottom: 2px; }
+.action-panel pre { margin: 0; padding: 6px 8px; background: #0d1117;
+                    border: 1px solid #21262d; border-radius: 3px;
+                    color: #c9d1d9; font-size: 11px; line-height: 1.4;
+                    max-height: 240px; overflow: auto;
+                    white-space: pre-wrap; word-break: break-word; }
+.action-panel pre.stderr { color: #f0a070; }
+.action-panel .ap-argv { font-family: inherit; color: #8b949e; }
 .empty { color: #6e7681; font-style: italic; padding: 8px 0; font-size: 12px; }
 .placeholder { color: #6e7681; font-style: italic; text-align: center; padding: 40px; }
+
+/* [x-cloak] keeps Alpine-controlled elements hidden until Alpine has
+   initialized — avoids the modal flashing on page load. */
+[x-cloak] { display: none !important; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+                  display: flex; align-items: center; justify-content: center;
+                  z-index: 200; }
+.modal { background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+         padding: 16px 18px; min-width: 320px; max-width: 480px;
+         box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.modal-title { font-size: 13px; color: #c9d1d9; font-weight: 600;
+               margin-bottom: 8px; }
+.modal-message { font-size: 12px; color: #8b949e; margin-bottom: 14px;
+                 white-space: pre-wrap; word-break: break-word; }
+.modal-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-buttons button { font-size: 11px; padding: 4px 14px; }
+.modal-buttons button.danger { background: #b62324; border-color: #b62324; }
+.modal-buttons button.danger:hover { background: #d73a49; }

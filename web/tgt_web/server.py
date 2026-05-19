@@ -35,10 +35,21 @@ _static_cache: dict[str, bytes] = {}
 
 
 def _load_static(name: str) -> bytes:
+    """Load a static asset by name. Accepts either `foo.ext` (top of
+    static/) or `vendor/foo.ext` (one level under). Rejects anything
+    with `..` or absolute paths so a malicious URL can't escape
+    into the package."""
+    if ".." in name.split("/") or name.startswith("/"):
+        raise FileNotFoundError(name)
     if name not in _static_cache:
-        _static_cache[name] = (
-            resources.files("tgt_web.static").joinpath(name).read_bytes()
-        )
+        # `MultiplexedPath.joinpath()` in Python 3.10–3.12 takes a
+        # single argument — variadic `joinpath(*parts)` raises
+        # TypeError on CI. Chain instead. (Python 3.13's Traversable
+        # accepts multiple, which is what masked this locally.)
+        trav = resources.files("tgt_web.static")
+        for part in name.split("/"):
+            trav = trav.joinpath(part)
+        _static_cache[name] = trav.read_bytes()
     return _static_cache[name]
 
 
@@ -87,6 +98,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._send_static("style.css")
         if path == "/app.js":
             return self._send_static("app.js")
+        if path.startswith("/vendor/"):
+            return self._send_static("vendor/" + path[len("/vendor/"):])
         if path == "/api/status":
             return self._send_json(200, _startup)
         if path == "/api/scenarios":

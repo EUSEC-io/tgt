@@ -95,6 +95,35 @@ def test_subprocess_env_disables_gum_and_injects_askpass(monkeypatch):
     assert kw["env"]["SUDO_ASKPASS"] == "/tmp/wrapper.sh"
 
 
+def test_ansi_codes_stripped_from_output():
+    """Toast in the UI should never show raw escape sequences. Strip
+    them server-side regardless of whether fish suppressed them."""
+    class Result:
+        returncode = 0
+        stdout = "\x1b[32m✓ switched to acme\x1b[0m\n"
+        stderr = "\x1b[1;31mwarning:\x1b[0m something\n"
+
+    recorder = _fake_run(rc=0, stdout=Result.stdout, stderr=Result.stderr)
+    # The recorder's _fake_run doesn't actually use the Result class
+    # above, so override its returned class.
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        _, body = actions.dispatch_action("scenario_unload", {})
+    assert "\x1b[" not in body["stdout"]
+    assert "\x1b[" not in body["stderr"]
+    assert "✓ switched to acme" in body["stdout"]
+    assert "warning:" in body["stderr"]
+
+
+def test_subprocess_env_sets_no_color():
+    """NO_COLOR=1 must reach the fish env so set_color skips emitting
+    sequences in the first place (defense in depth with strip)."""
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        actions.dispatch_action("scenario_unload", {})
+    _, kw = recorder.captured
+    assert kw["env"]["NO_COLOR"] == "1"
+
+
 def test_subprocess_stdin_is_devnull():
     """Regression: tgt-web inherits the TTY where it was launched, so
     a subprocess without an explicit stdin redirect picks up that
@@ -106,6 +135,79 @@ def test_subprocess_stdin_is_devnull():
         actions.dispatch_action("scenario_unload", {})
     _, kw = recorder.captured
     assert kw["stdin"] == _sp.DEVNULL
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Required only
+        (
+            {"alias": "adm", "username": "Administrator"},
+            ["cred", "new", "adm", "--username", "Administrator"],
+        ),
+        # All fields
+        (
+            {"alias": "adm", "username": "Administrator",
+             "password": "P@ss", "domain": "ACME", "notes": "primary"},
+            ["cred", "new", "adm", "--username", "Administrator",
+             "--password", "P@ss", "--domain", "ACME", "--notes", "primary"],
+        ),
+        # Empty optional fields must be omitted, not passed as "--password" with empty value
+        (
+            {"alias": "adm", "username": "u", "password": "", "domain": "", "notes": ""},
+            ["cred", "new", "adm", "--username", "u"],
+        ),
+        # Notes with whitespace + apostrophe — shlex.quote in tgt_cmd handles the quoting;
+        # the argv list itself just carries the raw string.
+        (
+            {"alias": "svc", "username": "svc", "notes": "it's tricky"},
+            ["cred", "new", "svc", "--username", "svc", "--notes", "it's tricky"],
+        ),
+    ],
+)
+def test_cred_new_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_new", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_cred_new_requires_alias_and_username():
+    s1, b1 = actions.dispatch_action("cred_new", {})
+    assert s1 == 400 and "missing param" in b1["error"]
+    s2, b2 = actions.dispatch_action("cred_new", {"alias": "x"})
+    assert s2 == 400 and "username" in b2["error"]
+
+
+def test_cred_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_rm", {"alias": "old-cred"})
+    assert status == 200
+    assert body["argv"] == ["cred", "rm", "old-cred"]
+
+
+def test_cred_rm_requires_alias():
+    status, body = actions.dispatch_action("cred_rm", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+def test_cred_rename_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "cred_rename", {"old": "admin", "new": "Administrator"},
+        )
+    assert status == 200
+    assert body["argv"] == ["cred", "rename", "admin", "Administrator"]
+
+
+def test_cred_rename_requires_old_and_new():
+    s1, b1 = actions.dispatch_action("cred_rename", {})
+    assert s1 == 400 and "old" in b1["error"]
+    s2, b2 = actions.dispatch_action("cred_rename", {"old": "a"})
+    assert s2 == 400 and "new" in b2["error"]
 
 
 def test_dispatch_invalidates_active_cache():
