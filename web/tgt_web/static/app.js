@@ -126,9 +126,15 @@ async function act(name, params) {
   }
 }
 
+// Whether the action-result panel renders in collapsed (status-pill)
+// form. Toggled by the user via the −/+ button; persists across
+// subsequent actions so a quick power-user flow ("fire ten actions,
+// only peek if I see red") works without re-collapsing every time.
+let _actionPanelCollapsed = false;
+
 // Render the sticky action-result panel. Headline always visible;
 // "details" toggle reveals argv + full stdout + stderr. Replaced
-// every time a new action fires; manual × to dismiss.
+// every time a new action fires; manual − minimizes, × dismisses.
 function actionResult(name, r) {
   const panel = document.getElementById('action-panel');
   const ok = r.rc === 0;
@@ -137,7 +143,8 @@ function actionResult(name, r) {
     ? '✓ ' + (lastLine(r.stdout) || name)
     : '✗ ' + (lastLine(r.stderr) || lastLine(r.stdout) || `${name} (rc=${r.rc})`);
 
-  panel.className = 'action-panel ' + (ok ? 'success' : 'error');
+  panel.className = 'action-panel ' + (ok ? 'success' : 'error')
+                  + (_actionPanelCollapsed ? ' collapsed' : '');
   panel.hidden = false;
   panel.innerHTML = '';
 
@@ -188,6 +195,20 @@ function actionResult(name, r) {
       }
     };
   }
+
+  // Collapse/expand toggle. Persists in _actionPanelCollapsed so the
+  // next action lands in whichever state the user last chose.
+  const collapse = el('button', {
+    class: 'ap-collapse', type: 'button',
+    title: _actionPanelCollapsed ? 'expand' : 'minimize',
+  }, _actionPanelCollapsed ? '+' : '−');
+  collapse.onclick = () => {
+    _actionPanelCollapsed = !_actionPanelCollapsed;
+    panel.classList.toggle('collapsed', _actionPanelCollapsed);
+    collapse.textContent = _actionPanelCollapsed ? '+' : '−';
+    collapse.title = _actionPanelCollapsed ? 'expand' : 'minimize';
+  };
+  head.append(collapse);
 
   const close = el('button', {class: 'ap-close', type: 'button', title: 'dismiss'}, '×');
   close.onclick = () => { panel.hidden = true; };

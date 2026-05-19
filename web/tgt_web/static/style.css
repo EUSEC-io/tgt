@@ -167,14 +167,28 @@ td.row-actions button:last-child { margin-right: 0; }
                              text-overflow: ellipsis; white-space: nowrap; }
 .action-panel.success .ap-headline { color: #56d364; }
 .action-panel.error   .ap-headline { color: #f85149; }
-.action-panel .ap-toggle, .action-panel .ap-close {
+.action-panel .ap-toggle, .action-panel .ap-collapse, .action-panel .ap-close {
     background: transparent; border: none; color: #8b949e;
     padding: 2px 6px; font-family: inherit; font-size: 11px; cursor: pointer;
     border-radius: 3px;
 }
-.action-panel .ap-toggle:hover, .action-panel .ap-close:hover {
+.action-panel .ap-toggle:hover,
+.action-panel .ap-collapse:hover,
+.action-panel .ap-close:hover {
     background: #21262d; color: #c9d1d9;
 }
+.action-panel .ap-collapse { font-size: 14px; line-height: 1; padding: 0 6px 2px; }
+
+/* Collapsed state: shrink to a status pill — just the success/error
+   border, the expand button, and the dismiss button. Reclaims the
+   bottom-right corner so the panel stops covering content while a
+   user fires multiple actions in a row. */
+.action-panel.collapsed { min-width: 0; max-width: none;
+                          box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.action-panel.collapsed .ap-head { padding: 4px 4px; gap: 2px; }
+.action-panel.collapsed .ap-headline,
+.action-panel.collapsed .ap-toggle,
+.action-panel.collapsed .ap-details { display: none; }
 .action-panel .ap-details { padding: 0 12px 8px; border-top: 1px solid #21262d; }
 .action-panel .ap-details[hidden] { display: none; }
 .action-panel .ap-section { margin-top: 8px; }
