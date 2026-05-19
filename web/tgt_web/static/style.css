@@ -58,7 +58,31 @@ td.active { color: #56d364; font-weight: 600; }
 td.active::before { content: "★ "; }
 td .reveal { cursor: pointer; color: #6e7681; text-decoration: underline; font-size: 11px; }
 td .reveal:hover { color: #c9d1d9; }
+td .reveal.hide-link { margin-left: 6px; }
 td .pw-value { color: #f85149; }
+
+/* Generic "value cell" wrapper: a string with a copy icon that
+   appears on hover. Used across target/cred/DC tables for values
+   the user is likely to paste somewhere (hostnames, IPs, usernames,
+   domains, realms). */
+.vc { display: inline-flex; align-items: center; gap: 4px; }
+.vc-text { }
+.vc-copy { background: transparent; border: none; color: #6e7681;
+           padding: 0 4px; font-size: 12px; line-height: 1;
+           cursor: pointer; border-radius: 2px;
+           opacity: 0; transition: opacity 0.1s, color 0.1s; }
+.vc:hover .vc-copy,
+tr:hover .vc-copy,
+.vc-copy:focus { opacity: 1; }
+.vc-copy:hover { color: #58a6ff; background: transparent; }
+.vc-chips { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; }
+/* Keep the password cell's controls on one line — reveal/hide link
+   and the copy icon shouldn't wrap onto separate lines in narrow
+   columns. */
+.pw-cell { display: inline-flex; align-items: center; gap: 4px; }
+/* Password copy is always visible (no value to hover) and sits next
+   to the reveal/hide link instead of the value text. */
+.pw-copy { opacity: 1; }
 
 button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
          padding: 3px 8px; cursor: pointer; font-family: inherit;

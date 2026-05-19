@@ -29,6 +29,31 @@ function toast(msg, kind) {
   setTimeout(() => { t.className = 'toast'; }, 2500);
 }
 
+// Write `text` to the system clipboard. Requires a secure context;
+// localhost qualifies, so the browser exposes navigator.clipboard.
+async function copyToClipboard(text, label) {
+  if (!text) { toast('nothing to copy', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(label ? `copied ${label}` : 'copied', 'success');
+  } catch (e) {
+    toast('copy failed: ' + e.message, 'error');
+  }
+}
+
+// Generic single-string value cell. Shows the value with a copy icon
+// that appears on hover. Falls back to a plain em-dash for empties so
+// dashes don't accidentally end up on the clipboard.
+function valueCell(text, label) {
+  if (!text) return document.createTextNode('—');
+  return el('span', {class: 'vc'},
+    el('span', {class: 'vc-text'}, text),
+    el('button', {
+      class: 'vc-copy', type: 'button', title: 'copy',
+      onclick: (e) => { e.stopPropagation(); copyToClipboard(text, label || ''); },
+    }, '⧉'));
+}
+
 function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -145,14 +170,18 @@ function actionResult(name, r) {
   if (details) panel.append(details);
 }
 
-// Password reveal — Alpine-driven. Each cell carries its own
-// `{revealed, value}` state via x-data; the click handler fetches
-// the password and assigns it to `value`. No imperative DOM swap.
-// `passwordUrl()` returns the encoded fetch URL for a (scenario, alias)
-// pair; called from the inline @click expression.
+// Password reveal — Alpine-driven via the `credPw` data factory
+// (registered in alpine:init). Each cell owns its own state machine:
+// fetch on demand, auto-hide after a timeout, pause while the user
+// is hovering the revealed value, copy without revealing.
 function passwordUrl(scenario, alias) {
   return `/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`;
 }
+
+// How long a revealed password stays on screen before auto-re-masking.
+// Tuned so a glance is enough; hover pauses the timer for longer reads.
+const PW_AUTO_HIDE_MS = 10000;
+const PW_AUTO_HIDE_MIN_RESUME_MS = 3000;
 
 // ────────────────────────── render: startup banner ────────────────────
 async function renderBanner() {
@@ -275,8 +304,10 @@ function renderDetail() {
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...d.targets.map(t => el('tr', {},
       el('td', {}, t.alias),
-      el('td', {}, t.host || '—'),
-      el('td', {}, t.hosts.join(', ') || '—'),
+      el('td', {}, valueCell(t.host, 'host')),
+      el('td', {}, t.hosts.length
+        ? el('span', {class: 'vc-chips'}, ...t.hosts.map(h => valueCell(h, 'hostname')))
+        : document.createTextNode('—')),
       el('td', {}, d.active
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
         : ''))))));
@@ -300,23 +331,42 @@ function renderDetail() {
                         el('th', {}, 'notes'), el('th', {}, ''))),
     el('tbody', {}, ...d.creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', { 'x-data': "{revealed: false, value: ''}" },
+        ? el('span', { 'x-data': `credPw('${d.name}', '${c.alias}')`, 'class': 'pw-cell' },
             el('span', {
               'class': 'reveal',
               'x-show': '!revealed',
-              '@click': `revealed = true; fetch('${passwordUrl(d.name, c.alias)}').then(r => r.json()).then(j => value = j.password || '(empty)')`,
+              '@click': 'reveal()',
             }, 'reveal'),
+            el('button', {
+              'class': 'vc-copy pw-copy',
+              'x-show': '!revealed',
+              'type': 'button', 'title': 'copy password',
+              '@click': 'copy()',
+            }, '⧉'),
             el('span', {
               'class': 'pw-value',
               'x-show': 'revealed',
               'x-text': "value || '…'",
-            }))
+              '@mouseenter': 'pauseTimer()',
+              '@mouseleave': 'resumeTimer()',
+            }),
+            el('span', {
+              'class': 'reveal hide-link',
+              'x-show': 'revealed',
+              '@click': 'hide()',
+            }, 'hide'),
+            el('button', {
+              'class': 'vc-copy pw-copy',
+              'x-show': 'revealed',
+              'type': 'button', 'title': 'copy password',
+              '@click': 'copy()',
+            }, '⧉'))
         : document.createTextNode('—');
       return el('tr', {},
         el('td', {class: c.active ? 'active' : ''}, c.alias),
-        el('td', {}, c.username),
+        el('td', {}, valueCell(c.username, 'username')),
         el('td', {}, pwCell),
-        el('td', {}, c.domain || '—'),
+        el('td', {}, valueCell(c.domain, 'domain')),
         el('td', {}, c.notes || '—'),
         el('td', {class: 'row-actions'},
           d.active && !c.active
@@ -348,10 +398,10 @@ function renderDetail() {
                         el('th', {}, 'admin'), el('th', {}, ''))),
     el('tbody', {}, ...d.dcs.map(dc => el('tr', {},
       el('td', {class: dc.active ? 'active' : ''}, dc.alias),
-      el('td', {}, dc.domain || '—'),
-      el('td', {}, dc.realm || '—'),
-      el('td', {}, dc.kdc_host || dc.kdc_ip || '—'),
-      el('td', {}, dc.admin_host || dc.admin_ip || '—'),
+      el('td', {}, valueCell(dc.domain, 'domain')),
+      el('td', {}, valueCell(dc.realm, 'realm')),
+      el('td', {}, valueCell(dc.kdc_host || dc.kdc_ip, 'kdc')),
+      el('td', {}, valueCell(dc.admin_host || dc.admin_ip, 'admin')),
       el('td', {}, d.active && !dc.active
         ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
         : (dc.active ? el('button', {onclick: () => confirmAct({
@@ -473,6 +523,59 @@ document.addEventListener('alpine:init', () => {
       this._fn = null;
     },
   });
+
+  // Per-cred password state. Reveal fetches lazily; auto-hide fires
+  // PW_AUTO_HIDE_MS after reveal. Hovering the revealed value pauses
+  // the timer (so a long read won't snap shut mid-glance), with a
+  // PW_AUTO_HIDE_MIN_RESUME_MS floor so the next mouseleave always
+  // leaves a usable beat. Copy fetches but never sets `revealed`,
+  // so a "just give me the value" gesture doesn't put the password
+  // on screen at all.
+  window.Alpine.data('credPw', (scenario, alias) => ({
+    revealed: false,
+    value: '',
+    _hideAt: 0,
+    _timer: null,
+    _clearTimer() {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    },
+    _scheduleHide(ms) {
+      this._clearTimer();
+      this._hideAt = Date.now() + ms;
+      this._timer = setTimeout(() => this.hide(), ms);
+    },
+    pauseTimer() { this._clearTimer(); },
+    resumeTimer() {
+      if (!this.revealed) return;
+      const remaining = Math.max(PW_AUTO_HIDE_MIN_RESUME_MS, this._hideAt - Date.now());
+      this._scheduleHide(remaining);
+    },
+    async _fetch() {
+      try {
+        const r = await fetch(passwordUrl(scenario, alias));
+        const j = await r.json();
+        return j.password || '';
+      } catch (e) {
+        toast('fetch failed: ' + e.message, 'error');
+        return '';
+      }
+    },
+    async reveal() {
+      const v = await this._fetch();
+      this.value = v || '(empty)';
+      this.revealed = true;
+      this._scheduleHide(PW_AUTO_HIDE_MS);
+    },
+    hide() {
+      this.revealed = false;
+      this.value = '';
+      this._clearTimer();
+    },
+    async copy() {
+      const v = await this._fetch();
+      copyToClipboard(v, 'password');
+    },
+  }));
 
   window.Alpine.data('credNewForm', (scenario) => ({
     open: false,
