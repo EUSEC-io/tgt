@@ -1,0 +1,170 @@
+"""Integration tests: spin up the real server in a thread, hit endpoints."""
+
+from __future__ import annotations
+
+import http.client
+import http.server
+import json
+import threading
+import time
+from contextlib import contextmanager
+from unittest.mock import patch
+
+import pytest
+
+from tgt_web import server
+
+
+@contextmanager
+def _running_server():
+    server._populate_startup()
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+    port = httpd.server_address[1]
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    try:
+        yield port
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def _get(port: int, path: str) -> tuple[int, dict]:
+    c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    c.request("GET", path)
+    r = c.getresponse()
+    body = r.read()
+    c.close()
+    if r.getheader("Content-Type", "").startswith("application/json"):
+        return r.status, json.loads(body)
+    return r.status, body
+
+
+def _post_json(port: int, path: str, payload: dict) -> tuple[int, dict]:
+    c = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    body = json.dumps(payload)
+    c.request("POST", path, body=body,
+              headers={"Content-Type": "application/json"})
+    r = c.getresponse()
+    raw = r.read()
+    c.close()
+    return r.status, json.loads(raw)
+
+
+@pytest.fixture
+def http_server(monkeypatch):
+    """Run a real server backed by the fixtures TGT_HOME."""
+    # Stub probe + version_check so the server doesn't actually shell
+    # out to fish / probe the user's askpass tools during the test.
+    from tgt_web import sudo as sudo_mod
+    from tgt_web import version_check as vc_mod
+    monkeypatch.setattr(sudo_mod, "_cached", sudo_mod.SudoStatus(
+        askpass=None, wrapper=None, nopasswd=True, note="(stub) NOPASSWD",
+    ))
+    monkeypatch.setattr(vc_mod, "check", lambda: vc_mod.VersionInfo(
+        web="0.1.0", tgt="0.1.0", mismatch=False, note="(stub) match",
+    ))
+    with _running_server() as port:
+        yield port
+
+
+# ── Static + status ──────────────────────────────────────────────────────
+
+
+def test_index_html_served(http_server):
+    status, body = _get(http_server, "/")
+    assert status == 200
+    assert b"<title>tgt</title>" in body
+    assert b"/app.js" in body
+
+
+def test_css_served(http_server):
+    status, body = _get(http_server, "/style.css")
+    assert status == 200
+    assert b"font-family" in body
+
+
+def test_js_served(http_server):
+    status, body = _get(http_server, "/app.js")
+    assert status == 200
+    assert b"renderSidebar" in body
+
+
+def test_status_endpoint(http_server):
+    status, body = _get(http_server, "/api/status")
+    assert status == 200
+    assert body["version"] == "0.1.0"
+    assert body["sudo"]["nopasswd"] is True
+
+
+# ── Reader endpoints ─────────────────────────────────────────────────────
+
+
+def test_scenarios_list(http_server):
+    status, body = _get(http_server, "/api/scenarios")
+    assert status == 200
+    names = [s["name"] for s in body]
+    assert "acme" in names
+    assert "lab" in names
+
+
+def test_scenario_detail(http_server):
+    status, body = _get(http_server, "/api/scenarios/acme")
+    assert status == 200
+    assert body["name"] == "acme"
+    creds = {c["alias"] for c in body["creds"]}
+    assert creds == {"admin", "guest", "svc"}
+
+
+def test_scenario_detail_unknown(http_server):
+    status, _ = _get(http_server, "/api/scenarios/nope")
+    assert status == 404
+
+
+def test_cred_password_endpoint(http_server):
+    status, body = _get(http_server, "/api/scenarios/acme/creds/admin/password")
+    assert status == 200
+    assert body["password"] == "hunter2"
+
+
+def test_unknown_path_404(http_server):
+    status, _ = _get(http_server, "/api/unknown")
+    assert status == 404
+
+
+# ── Action endpoint (mocked tgt) ─────────────────────────────────────────
+
+
+def test_action_dispatched(http_server):
+    class Result:
+        returncode = 0
+        stdout = "switched\n"
+        stderr = ""
+
+    with patch("tgt_web.actions.subprocess.run", return_value=Result()):
+        status, body = _post_json(
+            http_server, "/api/action",
+            {"action": "scenario_switch", "params": {"name": "acme"}},
+        )
+    assert status == 200
+    assert body["argv"] == ["scenario", "switch", "acme"]
+
+
+def test_action_bad_json(http_server):
+    c = http.client.HTTPConnection("127.0.0.1", http_server, timeout=5)
+    c.request("POST", "/api/action", body=b"{not json",
+              headers={"Content-Type": "application/json"})
+    r = c.getresponse()
+    raw = r.read()
+    c.close()
+    assert r.status == 400
+    assert b"bad JSON" in raw
+
+
+def test_action_unknown(http_server):
+    status, body = _post_json(
+        http_server, "/api/action",
+        {"action": "does_not_exist", "params": {}},
+    )
+    assert status == 400
+    assert "unknown action" in body["error"]

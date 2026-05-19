@@ -1,0 +1,4 @@
+_tgt_export TGT_CRED_USERNAME admin
+_tgt_export TGT_CRED_PASSWORD hunter2
+_tgt_export TGT_CRED_DOMAIN ACME
+_tgt_export TGT_CRED_NOTES primary

@@ -9,7 +9,14 @@ function _tgt_hosts_write
         command mv $tmp $hosts_file
     else
         _tgt_sudo_notice
-        command sudo install -m 644 -o root -g root $tmp $hosts_file
+        # When invoked from tgt-web, SUDO_ASKPASS points at a
+        # graphical helper (zenity/kdialog/ssh-askpass); `sudo -A`
+        # consults it instead of blocking on a non-existent TTY.
+        if set -q SUDO_ASKPASS
+            command sudo -A install -m 644 -o root -g root $tmp $hosts_file
+        else
+            command sudo install -m 644 -o root -g root $tmp $hosts_file
+        end
         command rm -f $tmp
     end
 end

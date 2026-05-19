@@ -1,4 +1,4 @@
-.PHONY: dev undev install uninstall test demo demo-clean
+.PHONY: dev undev install uninstall test test-web test-all demo demo-clean
 
 REPO := $(shell pwd)
 FISH_DIR := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/fish
@@ -56,6 +56,13 @@ uninstall:
 
 test:
 	@fish -c 'fishtape test/test_*.fish'
+
+# Run the Python web-UI tests (delegates to web/Makefile via pytest).
+test-web:
+	@$(MAKE) -C web test
+
+# Everything — fishtape + pytest + drift contract.
+test-all: test test-web
 
 # ── Recorded demos ─────────────────────────────────────────────
 # Two pipelines:
