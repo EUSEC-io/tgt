@@ -244,62 +244,126 @@ INDEX_HTML = """<!DOCTYPE html>
 <title>tgt</title>
 <style>
 * { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
 body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-       background: #0e1116; color: #c9d1d9; margin: 0; padding: 24px;
-       font-size: 13px; line-height: 1.5; }
-header { display: flex; justify-content: space-between; align-items: baseline;
-         border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 24px; }
-h1 { font-size: 18px; margin: 0; color: #58a6ff; }
-h2 { font-size: 14px; color: #8b949e; text-transform: uppercase;
-     letter-spacing: 0.5px; margin: 24px 0 8px; }
-.muted { color: #6e7681; }
-table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; }
-th { color: #8b949e; font-weight: 600; font-size: 11px;
+       background: #0e1116; color: #c9d1d9; font-size: 13px; line-height: 1.5;
+       display: flex; flex-direction: column; }
+
+header { display: flex; justify-content: space-between; align-items: center;
+         border-bottom: 1px solid #30363d; padding: 12px 20px;
+         background: #161b22; flex-shrink: 0; }
+header h1 { font-size: 16px; margin: 0; color: #58a6ff; }
+.header-mid { color: #8b949e; font-size: 12px; }
+.header-mid .active-name { color: #56d364; font-weight: 600; }
+.header-right { display: flex; gap: 12px; align-items: center; font-size: 11px; color: #8b949e; }
+.header-right label { display: flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
+.header-right input[type=checkbox] { cursor: pointer; }
+
+.layout { display: flex; flex: 1; min-height: 0; }
+aside { width: 260px; flex-shrink: 0; border-right: 1px solid #30363d;
+        background: #0e1116; display: flex; flex-direction: column; }
+aside .filter-row { padding: 10px; border-bottom: 1px solid #21262d; }
+aside .filter-row input { width: 100%; background: #0d1117; color: #c9d1d9;
+                          border: 1px solid #30363d; padding: 6px 8px;
+                          border-radius: 3px; font-family: inherit; font-size: 12px; }
+aside .filter-row input:focus { outline: none; border-color: #58a6ff; }
+#scenario-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+#scenario-list li { padding: 8px 12px; cursor: pointer; border-left: 3px solid transparent;
+                    display: flex; justify-content: space-between; align-items: center;
+                    gap: 8px; font-size: 12px; }
+#scenario-list li:hover { background: #161b22; }
+#scenario-list li.selected { background: #161b22; border-left-color: #58a6ff; }
+#scenario-list li.active .name { color: #56d364; font-weight: 600; }
+#scenario-list li.archived .name { color: #6e7681; font-style: italic; }
+#scenario-list li .counts { color: #6e7681; font-size: 10px; flex-shrink: 0; }
+
+main { flex: 1; overflow-y: auto; padding: 20px 24px; }
+main h2 { font-size: 11px; color: #8b949e; text-transform: uppercase;
+          letter-spacing: 0.5px; margin: 20px 0 6px; font-weight: 600; }
+main h2:first-child { margin-top: 0; }
+main .scen-title { font-size: 18px; color: #58a6ff; margin: 0 0 4px;
+                   font-weight: 600; text-transform: none; letter-spacing: 0; }
+main .scen-meta { color: #8b949e; font-size: 11px; margin-bottom: 8px; }
+main .scen-meta .badge { display: inline-block; padding: 1px 6px; border-radius: 3px;
+                         margin-right: 6px; font-size: 10px; }
+main .scen-meta .badge.active { background: #1f3a1f; color: #56d364; }
+main .scen-meta .badge.archived { background: #2a2a2a; color: #8b949e; }
+main .scen-actions { margin: 8px 0 16px; display: flex; gap: 6px; }
+
+table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #21262d; font-size: 12px; }
+th { color: #8b949e; font-weight: 600; font-size: 10px;
      text-transform: uppercase; letter-spacing: 0.5px; }
-tr:hover { background: #161b22; }
-.active { color: #56d364; font-weight: 600; }
-.active::before { content: "* "; }
-.archived { color: #6e7681; font-style: italic; }
+tr:hover td { background: #161b22; }
+td.active { color: #56d364; font-weight: 600; }
+td.active::before { content: "★ "; }
+td .reveal { cursor: pointer; color: #6e7681; text-decoration: underline; font-size: 11px; }
+td .reveal:hover { color: #c9d1d9; }
+td .pw-value { color: #f85149; }
+
 button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d;
-         padding: 4px 10px; cursor: pointer; font-family: inherit;
-         font-size: 11px; border-radius: 3px; }
+         padding: 3px 8px; cursor: pointer; font-family: inherit;
+         font-size: 10px; border-radius: 3px; }
 button:hover { background: #30363d; }
 button.primary { background: #1f6feb; border-color: #1f6feb; color: white; }
 button.primary:hover { background: #388bfd; }
-button.danger { background: #6e1f1f; border-color: #6e1f1f; }
-.toast { position: fixed; bottom: 24px; right: 24px; background: #21262d;
-         border: 1px solid #30363d; padding: 10px 14px; border-radius: 4px;
-         opacity: 0; transition: opacity 0.2s; max-width: 400px; }
+button.refresh { padding: 4px 10px; font-size: 11px; }
+
+.toast { position: fixed; bottom: 20px; right: 20px; background: #21262d;
+         border: 1px solid #30363d; padding: 8px 12px; border-radius: 4px;
+         opacity: 0; transition: opacity 0.2s; max-width: 400px;
+         font-size: 12px; z-index: 100; }
 .toast.show { opacity: 1; }
 .toast.error { border-color: #f85149; }
 .toast.success { border-color: #56d364; }
-.scenario-row { cursor: pointer; }
-.detail { background: #161b22; padding: 16px; border-radius: 4px;
-          margin-top: 12px; }
-.password-cell { font-family: inherit; }
-.password-cell .reveal { cursor: pointer; color: #6e7681; text-decoration: underline; }
-code { background: #161b22; padding: 1px 4px; border-radius: 2px; }
-.empty { color: #6e7681; font-style: italic; padding: 12px; }
+.empty { color: #6e7681; font-style: italic; padding: 8px 0; font-size: 12px; }
+.placeholder { color: #6e7681; font-style: italic; text-align: center; padding: 40px; }
 </style>
 </head>
 <body>
+
 <header>
   <h1>tgt</h1>
-  <div id="active" class="muted"></div>
+  <div class="header-mid" id="active-info"></div>
+  <div class="header-right">
+    <label><input type="checkbox" id="show-archived"> show archived</label>
+    <button class="refresh" onclick="refresh(true)">↻ refresh</button>
+  </div>
 </header>
 
-<div id="app">Loading…</div>
+<div class="layout">
+  <aside>
+    <div class="filter-row"><input id="filter" placeholder="filter scenarios…" autocomplete="off"></div>
+    <ul id="scenario-list"></ul>
+  </aside>
+  <main id="detail"><div class="placeholder">Select a scenario from the list.</div></main>
+</div>
 
 <div id="toast" class="toast"></div>
 
 <script>
-let state = { selected: null };
+// ────────────────────────── state + cache ─────────────────────────────
+const state = {
+  selected: null,        // scenario name currently shown in detail pane
+  filter: '',            // sidebar substring filter
+  showArchived: false,   // toggle for hiding archived scenarios
+  scenariosHash: '',     // for skip-render-on-no-change
+  detailHash: '',
+  scenariosData: [],     // cache so filter/toggle don't refetch
+  detailData: null,
+};
 
+// ────────────────────────── helpers ───────────────────────────────────
 async function api(path, opts) {
   const r = await fetch(path, opts);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
+}
+
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return h.toString(16);
 }
 
 function toast(msg, kind) {
@@ -307,23 +371,6 @@ function toast(msg, kind) {
   t.textContent = msg;
   t.className = 'toast show ' + (kind || '');
   setTimeout(() => { t.className = 'toast'; }, 2500);
-}
-
-async function act(name, params) {
-  try {
-    const r = await api('/api/action', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ action: name, params: params || {} }),
-    });
-    if (r.rc === 0) toast('✓ ' + (r.stdout.trim().split('\\n').pop() || name), 'success');
-    else toast('error: ' + r.stderr.trim(), 'error');
-    await render();
-  } catch (e) { toast('error: ' + e.message, 'error'); }
-}
-
-async function revealPassword(scenario, alias, btn) {
-  const r = await api(`/api/scenarios/${scenario}/creds/${alias}/password`);
-  btn.parentNode.textContent = r.password || '(empty)';
 }
 
 function el(tag, attrs, ...children) {
@@ -334,44 +381,112 @@ function el(tag, attrs, ...children) {
     else e.setAttribute(k, v);
   }
   for (const c of children) {
-    if (c == null) continue;
+    if (c == null || c === false) continue;
     e.append(typeof c === 'string' ? document.createTextNode(c) : c);
   }
   return e;
 }
 
-function renderScenarios(list) {
-  if (list.length === 0) return el('div', {class: 'empty'}, 'No scenarios yet.');
-  const tbl = el('table', {},
-    el('thead', {}, el('tr', {},
-      el('th', {}, 'scenario'), el('th', {}, 'targets'),
-      el('th', {}, 'creds'), el('th', {}, 'DCs'), el('th', {}, ''))),
-    el('tbody', {}, ...list.map(s => el('tr', {class: 'scenario-row'},
-      el('td', {class: (s.active ? 'active ' : '') + (s.archived ? 'archived' : ''),
-               onclick: () => { state.selected = s.name; render(); }}, s.name),
-      el('td', {}, String(s.target_count)),
-      el('td', {}, String(s.cred_count)),
-      el('td', {}, String(s.dc_count)),
-      el('td', {},
-        s.active
-          ? el('button', {onclick: () => act('scenario_unload')}, 'unload')
-          : el('button', {class: 'primary', onclick: () => act('scenario_switch', {name: s.name})}, 'switch'),
-        ' ',
-        el('button', {onclick: () => act(s.archived ? 'scenario_unarchive' : 'scenario_archive', {name: s.name})},
-           s.archived ? 'unarchive' : 'archive'))))));
-  return tbl;
+async function act(name, params) {
+  try {
+    const r = await api('/api/action', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action: name, params: params || {} }),
+    });
+    if (r.rc === 0) toast('✓ ' + (r.stdout.trim().split('\\n').pop() || name), 'success');
+    else toast('error: ' + (r.stderr || '').trim(), 'error');
+    await refresh(true);
+  } catch (e) { toast('error: ' + e.message, 'error'); }
 }
 
-function renderDetail(d) {
-  if (!d) return el('div', {});
-  const container = el('div', {class: 'detail'});
-  container.append(el('h2', {}, `scenario: ${d.name}${d.active ? ' (active)' : ''}${d.archived ? ' [archived]' : ''}`));
+async function revealPassword(scenario, alias, span) {
+  try {
+    const r = await api(`/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`);
+    span.outerHTML = `<span class="pw-value"></span>`;
+    span.parentNode.querySelector('.pw-value').textContent = r.password || '(empty)';
+  } catch (e) { toast('reveal failed: ' + e.message, 'error'); }
+}
+
+// ────────────────────────── render: sidebar ───────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('scenario-list');
+  list.innerHTML = '';
+  const filtered = state.scenariosData.filter(s => {
+    if (!state.showArchived && s.archived) return false;
+    if (state.filter && !s.name.toLowerCase().includes(state.filter.toLowerCase())) return false;
+    return true;
+  });
+  if (filtered.length === 0) {
+    list.append(el('li', {class: 'empty'}, '(no matches)'));
+    return;
+  }
+  for (const s of filtered) {
+    const li = el('li', {
+      class: [
+        s.active ? 'active' : '',
+        s.archived ? 'archived' : '',
+        s.name === state.selected ? 'selected' : '',
+      ].filter(Boolean).join(' '),
+      onclick: () => {
+        state.selected = s.name;
+        refresh(true);
+      },
+    },
+      el('span', {class: 'name'}, s.name),
+      el('span', {class: 'counts'},
+         `${s.target_count}t · ${s.cred_count}c · ${s.dc_count}d`));
+    list.append(li);
+  }
+}
+
+function renderActiveInfo() {
+  const el2 = document.getElementById('active-info');
+  const active = state.scenariosData.find(s => s.active);
+  if (active) {
+    el2.innerHTML = 'active: <span class="active-name">' + active.name + '</span>';
+  } else {
+    el2.textContent = '(no active scenario)';
+  }
+}
+
+// ────────────────────────── render: detail ────────────────────────────
+function renderDetail() {
+  const main = document.getElementById('detail');
+  main.innerHTML = '';
+  const d = state.detailData;
+  if (!d) {
+    main.append(el('div', {class: 'placeholder'}, 'Select a scenario from the list.'));
+    return;
+  }
+
+  // Title + meta
+  main.append(el('div', {class: 'scen-title'}, d.name));
+  const meta = el('div', {class: 'scen-meta'});
+  if (d.active) meta.append(el('span', {class: 'badge active'}, 'ACTIVE'));
+  if (d.archived) meta.append(el('span', {class: 'badge archived'}, 'ARCHIVED'));
+  meta.append(document.createTextNode(
+    `${d.targets.length} target(s), ${d.creds.length} cred(s), ${d.dcs.length} DC(s)`));
+  main.append(meta);
+
+  // Scenario-level actions
+  const actions = el('div', {class: 'scen-actions'});
+  if (d.active) {
+    actions.append(el('button', {onclick: () => act('scenario_unload')}, 'unload'));
+  } else {
+    actions.append(el('button', {class: 'primary',
+      onclick: () => act('scenario_switch', {name: d.name})}, 'switch to'));
+  }
+  actions.append(el('button', {
+    onclick: () => act(d.archived ? 'scenario_unarchive' : 'scenario_archive', {name: d.name})
+  }, d.archived ? 'unarchive' : 'archive'));
+  main.append(actions);
 
   // Targets
-  container.append(el('h2', {}, 'targets'));
-  if (d.targets.length === 0) container.append(el('div', {class: 'empty'}, '(none)'));
-  else container.append(el('table', {},
-    el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'), el('th', {}, 'hostnames'), el('th', {}, ''))),
+  main.append(el('h2', {}, `targets (${d.targets.length})`));
+  if (d.targets.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
+  else main.append(el('table', {},
+    el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
+                        el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...d.targets.map(t => el('tr', {},
       el('td', {}, t.alias),
       el('td', {}, t.host || '—'),
@@ -381,29 +496,32 @@ function renderDetail(d) {
         : ''))))));
 
   // Creds
-  container.append(el('h2', {}, 'credentials'));
-  if (d.creds.length === 0) container.append(el('div', {class: 'empty'}, '(none)'));
-  else container.append(el('table', {},
+  main.append(el('h2', {}, `credentials (${d.creds.length})`));
+  if (d.creds.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
+  else main.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
-    el('tbody', {}, ...d.creds.map(c => el('tr', {},
-      el('td', {class: c.active ? 'active' : ''}, c.alias),
-      el('td', {}, c.username),
-      el('td', {class: 'password-cell'},
-        c.has_password
-          ? el('span', {}, el('span', {class: 'reveal', onclick: (e) => revealPassword(d.name, c.alias, e.target)}, 'reveal'))
-          : '—'),
-      el('td', {}, c.domain || '—'),
-      el('td', {}, c.notes || '—'),
-      el('td', {}, d.active && !c.active
-        ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
-        : (c.active ? el('button', {onclick: () => act('cred_unset')}, 'unset') : '')))))));
+    el('tbody', {}, ...d.creds.map(c => {
+      const pwCell = c.has_password
+        ? el('span', {class: 'reveal', onclick: function() { revealPassword(d.name, c.alias, this); }}, 'reveal')
+        : document.createTextNode('—');
+      return el('tr', {},
+        el('td', {class: c.active ? 'active' : ''}, c.alias),
+        el('td', {}, c.username),
+        el('td', {}, pwCell),
+        el('td', {}, c.domain || '—'),
+        el('td', {}, c.notes || '—'),
+        el('td', {},
+          d.active && !c.active
+            ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
+            : (c.active ? el('button', {onclick: () => act('cred_unset')}, 'unset') : '')));
+    }))));
 
   // DCs
-  container.append(el('h2', {}, 'DCs'));
-  if (d.dcs.length === 0) container.append(el('div', {class: 'empty'}, '(none)'));
-  else container.append(el('table', {},
+  main.append(el('h2', {}, `DCs (${d.dcs.length})`));
+  if (d.dcs.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
+  else main.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
                         el('th', {}, 'realm'), el('th', {}, 'kdc'),
                         el('th', {}, 'admin'), el('th', {}, ''))),
@@ -416,35 +534,55 @@ function renderDetail(d) {
       el('td', {}, d.active && !dc.active
         ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
         : (dc.active ? el('button', {onclick: () => act('dc_unset')}, 'unset') : '')))))));
-
-  return container;
 }
 
-async function render() {
-  const app = document.getElementById('app');
-  const activeEl = document.getElementById('active');
-  app.innerHTML = '';
+// ────────────────────────── refresh orchestrator ──────────────────────
+// `force=true` always re-renders. Without force, we hash the new data
+// and skip the DOM rebuild when nothing changed — that kills the flicker
+// during idle polling, while still picking up cross-shell state changes.
+async function refresh(force) {
   try {
-    const list = await api('/api/scenarios');
-    const active = list.find(s => s.active);
-    activeEl.textContent = active
-      ? `active: ${active.name}`
-      : '(no active scenario)';
-    app.append(renderScenarios(list));
-    if (state.selected) {
-      const d = await api(`/api/scenarios/${state.selected}`);
-      app.append(renderDetail(d));
-    } else if (active) {
-      const d = await api(`/api/scenarios/${active.name}`);
-      app.append(renderDetail(d));
+    const scenarios = await api('/api/scenarios');
+    const sHash = djb2(JSON.stringify(scenarios));
+    if (force || sHash !== state.scenariosHash) {
+      state.scenariosData = scenarios;
+      state.scenariosHash = sHash;
+      renderSidebar();
+      renderActiveInfo();
+    }
+    // If nothing's selected yet, fall back to the active scenario.
+    const target = state.selected
+      || (state.scenariosData.find(s => s.active) || {}).name;
+    if (target) {
+      const detail = await api(`/api/scenarios/${encodeURIComponent(target)}`);
+      const dHash = djb2(JSON.stringify(detail));
+      if (force || dHash !== state.detailHash) {
+        state.detailData = detail;
+        state.detailHash = dHash;
+        state.selected = target;       // sync selection if it came from active
+        renderDetail();
+        // Re-render sidebar so the "selected" highlight tracks the detail pane.
+        renderSidebar();
+      }
     }
   } catch (e) {
-    app.append(el('div', {class: 'empty'}, 'error: ' + e.message));
+    toast('refresh failed: ' + e.message, 'error');
   }
 }
 
-render();
-setInterval(render, 5000); // light auto-refresh; fish state may change from terminal
+// ────────────────────────── input wiring ──────────────────────────────
+document.getElementById('filter').addEventListener('input', (e) => {
+  state.filter = e.target.value;
+  renderSidebar();
+});
+document.getElementById('show-archived').addEventListener('change', (e) => {
+  state.showArchived = e.target.checked;
+  renderSidebar();
+});
+
+// Initial load + polite poll (every 10s, no DOM churn unless data changed).
+refresh(true);
+setInterval(() => refresh(false), 10000);
 </script>
 </body>
 </html>
