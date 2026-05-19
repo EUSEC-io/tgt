@@ -234,6 +234,9 @@ button.add { font-size: 10px; padding: 2px 8px; margin-left: 6px;
                            margin-top: 10px; padding-top: 10px;
                            border-top: 1px solid var(--border-subtle); }
 .form-card .form-buttons button { font-size: 11px; padding: 4px 12px; }
+.form-card .pw-input-row { display: flex; gap: 6px; }
+.form-card .pw-input-row input { flex: 1; }
+.form-card .pw-toggle { font-size: 11px; padding: 4px 10px; }
 
 /* Per-row action button cluster — keeps multiple inline buttons
    readable when a row exposes more than one operation. */

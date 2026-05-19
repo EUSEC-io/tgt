@@ -642,10 +642,17 @@ function buildCredNewForm() {
         })),
       el('label', {},
         el('span', {class: 'form-label'}, 'password'),
-        el('input', {
-          'x-model': 'password', 'type': 'password',
-          'autocomplete': 'new-password',
-        })),
+        el('div', {class: 'pw-input-row'},
+          el('input', {
+            'x-model': 'password',
+            ':type': "showPassword ? 'text' : 'password'",
+            'autocomplete': 'new-password',
+          }),
+          el('button', {
+            'type': 'button', 'class': 'pw-toggle',
+            '@click': 'showPassword = !showPassword',
+            'x-text': "showPassword ? 'hide' : 'show'",
+          }))),
       el('label', {},
         el('span', {class: 'form-label'}, 'domain'),
         el('input', {
@@ -762,10 +769,15 @@ document.addEventListener('alpine:init', () => {
     submitting: false,
     error: '',
     alias: '', username: '', password: '', domain: '', notes: '',
+    // Default visible: a brand-new cred is being typed, not retrieved.
+    // The masking dance only buys you something when an existing value
+    // could be shoulder-surfed off the screen.
+    showPassword: true,
     reset() {
       this.alias = ''; this.username = ''; this.password = '';
       this.domain = ''; this.notes = '';
       this.error = ''; this.submitting = false;
+      this.showPassword = true;
     },
     cancel() { this.open = false; this.reset(); },
     async submit() {
