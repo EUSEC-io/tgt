@@ -527,6 +527,16 @@ document.getElementById('entity-search').addEventListener('input', (e) => {
   renderDetail();
 });
 
+// Theme toggle. Initial theme attribute is set by the inline script in
+// index.html <head> before first paint (to avoid FOUC); this handler
+// just flips and persists.
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('tgt-theme', next); } catch (e) {}
+});
+
 // Sidebar drawer (mobile only — desktop CSS keeps it always visible).
 // Toggle on the ☰ button; close when the user clicks a scenario
 // (so the drawer doesn't sit over the chosen scenario's detail) or

@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tgt</title>
+<script>
+  // Set the theme before the stylesheet is applied so we never flash
+  // the wrong palette. Saved preference wins; otherwise follow the
+  // OS-level prefers-color-scheme.
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('tgt-theme'); } catch (e) {}
+    var theme = saved
+      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+          ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="/style.css">
 <script defer src="/vendor/alpine-3.14.1.min.js"></script>
 </head>
@@ -16,6 +29,8 @@
   <div class="header-mid" id="active-info"></div>
   <div class="header-right">
     <label><input type="checkbox" id="show-archived"> show archived</label>
+    <button id="theme-toggle" class="theme-toggle" type="button"
+            title="toggle light / dark" aria-label="toggle theme">🌗</button>
     <button class="refresh" onclick="refresh(true)">↻ refresh</button>
   </div>
 </header>
