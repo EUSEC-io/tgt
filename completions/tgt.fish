@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc cred show revoke
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc cred web show revoke
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -31,6 +31,8 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a dc        -d 'Per-scenario DC entries (krb5 realm definitions)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a cred      -d 'Per-scenario credentials (floating across targets)'
+complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
+    -a web       -d 'Launch local web UI (browser-based dashboard, PoC)'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a show      -d 'Show current target + active DC + /etc/hosts + krb5'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \

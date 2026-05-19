@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>tgt</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+  <h1>tgt</h1>
+  <div class="header-mid" id="active-info"></div>
+  <div class="header-right">
+    <label><input type="checkbox" id="show-archived"> show archived</label>
+    <button class="refresh" onclick="refresh(true)">↻ refresh</button>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<div class="layout">
+  <aside>
+    <div class="filter-row"><input id="filter" placeholder="filter scenarios…" autocomplete="off"></div>
+    <ul id="scenario-list"></ul>
+  </aside>
+  <main id="detail"><div class="placeholder">Select a scenario from the list.</div></main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

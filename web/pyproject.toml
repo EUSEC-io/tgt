@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tgt-web"
+version = "0.1.0"
+description = "Local browser UI for the tgt fish plugin"
+requires-python = ">=3.10"
+dependencies = []
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Stefan Mayer-Popp"}]
+keywords = ["pentest", "fish", "tgt", "active-directory"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: System :: Shells",
+]
+
+[project.urls]
+Homepage = "https://github.com/EUSEC-io/tgt"
+Repository = "https://github.com/EUSEC-io/tgt"
+Issues = "https://github.com/EUSEC-io/tgt/issues"
+
+[project.scripts]
+tgt-web = "tgt_web.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tgt_web*"]
+
+[tool.setuptools.package-data]
+tgt_web = ["static/*.html", "static/*.css", "static/*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

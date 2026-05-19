@@ -9,7 +9,14 @@ function _tgt_krb5_write
         command mv $tmp $krb5
     else
         _tgt_sudo_notice
-        command sudo install -m 644 -o root -g root $tmp $krb5
+        # When invoked from tgt-web, SUDO_ASKPASS points at a
+        # graphical helper (zenity/kdialog/ssh-askpass); `sudo -A`
+        # consults it instead of blocking on a non-existent TTY.
+        if set -q SUDO_ASKPASS
+            command sudo -A install -m 644 -o root -g root $tmp $krb5
+        else
+            command sudo install -m 644 -o root -g root $tmp $krb5
+        end
         command rm -f $tmp
     end
 end

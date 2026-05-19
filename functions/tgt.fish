@@ -2,6 +2,42 @@ function tgt --description 'Set penetration testing target environment variables
     set -e _tgt_sudo_announced
     _tgt_maybe_migrate
 
+    # ── Version ─────────────────────────────────────────────
+    # Plain-text version string, matched against tgt-web's own
+    # version at startup so a mismatched web/CLI pair is flagged
+    # in the UI banner. Bump in lock-step with tgt-web's
+    # __version__.
+    if test (count $argv) -ge 1; and begin; test $argv[1] = "--version"; or test $argv[1] = "-v"; end
+        echo "0.1.0"
+        return 0
+    end
+
+    # ── Drift contract: list every mutating verb ────────────
+    # Consumed by tgt-web's `tests/test_drift.py`: every entry
+    # must have a matching key in `tgt_web/actions.py::ACTIONS`.
+    # Add a row here whenever a write-side verb lands in fish,
+    # then mirror it on the web side. Pure listing — no state
+    # changes, safe to call from CI.
+    if test (count $argv) -ge 1; and test $argv[1] = "--list-mutating-verbs"
+        if test (count $argv) -ge 2; and test $argv[2] = "--json"
+            echo '['
+            echo '  {"action": "scenario_switch",    "argv": ["scenario", "switch", "<name>"]},'
+            echo '  {"action": "scenario_unload",    "argv": ["scenario", "unload"]},'
+            echo '  {"action": "scenario_archive",   "argv": ["scenario", "archive", "<name>"]},'
+            echo '  {"action": "scenario_unarchive", "argv": ["scenario", "unarchive", "<name>"]},'
+            echo '  {"action": "target_switch",      "argv": ["switch", "<alias>"]},'
+            echo '  {"action": "target_revoke",      "argv": ["revoke"]},'
+            echo '  {"action": "cred_switch",        "argv": ["cred", "switch", "<alias>"]},'
+            echo '  {"action": "cred_unset",         "argv": ["cred", "unset"]},'
+            echo '  {"action": "dc_switch",          "argv": ["dc", "switch", "<alias>"]},'
+            echo '  {"action": "dc_unset",           "argv": ["dc", "unset"]}'
+            echo ']'
+            return 0
+        end
+        echo "Usage: tgt --list-mutating-verbs --json" >&2
+        return 1
+    end
+
     # ── Help ────────────────────────────────────────────────
     if test (count $argv) -ge 1; and begin; test $argv[1] = "--help"; or test $argv[1] = "-h"; end
         echo ""
@@ -281,6 +317,12 @@ function tgt --description 'Set penetration testing target environment variables
     # ── Credentials (per-scenario, floating across targets) ─
     if test (count $argv) -ge 1 && test $argv[1] = "cred"
         _tgt_cred_cli $argv[2..]
+        return $status
+    end
+
+    # ── Web UI (proof of concept, see web/server.py) ────────
+    if test (count $argv) -ge 1 && test $argv[1] = "web"
+        tgt_web $argv[2..]
         return $status
     end
 
