@@ -170,6 +170,20 @@ async function act(name, params) {
   }
 }
 
+// Form-side dispatch. Differs from `act` in that the caller wants to
+// branch on success/failure (close the form vs. surface an error in
+// the form panel). Surfaces the action panel for both paths so the
+// user sees what `tgt` actually said.
+async function _submitForm(name, params) {
+  const r = await fetch('/api/action', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ action: name, params: params || {} }),
+  });
+  const result = await r.json();
+  actionResult(name, result);
+  return { ok: r.ok && result.rc === 0, result };
+}
+
 // Whether the action-result panel renders in collapsed (status-pill)
 // form. Toggled by the user via the −/+ button; persists in
 // localStorage so it survives reloads — same pattern as the theme
@@ -518,10 +532,17 @@ function renderDetail() {
     })))));
   main.append(credSection);
 
-  // DCs
-  main.append(el('h2', {}, `DCs (${sectionCount(dcs.length, d.dcs.length)})`));
-  if (dcs.length === 0) main.append(sectionEmpty(d.dcs.length));
-  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
+  // DCs — wrapped in an Alpine scope so the "+ new" button can
+  // open the inline create form. Mirrors the credSection pattern.
+  const dcSection = el('div', { 'x-data': `dcNewForm(${JSON.stringify(d.name)})` });
+  dcSection.append(el('h2', {},
+    `DCs (${sectionCount(dcs.length, d.dcs.length)}) `,
+    el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
+      '+ new'),
+  ));
+  dcSection.append(buildDcNewForm());
+  if (dcs.length === 0) dcSection.append(sectionEmpty(d.dcs.length));
+  else dcSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
                         el('th', {}, 'realm'), el('th', {}, 'kdc'),
                         el('th', {}, 'admin'), el('th', {}, ''))),
@@ -537,7 +558,8 @@ function renderDetail() {
             title: 'Unset active DC?',
             message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
             confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : ''))))))));
+          }, 'dc_unset')}, 'unset') : '')))))));
+  main.append(dcSection);
 }
 
 // ────────────────────────── refresh orchestrator ──────────────────────
@@ -673,6 +695,42 @@ function buildCredNewForm() {
         }))));
 }
 
+// ────────────────────────── forms: dc new ─────────────────────────────
+// Inline form for `tgt dc new`. Every field except alias is optional —
+// fish-side `argparse` accepts any subset and the argv builder drops
+// empties. Most real DCs need at least domain + realm + kdc.
+function buildDcNewForm() {
+  const field = (label, model, placeholder) => el('label', {},
+    el('span', {class: 'form-label'}, label),
+    el('input', {
+      'x-model.trim': model, 'autocomplete': 'off',
+      'placeholder': placeholder || '',
+    }));
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'new DC'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          'x-model.trim': 'alias', 'required': '', 'autocomplete': 'off',
+          'placeholder': 'e.g. dc01',
+        })),
+      field('domain',     'domain',    'e.g. acme.local'),
+      field('realm',      'realm',     'e.g. ACME.LOCAL'),
+      field('kdc host',   'kdcHost',   'e.g. dc01.acme.local'),
+      field('kdc ip',     'kdcIp',     'e.g. 10.0.0.10'),
+      field('admin host', 'adminHost', 'optional'),
+      field('admin ip',   'adminIp',   'optional'),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'create'",
+        }))));
+}
+
 document.addEventListener('alpine:init', () => {
   // Global confirm-modal state. `accept` invokes the stored callback;
   // `cancel` just closes. Both reset the callback so a stale fn
@@ -783,21 +841,73 @@ document.addEventListener('alpine:init', () => {
     async submit() {
       this.error = ''; this.submitting = true;
       try {
-        const r = await fetch('/api/action', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            action: 'cred_new',
-            params: {
-              alias: this.alias, username: this.username,
-              password: this.password, domain: this.domain, notes: this.notes,
-            },
-          }),
+        const { ok, result } = await _submitForm('cred_new', {
+          alias: this.alias, username: this.username,
+          password: this.password, domain: this.domain, notes: this.notes,
         });
-        const result = await r.json();
-        actionResult('cred_new', result);
-        if (r.ok && result.rc === 0) {
-          this.open = false;
-          this.reset();
+        if (ok) {
+          this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  window.Alpine.data('dcNewForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', domain: '', realm: '',
+    kdcHost: '', kdcIp: '', adminHost: '', adminIp: '',
+    reset() {
+      this.alias = ''; this.domain = ''; this.realm = '';
+      this.kdcHost = ''; this.kdcIp = ''; this.adminHost = ''; this.adminIp = '';
+      this.error = ''; this.submitting = false;
+    },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('dc_new', {
+          alias: this.alias,
+          domain: this.domain, realm: this.realm,
+          kdc_host: this.kdcHost, kdc_ip: this.kdcIp,
+          admin_host: this.adminHost, admin_ip: this.adminIp,
+        });
+        if (ok) {
+          this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Sidebar "+ new" scenario form. Lives in index.html under aside.
+  window.Alpine.data('scenarioNewForm', () => ({
+    open: false, submitting: false, error: '', name: '',
+    reset() { this.name = ''; this.error = ''; this.submitting = false; },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('scenario_new', {
+          name: this.name,
+        });
+        if (ok) {
+          // Auto-select the freshly-created scenario so the user
+          // lands in its (empty) detail pane.
+          state.selected = this.name;
+          this.open = false; this.reset();
           await refresh(true);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();

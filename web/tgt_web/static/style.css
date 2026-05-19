@@ -120,11 +120,15 @@ header h1 { font-size: 16px; margin: 0; color: var(--accent); }
 .layout { display: flex; flex: 1; min-height: 0; }
 aside { width: 260px; flex-shrink: 0; border-right: 1px solid var(--border);
         background: var(--bg); display: flex; flex-direction: column; }
-aside .filter-row { padding: 10px; border-bottom: 1px solid var(--border-subtle); }
-aside .filter-row input { width: 100%; background: var(--bg-input); color: var(--fg);
+aside .filter-row { padding: 10px; border-bottom: 1px solid var(--border-subtle);
+                    display: flex; gap: 6px; align-items: center; }
+aside .filter-row input { flex: 1; background: var(--bg-input); color: var(--fg);
                           border: 1px solid var(--border); padding: 6px 8px;
                           border-radius: 3px; font-family: inherit; font-size: 12px; }
 aside .filter-row input:focus { outline: none; border-color: var(--accent); }
+aside .filter-row .add { font-size: 11px; padding: 5px 8px; white-space: nowrap; }
+.form-card.sidebar-form { margin: 8px 10px; padding: 10px 12px; }
+.form-card.sidebar-form label { grid-template-columns: 60px 1fr; }
 #scenario-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
 #scenario-list li { padding: 8px 12px; cursor: pointer; border-left: 3px solid transparent;
                     display: flex; justify-content: space-between; align-items: center;

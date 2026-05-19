@@ -21,6 +21,7 @@ function tgt --description 'Set penetration testing target environment variables
     if test (count $argv) -ge 1; and test $argv[1] = "--list-mutating-verbs"
         if test (count $argv) -ge 2; and test $argv[2] = "--json"
             echo '['
+            echo '  {"action": "scenario_new",       "argv": ["scenario", "new", "<name>"]},'
             echo '  {"action": "scenario_switch",    "argv": ["scenario", "switch", "<name>"]},'
             echo '  {"action": "scenario_unload",    "argv": ["scenario", "unload"]},'
             echo '  {"action": "scenario_archive",   "argv": ["scenario", "archive", "<name>"]},'
@@ -32,6 +33,7 @@ function tgt --description 'Set penetration testing target environment variables
             echo '  {"action": "cred_rm",            "argv": ["cred", "rm", "<alias>"]},'
             echo '  {"action": "cred_switch",        "argv": ["cred", "switch", "<alias>"]},'
             echo '  {"action": "cred_unset",         "argv": ["cred", "unset"]},'
+            echo '  {"action": "dc_new",             "argv": ["dc", "new", "<alias>", "[--domain]", "[--realm]", "[--kdc-host]", "[--kdc-ip]", "[--admin-host]", "[--admin-ip]"]},'
             echo '  {"action": "dc_switch",          "argv": ["dc", "switch", "<alias>"]},'
             echo '  {"action": "dc_unset",           "argv": ["dc", "unset"]}'
             echo ']'

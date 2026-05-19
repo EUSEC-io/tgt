@@ -44,6 +44,7 @@ def test_missing_param_returns_400():
 @pytest.mark.parametrize(
     "action,params,expected_tail",
     [
+        ("scenario_new",       {"name": "lab"},   ["scenario", "new", "lab"]),
         ("scenario_switch",    {"name": "acme"},  ["scenario", "switch", "acme"]),
         ("scenario_unload",    {},                ["scenario", "unload"]),
         ("scenario_archive",   {"name": "old"},   ["scenario", "archive", "old"]),
@@ -269,6 +270,52 @@ def test_cred_rename_requires_old_and_new():
     assert s1 == 400 and "old" in b1["error"]
     s2, b2 = actions.dispatch_action("cred_rename", {"old": "a"})
     assert s2 == 400 and "new" in b2["error"]
+
+
+def test_scenario_new_requires_name():
+    status, body = actions.dispatch_action("scenario_new", {})
+    assert status == 400 and "name" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Alias only — every other flag is optional on the fish side.
+        ({"alias": "dc01"}, ["dc", "new", "dc01"]),
+        # Full payload.
+        (
+            {"alias": "dc01", "domain": "acme.local", "realm": "ACME.LOCAL",
+             "kdc_host": "dc01.acme.local", "kdc_ip": "10.0.0.10",
+             "admin_host": "dc01.acme.local", "admin_ip": "10.0.0.10"},
+            ["dc", "new", "dc01",
+             "--domain", "acme.local", "--realm", "ACME.LOCAL",
+             "--kdc-host", "dc01.acme.local", "--kdc-ip", "10.0.0.10",
+             "--admin-host", "dc01.acme.local", "--admin-ip", "10.0.0.10"],
+        ),
+        # Empty optionals must be dropped, not emitted as "--flag ''".
+        (
+            {"alias": "dc01", "domain": "", "realm": "", "kdc_host": "",
+             "kdc_ip": "", "admin_host": "", "admin_ip": ""},
+            ["dc", "new", "dc01"],
+        ),
+        # Mixed — only what was filled in is on the argv.
+        (
+            {"alias": "dc02", "realm": "EXT.LOCAL", "admin_ip": "10.0.0.20"},
+            ["dc", "new", "dc02", "--realm", "EXT.LOCAL", "--admin-ip", "10.0.0.20"],
+        ),
+    ],
+)
+def test_dc_new_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("dc_new", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_dc_new_requires_alias():
+    status, body = actions.dispatch_action("dc_new", {})
+    assert status == 400 and "alias" in body["error"]
 
 
 def test_dispatch_invalidates_active_cache():

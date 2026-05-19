@@ -44,7 +44,22 @@ def _cred_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _dc_new_argv(p: dict) -> list[str]:
+    argv = ["dc", "new", p["alias"]]
+    for key, flag in (("domain",     "--domain"),
+                      ("realm",      "--realm"),
+                      ("kdc_host",   "--kdc-host"),
+                      ("kdc_ip",     "--kdc-ip"),
+                      ("admin_host", "--admin-host"),
+                      ("admin_ip",   "--admin-ip")):
+        v = p.get(key)
+        if v:
+            argv += [flag, v]
+    return argv
+
+
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
+    "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
@@ -56,6 +71,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "cred_rm":            (lambda p: ["cred", "rm", p["alias"]],            ["alias"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
+    "dc_new":             (_dc_new_argv,                                    ["alias"]),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
     "dc_unset":           (lambda p: ["dc", "unset"],                       []),
 }
