@@ -127,10 +127,14 @@ async function _previewArgv(name, params) {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: name, params: params || {} }),
     });
-    if (!r.ok) return '';
+    if (!r.ok) {
+      console.warn(`preview ${name}: HTTP ${r.status}`);
+      return '';
+    }
     const j = await r.json();
     return j.argv ? _formatArgv(j.argv) : '';
   } catch (e) {
+    console.warn(`preview ${name}: ${e.message}`);
     return '';
   }
 }
