@@ -80,7 +80,7 @@ fisher install jorgebucaran/fisher jorgebucaran/fishtape
 **Use it (production):**
 
 ```fish
-fisher install fuxx/pentest-fish-functions
+fisher install EUSEC-io/tgt
 ```
 
 **Develop on it (symlink-based, fast iteration):**
