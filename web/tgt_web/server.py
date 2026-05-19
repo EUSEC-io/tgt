@@ -42,10 +42,14 @@ def _load_static(name: str) -> bytes:
     if ".." in name.split("/") or name.startswith("/"):
         raise FileNotFoundError(name)
     if name not in _static_cache:
-        parts = name.split("/")
-        _static_cache[name] = (
-            resources.files("tgt_web.static").joinpath(*parts).read_bytes()
-        )
+        # `MultiplexedPath.joinpath()` in Python 3.10–3.12 takes a
+        # single argument — variadic `joinpath(*parts)` raises
+        # TypeError on CI. Chain instead. (Python 3.13's Traversable
+        # accepts multiple, which is what masked this locally.)
+        trav = resources.files("tgt_web.static")
+        for part in name.split("/"):
+            trav = trav.joinpath(part)
+        _static_cache[name] = trav.read_bytes()
     return _static_cache[name]
 
 
