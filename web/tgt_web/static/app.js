@@ -2,6 +2,7 @@
 const state = {
   selected: null,        // scenario name currently shown in detail pane
   filter: '',            // sidebar substring filter
+  entitySearch: '',      // detail-pane substring filter (across t/c/d)
   showArchived: false,   // toggle for hiding archived scenarios
   scenariosHash: '',     // for skip-render-on-no-change
   detailHash: '',
@@ -39,6 +40,32 @@ async function copyToClipboard(text, label) {
   } catch (e) {
     toast('copy failed: ' + e.message, 'error');
   }
+}
+
+// Substring-match predicate over a list of haystack fields. Empty
+// needle matches everything (search-off is the default). All match
+// is case-insensitive. Used by entity-search filters below.
+function _entityMatch(needle) {
+  if (!needle) return () => true;
+  const n = needle.toLowerCase();
+  return (fields) => fields.some(s => s && s.toLowerCase().includes(n));
+}
+// Per-entity field projections — kept tight (no password / cred-id /
+// archive markers) so a search for "admin" returns entities whose
+// human-visible content actually mentions "admin".
+function _filterTargets(targets, needle) {
+  const m = _entityMatch(needle);
+  return targets.filter(t => m([t.alias, t.host, ...(t.hosts || [])]));
+}
+function _filterCreds(creds, needle) {
+  const m = _entityMatch(needle);
+  return creds.filter(c => m([c.alias, c.username, c.domain, c.notes]));
+}
+function _filterDCs(dcs, needle) {
+  const m = _entityMatch(needle);
+  return dcs.filter(dc => m([dc.alias, dc.domain, dc.realm,
+                              dc.kdc_host, dc.kdc_ip,
+                              dc.admin_host, dc.admin_ip]));
 }
 
 // Generic single-string value cell. Shows the value with a copy icon
@@ -255,10 +282,13 @@ function renderDetail() {
   const main = document.getElementById('detail');
   main.innerHTML = '';
   const d = state.detailData;
+  const searchBar = document.getElementById('entity-search-bar');
   if (!d) {
     main.append(el('div', {class: 'placeholder'}, 'Select a scenario from the list.'));
+    searchBar.hidden = true;
     return;
   }
+  searchBar.hidden = false;
 
   // Title + meta
   main.append(el('div', {class: 'scen-title'}, d.name));
@@ -296,13 +326,30 @@ function renderDetail() {
   }
   main.append(actions);
 
+  // Entity-search filtering. Each section renders the filtered subset
+  // but shows "N of M" in the header so the user can see what's hidden.
+  const q = state.entitySearch;
+  const targets = _filterTargets(d.targets, q);
+  const creds = _filterCreds(d.creds, q);
+  const dcs = _filterDCs(d.dcs, q);
+  const sectionCount = (filtered, total) =>
+    (q && filtered !== total) ? `${filtered} of ${total}` : `${total}`;
+  const sectionEmpty = (total) =>
+    el('div', {class: 'empty'}, q && total > 0 ? '(no matches)' : '(none)');
+  // Aggregate counters for the search bar's "X results" tag.
+  const totalMatches = targets.length + creds.length + dcs.length;
+  const totalAll = d.targets.length + d.creds.length + d.dcs.length;
+  const countEl = document.getElementById('entity-search-count');
+  countEl.textContent = (q && totalMatches !== totalAll)
+    ? `${totalMatches} of ${totalAll} match` : '';
+
   // Targets
-  main.append(el('h2', {}, `targets (${d.targets.length})`));
-  if (d.targets.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
+  main.append(el('h2', {}, `targets (${sectionCount(targets.length, d.targets.length)})`));
+  if (targets.length === 0) main.append(sectionEmpty(d.targets.length));
   else main.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
-    el('tbody', {}, ...d.targets.map(t => el('tr', {},
+    el('tbody', {}, ...targets.map(t => el('tr', {},
       el('td', {}, t.alias),
       el('td', {}, valueCell(t.host, 'host')),
       el('td', {}, t.hosts.length
@@ -319,17 +366,17 @@ function renderDetail() {
   // error). See `credNewForm` factory at the bottom of this file.
   const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
   credSection.append(el('h2', {},
-    `credentials (${d.creds.length}) `,
+    `credentials (${sectionCount(creds.length, d.creds.length)}) `,
     el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
       '+ new'),
   ));
   credSection.append(buildCredNewForm());
-  if (d.creds.length === 0) credSection.append(el('div', {class: 'empty'}, '(none)'));
+  if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
   else credSection.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
-    el('tbody', {}, ...d.creds.map(c => {
+    el('tbody', {}, ...creds.map(c => {
       const pwCell = c.has_password
         ? el('span', { 'x-data': `credPw('${d.name}', '${c.alias}')`, 'class': 'pw-cell' },
             el('span', {
@@ -390,13 +437,13 @@ function renderDetail() {
   main.append(credSection);
 
   // DCs
-  main.append(el('h2', {}, `DCs (${d.dcs.length})`));
-  if (d.dcs.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
+  main.append(el('h2', {}, `DCs (${sectionCount(dcs.length, d.dcs.length)})`));
+  if (dcs.length === 0) main.append(sectionEmpty(d.dcs.length));
   else main.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
                         el('th', {}, 'realm'), el('th', {}, 'kdc'),
                         el('th', {}, 'admin'), el('th', {}, ''))),
-    el('tbody', {}, ...d.dcs.map(dc => el('tr', {},
+    el('tbody', {}, ...dcs.map(dc => el('tr', {},
       el('td', {class: dc.active ? 'active' : ''}, dc.alias),
       el('td', {}, valueCell(dc.domain, 'domain')),
       el('td', {}, valueCell(dc.realm, 'realm')),
@@ -453,6 +500,10 @@ document.getElementById('filter').addEventListener('input', (e) => {
 document.getElementById('show-archived').addEventListener('change', (e) => {
   state.showArchived = e.target.checked;
   renderSidebar();
+});
+document.getElementById('entity-search').addEventListener('input', (e) => {
+  state.entitySearch = e.target.value;
+  renderDetail();
 });
 
 // ────────────────────────── forms: cred new ───────────────────────────

@@ -24,7 +24,14 @@
     <div class="filter-row"><input id="filter" placeholder="filter scenarios…" autocomplete="off"></div>
     <ul id="scenario-list"></ul>
   </aside>
-  <main id="detail"><div class="placeholder">Select a scenario from the list.</div></main>
+  <main>
+    <div id="entity-search-bar" hidden>
+      <input id="entity-search" type="search" autocomplete="off"
+             placeholder="search targets / creds / DCs…">
+      <span id="entity-search-count" class="search-count"></span>
+    </div>
+    <div id="detail"><div class="placeholder">Select a scenario from the list.</div></div>
+  </main>
 </div>
 
 <div id="toast" class="toast"></div>
