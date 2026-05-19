@@ -438,7 +438,12 @@ function renderDetail() {
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /
   // error). See `credNewForm` factory at the bottom of this file.
-  const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
+  //
+  // JSON.stringify produces a valid JS string literal — handles the
+  // single-quote / backslash cases that would otherwise break the
+  // attribute. Current validators reject `'` in scenario / cred
+  // names, but the template stays robust if that ever loosens.
+  const credSection = el('div', { 'x-data': `credNewForm(${JSON.stringify(d.name)})` });
   credSection.append(el('h2', {},
     `credentials (${sectionCount(creds.length, d.creds.length)}) `,
     el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
@@ -452,7 +457,7 @@ function renderDetail() {
                         el('th', {}, 'notes'), el('th', {}, ''))),
     el('tbody', {}, ...creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', { 'x-data': `credPw('${d.name}', '${c.alias}')`, 'class': 'pw-cell' },
+        ? el('span', { 'x-data': `credPw(${JSON.stringify(d.name)}, ${JSON.stringify(c.alias)})`, 'class': 'pw-cell' },
             el('span', {
               'class': 'reveal',
               'x-show': '!revealed',
