@@ -156,6 +156,35 @@ def test_subprocess_env_sets_no_color():
     assert kw["env"]["NO_COLOR"] == "1"
 
 
+def test_subprocess_env_scrubs_stale_tgt_vars(monkeypatch):
+    """Regression: tgt-web inherits TGT_SCENARIO / TGT_CRED_* from
+    the shell that launched it. Those are fish universal-exported
+    vars — fish gives env precedence over the universal store, so
+    passing them through means every action runs against the
+    launch-time scenario, not the currently-active one. Manifested
+    as `tgt cred unset` clearing the wrong scenario's marker and
+    `tgt cred switch` failing with "credential 'X' does not exist
+    in scenario 'launch-time-name'". Scrub all TGT_* on the way in,
+    keep TGT_HOME (user-set, not fish-flipped)."""
+    monkeypatch.setenv("TGT_SCENARIO", "launch-time-scenario")
+    monkeypatch.setenv("TGT_CRED_NAME", "launch-time-cred")
+    monkeypatch.setenv("TGT_CRED_USERNAME", "stale_user")
+    monkeypatch.setenv("TGT_HOME", "/tmp/custom-home")
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        actions.dispatch_action("cred_unset", {})
+    _, kw = recorder.captured
+    env = kw["env"]
+    assert "TGT_SCENARIO" not in env
+    assert "TGT_CRED_NAME" not in env
+    assert "TGT_CRED_USERNAME" not in env
+    # User-set TGT_HOME must survive — it's not state fish flips at
+    # runtime, and tgt-web's reader honors it for testing/overrides.
+    assert env["TGT_HOME"] == "/tmp/custom-home"
+    # TGT_NO_GUM still injected (it's set after the scrub).
+    assert env["TGT_NO_GUM"] == "1"
+
+
 def test_subprocess_stdin_is_devnull():
     """Regression: tgt-web inherits the TTY where it was launched, so
     a subprocess without an explicit stdin redirect picks up that

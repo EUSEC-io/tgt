@@ -768,7 +768,34 @@ document.getElementById('show-archived').addEventListener('change', (e) => {
   renderSidebar();
 });
 
-// Initial load + polite poll (every 10s, no DOM churn unless data changed).
+// Initial load. Live updates come from the server's SSE stream
+// below; a slow fallback poll runs alongside it as belt-and-braces
+// in case the watcher thread silently dies or the EventSource
+// reconnect heuristics misfire on a long sleep/wake. Hash dedup in
+// refresh() makes the idle poll near-free.
 renderBanner();
 refresh(true);
-setInterval(() => refresh(false), 10000);
+
+// SSE: subscribe to `/api/events`. The server emits `change` whenever
+// $TGT_HOME state or the active scenario flips; we re-fetch on each
+// one. EventSource auto-reconnects on disconnect (`retry: 3000` from
+// the server tightens that to ~3 s). No manual reconnect logic.
+function _startEvents() {
+  let es;
+  try {
+    es = new EventSource('/api/events');
+  } catch (e) {
+    // Browser without EventSource (none of our supported ones).
+    // The fallback poll below still keeps the UI live.
+    return;
+  }
+  es.addEventListener('change', () => refresh(false));
+  // `ready` and `error` are useful in devtools; no UI side-effects.
+  // (Errors fire on transient disconnects too — EventSource handles
+  // the retry itself, so silence is correct here.)
+}
+_startEvents();
+
+// Fallback poll. SSE is the primary signal; this catches the rare
+// silent-failure case where the stream stays open but stops delivering.
+setInterval(() => refresh(false), 60000);
