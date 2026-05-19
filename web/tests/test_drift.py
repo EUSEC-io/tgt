@@ -64,15 +64,15 @@ def test_every_fish_verb_has_a_web_action(mutating_verbs):
 
 
 def test_no_orphan_web_actions(mutating_verbs):
-    """Web actions that have no fish counterpart are usually a bug.
-
-    Soft assertion: skip rather than fail in case a transitional state
-    is intentional — but flag it loudly so we don't drift the other way.
+    """Every web ACTIONS entry must have a matching fish enumeration
+    row. The contract is strict in both directions — adding an
+    ACTIONS entry without the bookkeeping line in
+    `tgt --list-mutating-verbs --json` is a CI fail.
     """
     fish_names = {v["action"] for v in mutating_verbs}
     orphans = set(ACTIONS) - fish_names
-    if orphans:
-        pytest.skip(
-            f"web ACTIONS without fish entry: {sorted(orphans)} — "
-            "add to `tgt --list-mutating-verbs --json` if these are real."
-        )
+    assert not orphans, (
+        f"web ACTIONS {sorted(orphans)} have no fish enumeration entry — "
+        "add the matching row to `tgt --list-mutating-verbs --json` "
+        "in functions/tgt.fish."
+    )
