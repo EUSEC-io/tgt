@@ -99,6 +99,12 @@ button.add { font-size: 10px; padding: 2px 8px; margin-left: 6px;
                            margin-top: 10px; padding-top: 10px;
                            border-top: 1px solid #21262d; }
 .form-card .form-buttons button { font-size: 11px; padding: 4px 12px; }
+.form-card input[readonly] { background: #0a0d12; color: #8b949e; cursor: not-allowed; }
+
+/* Per-row action button cluster — keeps inline edits readable. */
+td.row-actions { white-space: nowrap; }
+td.row-actions button { margin-right: 4px; }
+td.row-actions button:last-child { margin-right: 0; }
 
 .toast { position: fixed; bottom: 20px; right: 20px; background: #21262d;
          border: 1px solid #30363d; padding: 8px 12px; border-radius: 4px;

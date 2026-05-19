@@ -173,6 +173,56 @@ def test_cred_new_argv_builder(params, expected):
     assert body["argv"] == expected
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Only patch one field
+        (
+            {"alias": "adm", "password": "new-pw"},
+            ["cred", "edit", "adm", "--password", "new-pw"],
+        ),
+        # Clear a field (empty string is a legitimate value)
+        (
+            {"alias": "adm", "notes": ""},
+            ["cred", "edit", "adm", "--notes", ""],
+        ),
+        # All fields
+        (
+            {"alias": "adm", "username": "U", "password": "P", "domain": "D", "notes": "N"},
+            ["cred", "edit", "adm", "--username", "U", "--password", "P", "--domain", "D", "--notes", "N"],
+        ),
+        # Missing keys (vs explicit empty) → flag omitted
+        (
+            {"alias": "adm"},
+            ["cred", "edit", "adm"],
+        ),
+    ],
+)
+def test_cred_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_cred_rename_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_rename",
+                                               {"old": "admin", "new": "Administrator"})
+    assert status == 200
+    assert body["argv"] == ["cred", "rename", "admin", "Administrator"]
+
+
+def test_cred_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_rm", {"alias": "old-cred"})
+    assert status == 200
+    assert body["argv"] == ["cred", "rm", "old-cred"]
+
+
 def test_cred_new_requires_alias_and_username():
     s1, b1 = actions.dispatch_action("cred_new", {})
     assert s1 == 400 and "missing param" in b1["error"]

@@ -206,8 +206,26 @@ function _tgt_cred_cli
             return 0
 
         case edit
-            set -l alias $rest[1]
+            argparse --name='tgt cred edit' \
+                'u/username=' 'p/password=' 'd/domain=' 'n/notes=' \
+                -- $rest
+            or return 1
+
+            set -l alias ""
+            test (count $argv) -ge 1; and set alias $argv[1]
+
+            set -l have_data_flags 0
+            for f in _flag_username _flag_password _flag_domain _flag_notes
+                set -q $f; and set have_data_flags 1
+            end
+
+            # No alias + no flags → interactive picker + wizard (TTY).
+            # Flags require an alias (you have to know what to edit).
             if test -z "$alias"
+                if test $have_data_flags -ne 0
+                    echo "tgt cred edit: alias is required when fields are passed via flags" >&2
+                    return 1
+                end
                 set -l aliases (_tgt_cred_list $scenario)
                 if test (count $aliases) -eq 0
                     echo "tgt cred edit: no credentials in scenario '$scenario'" >&2
@@ -220,8 +238,35 @@ function _tgt_cred_cli
                 echo "tgt cred edit: credential '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            _tgt_cred_edit_wizard $scenario $alias
-            return $status
+
+            # No flags → drop into the wizard.
+            if test $have_data_flags -eq 0
+                _tgt_cred_edit_wizard $scenario $alias
+                return $status
+            end
+
+            # Non-interactive edit: load existing fields, patch the
+            # flag-provided ones (empty flag value clears the field),
+            # save back. Username must stay non-empty.
+            if set -q _flag_username; and test -z "$_flag_username"
+                echo "tgt cred edit: --username cannot be empty" >&2
+                return 1
+            end
+
+            _tgt_cred_clear_runtime
+            _tgt_cred_load $scenario $alias
+            or return 1
+
+            set -q _flag_username; and set -gx TGT_CRED_USERNAME $_flag_username
+            set -q _flag_password; and set -gx TGT_CRED_PASSWORD $_flag_password
+            set -q _flag_domain  ; and set -gx TGT_CRED_DOMAIN   $_flag_domain
+            set -q _flag_notes   ; and set -gx TGT_CRED_NOTES    $_flag_notes
+
+            _tgt_cred_save $scenario $alias
+            or return $status
+
+            set_color green; echo "✓ credential '$alias' updated in '$scenario'"; set_color normal
+            return 0
 
         case rename
             set -l old ""

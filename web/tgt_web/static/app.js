@@ -283,16 +283,16 @@ function renderDetail() {
   // (target_revoke is exposed elsewhere — there's no per-target
   // revoke today; the scenario-level "unload" subsumes it.)
 
-  // Creds — wrapped in an Alpine scope so the "+ new" button can
-  // open the inline create form (state: open / fields / submitting /
-  // error). See `credNewForm` factory at the bottom of this file.
-  const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
+  // Creds — single section-level Alpine scope owns one form that
+  // toggles between new + edit. Row "edit" buttons call openEdit()
+  // on this same scope, pre-filling from the row's data.
+  const credSection = el('div', { 'x-data': `credForm(${JSON.stringify(d.name)})` });
   credSection.append(el('h2', {},
     `credentials (${d.creds.length}) `,
-    el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
+    el('button', { 'class': 'add', 'type': 'button', '@click': 'openNew()' },
       '+ new'),
   ));
-  credSection.append(buildCredNewForm());
+  credSection.append(buildCredForm());
   if (d.creds.length === 0) credSection.append(el('div', {class: 'empty'}, '(none)'));
   else credSection.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
@@ -312,20 +312,41 @@ function renderDetail() {
               'x-text': "value || '…'",
             }))
         : document.createTextNode('—');
+      const initialJson = JSON.stringify({
+        alias: c.alias, username: c.username, domain: c.domain, notes: c.notes,
+      });
       return el('tr', {},
         el('td', {class: c.active ? 'active' : ''}, c.alias),
         el('td', {}, c.username),
         el('td', {}, pwCell),
         el('td', {}, c.domain || '—'),
         el('td', {}, c.notes || '—'),
-        el('td', {},
+        el('td', {class: 'row-actions'},
           d.active && !c.active
             ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
             : (c.active ? el('button', {onclick: () => confirmAct({
                 title: 'Unset active credential?',
                 message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
                 confirmLabel: 'unset',
-              }, 'cred_unset')}, 'unset') : '')));
+              }, 'cred_unset')}, 'unset') : ''),
+          // Edit calls into the section-level scope's openEdit(initial).
+          el('button', { '@click': `openEdit(${initialJson})`, 'title': 'edit fields' }, 'edit'),
+          el('button', {
+            onclick: () => {
+              const next = window.prompt(`Rename "${c.alias}" to:`, c.alias);
+              if (!next || next === c.alias) return;
+              act('cred_rename', { old: c.alias, new: next });
+            },
+            title: 'rename',
+          }, 'rename'),
+          el('button', {
+            onclick: () => confirmAct({
+              title: `Delete credential "${c.alias}"?`,
+              message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,
+              confirmLabel: 'delete',
+            }, 'cred_rm', { alias: c.alias }),
+            title: 'delete',
+          }, 'rm')));
     }))));
   main.append(credSection);
 
@@ -395,19 +416,23 @@ document.getElementById('show-archived').addEventListener('change', (e) => {
   renderSidebar();
 });
 
-// ────────────────────────── forms: cred new ───────────────────────────
-// Inline form for `tgt cred new`. Pattern to repeat for other forms:
-//   - `buildXForm()` returns the DOM (Alpine binds via attributes)
-//   - `xForm()` factory registered on `alpine:init` owns state + submit
-function buildCredNewForm() {
+// ────────────────────────── forms: cred ────────────────────────────────
+// Single Alpine factory handles both modes: mode === 'new' fires
+// `cred_new`, mode === 'edit' fires `cred_edit` with a diff (only
+// fields the user changed are included so existing values that
+// were left alone aren't overwritten — and an explicit blank means
+// "clear this field"). Alias is read-only in edit mode (use
+// `cred_rename` for that).
+function buildCredForm() {
   return el('div', { 'x-show': 'open', 'class': 'form-card' },
-    el('div', {class: 'form-title'}, 'new credential'),
+    el('div', {class: 'form-title', 'x-text': "mode === 'new' ? 'new credential' : 'edit credential: ' + alias"}),
     el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
     el('form', { '@submit.prevent': 'submit' },
       el('label', {},
         el('span', {class: 'form-label'}, 'alias'),
         el('input', {
           'x-model.trim': 'alias', 'required': '', 'autocomplete': 'off',
+          ':readonly': "mode === 'edit'",
           'placeholder': 'e.g. admin',
         })),
       el('label', {},
@@ -421,6 +446,7 @@ function buildCredNewForm() {
         el('input', {
           'x-model': 'password', 'type': 'password',
           'autocomplete': 'new-password',
+          ':placeholder': "mode === 'edit' ? '(unchanged)' : ''",
         })),
       el('label', {},
         el('span', {class: 'form-label'}, 'domain'),
@@ -438,7 +464,7 @@ function buildCredNewForm() {
         el('button', {
           'type': 'submit', 'class': 'primary',
           ':disabled': 'submitting',
-          'x-text': "submitting ? 'saving…' : 'create'",
+          'x-text': "submitting ? 'saving…' : (mode === 'new' ? 'create' : 'save')",
         }))));
 }
 
@@ -464,35 +490,75 @@ document.addEventListener('alpine:init', () => {
     },
   });
 
-  window.Alpine.data('credNewForm', (scenario) => ({
+  window.Alpine.data('credForm', (scenario) => ({
+    scenario,
+    mode: 'new',           // 'new' | 'edit'
     open: false,
     submitting: false,
     error: '',
+    initial: {},
     alias: '', username: '', password: '', domain: '', notes: '',
-    reset() {
+    openNew() {
+      this.mode = 'new';
       this.alias = ''; this.username = ''; this.password = '';
       this.domain = ''; this.notes = '';
+      this.initial = {};
       this.error = ''; this.submitting = false;
+      this.open = true;
     },
-    cancel() { this.open = false; this.reset(); },
+    openEdit(initial) {
+      // Password stays blank — fetching the plaintext to pre-fill
+      // would defeat the reveal-on-click pattern and complicate
+      // diffing. Blank on save = "don't touch"; typed = update.
+      this.mode = 'edit';
+      this.initial = { ...initial };
+      this.alias    = initial.alias    || '';
+      this.username = initial.username || '';
+      this.password = '';
+      this.domain   = initial.domain   || '';
+      this.notes    = initial.notes    || '';
+      this.error = ''; this.submitting = false;
+      this.open = true;
+    },
+    cancel() { this.open = false; },
+    _editParams() {
+      // Diff against initial — only include keys the user actually
+      // changed. Clearing a previously-set field sends "" so fish
+      // edit drops the line from disk.
+      const out = { alias: this.alias };
+      for (const k of ['username', 'password', 'domain', 'notes']) {
+        const cur = this[k];
+        const init = this.initial[k] || '';
+        if (k === 'password') {
+          if (cur) out.password = cur;        // blank = unchanged
+        } else if (cur !== init) {
+          out[k] = cur;
+        }
+      }
+      return out;
+    },
     async submit() {
       this.error = ''; this.submitting = true;
       try {
+        const action = this.mode === 'new' ? 'cred_new' : 'cred_edit';
+        const params = this.mode === 'new'
+          ? { alias: this.alias, username: this.username,
+              password: this.password, domain: this.domain, notes: this.notes }
+          : this._editParams();
+        // Edit no-op shortcut.
+        if (this.mode === 'edit' && Object.keys(params).length === 1) {
+          this.error = '(no fields changed)';
+          this.submitting = false;
+          return;
+        }
         const r = await fetch('/api/action', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            action: 'cred_new',
-            params: {
-              alias: this.alias, username: this.username,
-              password: this.password, domain: this.domain, notes: this.notes,
-            },
-          }),
+          body: JSON.stringify({ action, params }),
         });
         const result = await r.json();
-        actionResult('cred_new', result);
+        actionResult(action, result);
         if (r.ok && result.rc === 0) {
           this.open = false;
-          this.reset();
           await refresh(true);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();

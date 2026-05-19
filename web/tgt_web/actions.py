@@ -33,14 +33,35 @@ def _strip_ansi(s: str) -> str:
     return _ANSI_RE.sub("", s)
 
 # action name → (argv builder, list of required params)
+_CRED_FIELDS = (("username", "--username"),
+                ("password", "--password"),
+                ("domain",   "--domain"),
+                ("notes",    "--notes"))
+
+
 def _cred_new_argv(p: dict) -> list[str]:
     argv = ["cred", "new", p["alias"], "--username", p["username"]]
-    for key, flag in (("password", "--password"),
-                      ("domain",   "--domain"),
-                      ("notes",    "--notes")):
+    for key, flag in _CRED_FIELDS:
+        if key == "username":
+            continue
         v = p.get(key)
         if v:
             argv += [flag, v]
+    return argv
+
+
+def _cred_edit_argv(p: dict) -> list[str]:
+    """Build `tgt cred edit <alias> [--field VAL] …`.
+
+    Only includes a flag when the param is *present* in `p` — caller
+    sends just the fields the user actually edited. An empty string
+    is a legitimate value (it clears the field on the fish side); a
+    missing key means "don't touch."
+    """
+    argv = ["cred", "edit", p["alias"]]
+    for key, flag in _CRED_FIELDS:
+        if key in p:
+            argv += [flag, p[key]]
     return argv
 
 
@@ -52,6 +73,9 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
+    "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
+    "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),
+    "cred_rm":            (lambda p: ["cred", "rm", p["alias"]],            ["alias"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
