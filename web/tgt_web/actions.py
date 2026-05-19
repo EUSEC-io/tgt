@@ -75,8 +75,21 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
     `_tgt_scenario_followup`'s isatty gate) hangs the request
     until the user types into the terminal where tgt-web was
     launched.
+
+    Env scrubbing is load-bearing too. `TGT_SCENARIO` is a fish
+    universal-exported var (`set -Ux`), so tgt-web's process env
+    captured it from the launching shell — and that value never
+    updates when fish flips the universal. Fish gives precedence
+    to env over the universal store, so without scrubbing every
+    action would run against the launch-time scenario instead of
+    the currently-active one. Same trap caught `read_active_scenario`
+    on the read side; we mirror it here. `TGT_HOME` is kept because
+    the user may have set it intentionally (e.g. tests) and it's
+    not state that fish flips at runtime.
     """
-    env = sudo.prepare_env(os.environ.copy())
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith("TGT_") or k == "TGT_HOME"}
+    env = sudo.prepare_env(env)
     env["TGT_NO_GUM"] = "1"
     env["NO_COLOR"] = "1"
     quoted = " ".join(shlex.quote(a) for a in args)
