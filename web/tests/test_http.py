@@ -90,6 +90,22 @@ def test_js_served(http_server):
     assert b"renderSidebar" in body
 
 
+def test_vendor_alpine_served(http_server):
+    """Vendored Alpine must be reachable so the <script> tag in
+    index.html resolves on offline pentest boxes."""
+    status, body = _get(http_server, "/vendor/alpine-3.14.1.min.js")
+    assert status == 200
+    assert b"Alpine" in body or b"alpine" in body or len(body) > 10000
+
+
+def test_vendor_path_traversal_rejected(http_server):
+    """A malicious URL must not escape the static/ subtree."""
+    status, _ = _get(http_server, "/vendor/../actions.py")
+    assert status == 404
+    status, _ = _get(http_server, "/vendor//etc/passwd")
+    assert status == 404
+
+
 def test_status_endpoint(http_server):
     status, body = _get(http_server, "/api/status")
     assert status == 200
@@ -148,6 +164,37 @@ def test_action_dispatched(http_server):
         )
     assert status == 200
     assert body["argv"] == ["scenario", "switch", "acme"]
+
+
+def test_action_cred_new_optional_flags(http_server):
+    """End-to-end: cred_new through the HTTP layer must build the
+    argv the same way the unit test asserts, including dropping
+    empty optional flags."""
+    class Result:
+        returncode = 0
+        stdout = "✓ credential 'svc' created in 'acme' and activated\n"
+        stderr = ""
+
+    with patch("tgt_web.actions.subprocess.run", return_value=Result()):
+        status, body = _post_json(
+            http_server, "/api/action",
+            {"action": "cred_new",
+             "params": {"alias": "svc", "username": "svc_user",
+                        "password": "", "domain": "acme.local", "notes": ""}},
+        )
+    assert status == 200
+    assert body["argv"] == [
+        "cred", "new", "svc", "--username", "svc_user", "--domain", "acme.local",
+    ]
+
+
+def test_action_cred_new_missing_required(http_server):
+    status, body = _post_json(
+        http_server, "/api/action",
+        {"action": "cred_new", "params": {"alias": "x"}},
+    )
+    assert status == 400
+    assert "username" in body["error"]
 
 
 def test_action_bad_json(http_server):

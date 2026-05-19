@@ -127,12 +127,13 @@ function actionResult(name, r) {
   if (details) panel.append(details);
 }
 
-async function revealPassword(scenario, alias, span) {
-  try {
-    const r = await api(`/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`);
-    const replacement = el('span', {class: 'pw-value'}, r.password || '(empty)');
-    span.replaceWith(replacement);
-  } catch (e) { toast('reveal failed: ' + e.message, 'error'); }
+// Password reveal — Alpine-driven. Each cell carries its own
+// `{revealed, value}` state via x-data; the click handler fetches
+// the password and assigns it to `value`. No imperative DOM swap.
+// `passwordUrl()` returns the encoded fetch URL for a (scenario, alias)
+// pair; called from the inline @click expression.
+function passwordUrl(scenario, alias) {
+  return `/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`;
 }
 
 // ────────────────────────── render: startup banner ────────────────────
@@ -248,16 +249,34 @@ function renderDetail() {
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
         : ''))))));
 
-  // Creds
-  main.append(el('h2', {}, `credentials (${d.creds.length})`));
-  if (d.creds.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
-  else main.append(el('table', {},
+  // Creds — wrapped in an Alpine scope so the "+ new" button can
+  // open the inline create form (state: open / fields / submitting /
+  // error). See `credNewForm` factory at the bottom of this file.
+  const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
+  credSection.append(el('h2', {},
+    `credentials (${d.creds.length}) `,
+    el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
+      '+ new'),
+  ));
+  credSection.append(buildCredNewForm());
+  if (d.creds.length === 0) credSection.append(el('div', {class: 'empty'}, '(none)'));
+  else credSection.append(el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
     el('tbody', {}, ...d.creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', {class: 'reveal', onclick: function() { revealPassword(d.name, c.alias, this); }}, 'reveal')
+        ? el('span', { 'x-data': "{revealed: false, value: ''}" },
+            el('span', {
+              'class': 'reveal',
+              'x-show': '!revealed',
+              '@click': `revealed = true; fetch('${passwordUrl(d.name, c.alias)}').then(r => r.json()).then(j => value = j.password || '(empty)')`,
+            }, 'reveal'),
+            el('span', {
+              'class': 'pw-value',
+              'x-show': 'revealed',
+              'x-text': "value || '…'",
+            }))
         : document.createTextNode('—');
       return el('tr', {},
         el('td', {class: c.active ? 'active' : ''}, c.alias),
@@ -270,6 +289,7 @@ function renderDetail() {
             ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
             : (c.active ? el('button', {onclick: () => act('cred_unset')}, 'unset') : '')));
     }))));
+  main.append(credSection);
 
   // DCs
   main.append(el('h2', {}, `DCs (${d.dcs.length})`));
@@ -324,6 +344,108 @@ async function refresh(force) {
 }
 
 // ────────────────────────── input wiring ──────────────────────────────
+document.getElementById('filter').addEventListener('input', (e) => {
+  state.filter = e.target.value;
+  renderSidebar();
+});
+document.getElementById('show-archived').addEventListener('change', (e) => {
+  state.showArchived = e.target.checked;
+  renderSidebar();
+});
+
+// ────────────────────────── forms: cred new ───────────────────────────
+// Inline form for `tgt cred new`. Pattern to repeat for other forms:
+//   - `buildXForm()` returns the DOM (Alpine binds via attributes)
+//   - `xForm()` factory registered on `alpine:init` owns state + submit
+function buildCredNewForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'new credential'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          'x-model.trim': 'alias', 'required': '', 'autocomplete': 'off',
+          'placeholder': 'e.g. admin',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'username'),
+        el('input', {
+          'x-model.trim': 'username', 'required': '', 'autocomplete': 'off',
+          'placeholder': "e.g. Administrator or DOMAIN\\user",
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'password'),
+        el('input', {
+          'x-model': 'password', 'type': 'password',
+          'autocomplete': 'new-password',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'domain'),
+        el('input', {
+          'x-model.trim': 'domain', 'autocomplete': 'off',
+          'placeholder': 'optional',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'notes'),
+        el('textarea', { 'x-model': 'notes', 'rows': '2' })),
+      el('div', {class: 'form-buttons'},
+        el('button', {
+          'type': 'button', '@click': 'cancel()',
+        }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'create'",
+        }))));
+}
+
+document.addEventListener('alpine:init', () => {
+  window.Alpine.data('credNewForm', (scenario) => ({
+    open: false,
+    submitting: false,
+    error: '',
+    alias: '', username: '', password: '', domain: '', notes: '',
+    reset() {
+      this.alias = ''; this.username = ''; this.password = '';
+      this.domain = ''; this.notes = '';
+      this.error = ''; this.submitting = false;
+    },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const r = await fetch('/api/action', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            action: 'cred_new',
+            params: {
+              alias: this.alias, username: this.username,
+              password: this.password, domain: this.domain, notes: this.notes,
+            },
+          }),
+        });
+        const result = await r.json();
+        actionResult('cred_new', result);
+        if (r.ok && result.rc === 0) {
+          this.open = false;
+          this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+});
+
+// ────────────────────────── input wiring ──────────────────────────────
+// (re-attached at module load; alpine:init above runs at the same time
+// because both Alpine and app.js are deferred-loaded.)
 document.getElementById('filter').addEventListener('input', (e) => {
   state.filter = e.target.value;
   renderSidebar();
