@@ -67,6 +67,9 @@
   <div class="modal" @click.outside="$store.confirm.cancel()">
     <div class="modal-title" x-text="$store.confirm.title"></div>
     <div class="modal-message" x-text="$store.confirm.message"></div>
+    <pre class="modal-preview"
+         x-show="$store.confirm.preview"
+         x-text="$store.confirm.preview"></pre>
     <div class="modal-buttons">
       <button type="button" @click="$store.confirm.cancel()">cancel</button>
       <button type="button" class="primary danger"

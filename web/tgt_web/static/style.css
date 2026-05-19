@@ -319,6 +319,11 @@ td.row-actions button:last-child { margin-right: 0; }
                margin-bottom: 8px; }
 .modal-message { font-size: 12px; color: var(--fg-dim); margin-bottom: 14px;
                  white-space: pre-wrap; word-break: break-word; }
+.modal-preview { margin: 0 0 14px; padding: 6px 8px;
+                 background: var(--bg-input); border: 1px solid var(--border-subtle);
+                 border-radius: 3px; color: var(--fg); font-size: 11px;
+                 line-height: 1.4; max-height: 120px; overflow: auto;
+                 white-space: pre-wrap; word-break: break-all; }
 .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; }
 .modal-buttons button { font-size: 11px; padding: 4px 14px; }
 .modal-buttons button.danger { background: var(--danger); border-color: var(--danger); color: var(--primary-fg); }

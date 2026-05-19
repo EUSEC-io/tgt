@@ -208,6 +208,38 @@ def test_action_bad_json(http_server):
     assert b"bad JSON" in raw
 
 
+def test_action_preview_returns_argv(http_server):
+    """Preview endpoint must return the argv without invoking tgt.
+    Patch subprocess.run to a tripwire so we'd notice any drift."""
+    def _tripwire(*a, **kw):  # pragma: no cover
+        raise AssertionError("preview must not call subprocess")
+    with patch("tgt_web.actions.subprocess.run", _tripwire):
+        status, body = _post_json(
+            http_server, "/api/action/preview",
+            {"action": "cred_rm", "params": {"alias": "svc"}},
+        )
+    assert status == 200
+    assert body["argv"] == ["cred", "rm", "svc"]
+
+
+def test_action_preview_missing_param(http_server):
+    status, body = _post_json(
+        http_server, "/api/action/preview",
+        {"action": "cred_new", "params": {"alias": "x"}},
+    )
+    assert status == 400
+    assert "username" in body["error"]
+
+
+def test_action_preview_unknown(http_server):
+    status, body = _post_json(
+        http_server, "/api/action/preview",
+        {"action": "does_not_exist", "params": {}},
+    )
+    assert status == 400
+    assert "unknown action" in body["error"]
+
+
 def test_action_unknown(http_server):
     status, body = _post_json(
         http_server, "/api/action",

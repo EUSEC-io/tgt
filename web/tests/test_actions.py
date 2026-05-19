@@ -72,6 +72,38 @@ def test_argv_builders(action, params, expected_tail):
         assert token in argv[2]
 
 
+def test_preview_unknown_action_returns_400():
+    status, body = actions.preview_action("does_not_exist", {})
+    assert status == 400
+    assert "unknown action" in body["error"]
+
+
+def test_preview_missing_param_returns_400():
+    status, body = actions.preview_action("scenario_switch", {})
+    assert status == 400
+    assert "missing param" in body["error"]
+
+
+def test_preview_returns_argv_without_subprocess(monkeypatch):
+    """preview must not spawn a subprocess. Sentinel: any call to
+    subprocess.run during preview fails the test."""
+    def _explode(*a, **kw):  # pragma: no cover
+        raise AssertionError("preview must not call subprocess")
+    monkeypatch.setattr("tgt_web.actions.subprocess.run", _explode)
+    status, body = actions.preview_action(
+        "cred_new", {"alias": "svc", "username": "svc_user",
+                     "domain": "acme.local"}
+    )
+    assert status == 200
+    assert body["argv"] == [
+        "cred", "new", "svc", "--username", "svc_user", "--domain", "acme.local",
+    ]
+    # preview surfaces only the argv — no rc/stdout/stderr noise.
+    assert "rc" not in body
+    assert "stdout" not in body
+    assert "stderr" not in body
+
+
 def test_nonzero_exit_returns_500():
     recorder = _fake_run(rc=1, stderr="boom\n")
     with patch("tgt_web.actions.subprocess.run", recorder):

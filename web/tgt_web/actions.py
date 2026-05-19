@@ -88,11 +88,11 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
     return p.returncode, _strip_ansi(p.stdout), _strip_ansi(p.stderr)
 
 
-def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
-    """Look up `name`, validate params, run `tgt`.
-
-    Returns `(http_status, body)`. Status is 400 for unknown action
-    or missing param, 500 if `tgt` exits non-zero, 200 otherwise.
+def _validate_and_build(name: str, params: dict) -> tuple[int, dict]:
+    """Shared by `dispatch_action` and `preview_action`: look up `name`,
+    enforce required params, build the argv. Returns either an error
+    body (status 400) or `(200, {"argv": [...]})` ready for either
+    path to act on.
     """
     spec = ACTIONS.get(name)
     if spec is None:
@@ -101,7 +101,29 @@ def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
     for r in required:
         if r not in params:
             return 400, {"error": f"missing param: {r}"}
-    argv = builder(params)
+    return 200, {"argv": builder(params)}
+
+
+def preview_action(name: str, params: dict) -> tuple[int, dict]:
+    """Validate `name` + `params` and return the argv that *would* be
+    sent to `tgt`. No subprocess, no side effects. Mirrors
+    `dispatch_action`'s input contract so the UI can call either
+    endpoint with the same payload — preview from the confirm modal
+    before commit, dispatch from the actual click.
+    """
+    return _validate_and_build(name, params)
+
+
+def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
+    """Look up `name`, validate params, run `tgt`.
+
+    Returns `(http_status, body)`. Status is 400 for unknown action
+    or missing param, 500 if `tgt` exits non-zero, 200 otherwise.
+    """
+    status, body = _validate_and_build(name, params)
+    if status != 200:
+        return status, body
+    argv = body["argv"]
     rc, out, err = tgt_cmd(argv)
     # Drop the cached `$TGT_SCENARIO` value — any action might have
     # flipped it (most obviously `scenario_switch`/`unload`), and we

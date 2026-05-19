@@ -24,7 +24,7 @@ import webbrowser
 from importlib import resources
 
 from tgt_web import __version__, reader, version_check
-from tgt_web.actions import dispatch_action
+from tgt_web.actions import dispatch_action, preview_action
 from tgt_web.sudo import status as sudo_status
 
 # Cache static assets in memory at startup so request handlers don't
@@ -129,6 +129,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             action = body.get("action", "")
             params = body.get("params", {}) or {}
             status, result = dispatch_action(action, params)
+            return self._send_json(status, result)
+        if path == "/api/action/preview":
+            # Read-only: validates + returns the argv that would be
+            # sent to `tgt`, without spawning a subprocess. Used by
+            # the confirm modal to surface "$ tgt …" before commit.
+            action = body.get("action", "")
+            params = body.get("params", {}) or {}
+            status, result = preview_action(action, params)
             return self._send_json(status, result)
         return self._send_json(404, {"error": "not found"})
 

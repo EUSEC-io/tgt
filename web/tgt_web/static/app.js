@@ -104,13 +104,44 @@ function confirmThen(opts, fn) {
   c.open = true;
   c.title = opts.title || 'Are you sure?';
   c.message = opts.message || '';
+  c.preview = opts.preview || '';
   c.confirmLabel = opts.confirmLabel || 'confirm';
   c._fn = fn;
 }
 
-// Shorthand: confirm then dispatch a single web action.
-function confirmAct(opts, name, params) {
-  confirmThen(opts, () => act(name, params));
+// Format an argv as the user-facing `$ tgt arg1 'arg with space'`
+// line. Single-quotes anything containing whitespace so the line
+// stays paste-runnable as-is. Same shape the action-result panel
+// shows post-execution, so pre / post views look consistent.
+function _formatArgv(argv) {
+  return '$ tgt ' + argv.map(a => /\s/.test(a) ? `'${a}'` : a).join(' ');
+}
+
+// Fetch the dry-run preview for `name`/`params`. Returns the
+// formatted "$ tgt …" line, or '' on any failure — the modal must
+// still open if the preview endpoint hiccups; missing preview is
+// degraded UX, not a blocker.
+async function _previewArgv(name, params) {
+  try {
+    const r = await fetch('/api/action/preview', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action: name, params: params || {} }),
+    });
+    if (!r.ok) return '';
+    const j = await r.json();
+    return j.argv ? _formatArgv(j.argv) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+// Shorthand: fetch the action's argv preview, then open the confirm
+// modal with that preview rendered alongside the message. On accept,
+// dispatch the real action. The fetch is sub-50ms on localhost so
+// the modal-open delay is imperceptible.
+async function confirmAct(opts, name, params) {
+  const preview = await _previewArgv(name, params);
+  confirmThen({...opts, preview}, () => act(name, params));
 }
 
 async function act(name, params) {
@@ -613,17 +644,20 @@ document.addEventListener('alpine:init', () => {
     open: false,
     title: '',
     message: '',
+    preview: '',
     confirmLabel: 'confirm',
     _fn: null,
     accept() {
       const fn = this._fn;
       this.open = false;
       this._fn = null;
+      this.preview = '';
       if (fn) fn();
     },
     cancel() {
       this.open = false;
       this._fn = null;
+      this.preview = '';
     },
   });
 
