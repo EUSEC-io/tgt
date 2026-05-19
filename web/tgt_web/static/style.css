@@ -75,5 +75,44 @@ button.refresh { padding: 4px 10px; font-size: 11px; }
 .toast.show { opacity: 1; }
 .toast.error { border-color: #f85149; }
 .toast.success { border-color: #56d364; }
+
+/* Sticky action-result panel. Replaces the auto-fading toast for
+   `tgt`-action responses so users can read full output / errors
+   without retrying. Manual dismiss only. */
+.action-panel { position: fixed; bottom: 20px; right: 20px;
+                background: #161b22; border: 1px solid #30363d;
+                border-radius: 4px; max-width: 520px; min-width: 280px;
+                font-size: 12px; z-index: 110;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.action-panel[hidden] { display: none; }
+.action-panel.success { border-color: #56d364; }
+.action-panel.error { border-color: #f85149; }
+.action-panel .ap-head { display: flex; align-items: center; gap: 8px;
+                         padding: 8px 12px; cursor: default; }
+.action-panel .ap-headline { flex: 1; overflow: hidden;
+                             text-overflow: ellipsis; white-space: nowrap; }
+.action-panel.success .ap-headline { color: #56d364; }
+.action-panel.error   .ap-headline { color: #f85149; }
+.action-panel .ap-toggle, .action-panel .ap-close {
+    background: transparent; border: none; color: #8b949e;
+    padding: 2px 6px; font-family: inherit; font-size: 11px; cursor: pointer;
+    border-radius: 3px;
+}
+.action-panel .ap-toggle:hover, .action-panel .ap-close:hover {
+    background: #21262d; color: #c9d1d9;
+}
+.action-panel .ap-details { padding: 0 12px 8px; border-top: 1px solid #21262d; }
+.action-panel .ap-details[hidden] { display: none; }
+.action-panel .ap-section { margin-top: 8px; }
+.action-panel .ap-label { color: #6e7681; font-size: 10px;
+                          text-transform: uppercase; letter-spacing: 0.5px;
+                          margin-bottom: 2px; }
+.action-panel pre { margin: 0; padding: 6px 8px; background: #0d1117;
+                    border: 1px solid #21262d; border-radius: 3px;
+                    color: #c9d1d9; font-size: 11px; line-height: 1.4;
+                    max-height: 240px; overflow: auto;
+                    white-space: pre-wrap; word-break: break-word; }
+.action-panel pre.stderr { color: #f0a070; }
+.action-panel .ap-argv { font-family: inherit; color: #8b949e; }
 .empty { color: #6e7681; font-style: italic; padding: 8px 0; font-size: 12px; }
 .placeholder { color: #6e7681; font-style: italic; text-align: center; padding: 40px; }

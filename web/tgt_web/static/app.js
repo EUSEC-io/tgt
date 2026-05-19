@@ -49,10 +49,82 @@ async function act(name, params) {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: name, params: params || {} }),
     });
-    if (r.rc === 0) toast('✓ ' + (r.stdout.trim().split('\n').pop() || name), 'success');
-    else toast('error: ' + (r.stderr || '').trim(), 'error');
+    actionResult(name, r);
     await refresh(true);
-  } catch (e) { toast('error: ' + e.message, 'error'); }
+  } catch (e) {
+    actionResult(name, { rc: -1, stdout: '', stderr: e.message, argv: [] });
+  }
+}
+
+// Render the sticky action-result panel. Headline always visible;
+// "details" toggle reveals argv + full stdout + stderr. Replaced
+// every time a new action fires; manual × to dismiss.
+function actionResult(name, r) {
+  const panel = document.getElementById('action-panel');
+  const ok = r.rc === 0;
+  const lastLine = (s) => (s || '').trim().split('\n').filter(Boolean).pop() || '';
+  const headline = ok
+    ? '✓ ' + (lastLine(r.stdout) || name)
+    : '✗ ' + (lastLine(r.stderr) || lastLine(r.stdout) || `${name} (rc=${r.rc})`);
+
+  panel.className = 'action-panel ' + (ok ? 'success' : 'error');
+  panel.hidden = false;
+  panel.innerHTML = '';
+
+  const head = el('div', {class: 'ap-head'});
+  head.append(el('span', {class: 'ap-headline'}, headline));
+
+  const hasBody = (r.stdout && r.stdout.trim())
+              || (r.stderr && r.stderr.trim())
+              || (r.argv && r.argv.length);
+
+  let details = null;
+  if (hasBody) {
+    const toggle = el('button', {class: 'ap-toggle', type: 'button'}, 'details');
+    head.append(toggle);
+    details = el('div', {class: 'ap-details', hidden: ''});
+    if (r.argv && r.argv.length) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'command'));
+      sec.append(el('pre', {class: 'ap-argv'},
+                    '$ tgt ' + r.argv.map(a => /\s/.test(a) ? `'${a}'` : a).join(' ')));
+      details.append(sec);
+    }
+    if (r.stdout && r.stdout.trim()) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'stdout'));
+      sec.append(el('pre', {class: 'stdout'}, r.stdout.replace(/\n+$/, '')));
+      details.append(sec);
+    }
+    if (r.stderr && r.stderr.trim()) {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'stderr'));
+      sec.append(el('pre', {class: 'stderr'}, r.stderr.replace(/\n+$/, '')));
+      details.append(sec);
+    }
+    {
+      const sec = el('div', {class: 'ap-section'});
+      sec.append(el('div', {class: 'ap-label'}, 'exit code'));
+      sec.append(el('pre', {}, String(r.rc)));
+      details.append(sec);
+    }
+    toggle.onclick = () => {
+      if (details.hasAttribute('hidden')) {
+        details.removeAttribute('hidden');
+        toggle.textContent = 'hide';
+      } else {
+        details.setAttribute('hidden', '');
+        toggle.textContent = 'details';
+      }
+    };
+  }
+
+  const close = el('button', {class: 'ap-close', type: 'button', title: 'dismiss'}, '×');
+  close.onclick = () => { panel.hidden = true; };
+  head.append(close);
+
+  panel.append(head);
+  if (details) panel.append(details);
 }
 
 async function revealPassword(scenario, alias, span) {
