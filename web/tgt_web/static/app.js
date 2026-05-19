@@ -687,18 +687,30 @@ document.addEventListener('alpine:init', () => {
       const remaining = Math.max(PW_AUTO_HIDE_MIN_RESUME_MS, this._hideAt - Date.now());
       this._scheduleHide(remaining);
     },
+    // Returns the password string on success, or `null` on any
+    // failure (HTTP error, network error, JSON parse). Callers branch
+    // on `null` to skip the reveal/copy path so a deleted-between-
+    // render cred doesn't show up as the literal "(empty)".
     async _fetch() {
       try {
         const r = await fetch(passwordUrl(scenario, alias));
+        if (!r.ok) {
+          const msg = r.status === 404
+            ? 'credential no longer exists'
+            : `HTTP ${r.status}`;
+          toast('password fetch failed: ' + msg, 'error');
+          return null;
+        }
         const j = await r.json();
         return j.password || '';
       } catch (e) {
         toast('fetch failed: ' + e.message, 'error');
-        return '';
+        return null;
       }
     },
     async reveal() {
       const v = await this._fetch();
+      if (v === null) return;
       this.value = v || '(empty)';
       this.revealed = true;
       this._scheduleHide(PW_AUTO_HIDE_MS);
@@ -710,6 +722,7 @@ document.addEventListener('alpine:init', () => {
     },
     async copy() {
       const v = await this._fetch();
+      if (v === null) return;
       copyToClipboard(v, 'password');
     },
   }));
