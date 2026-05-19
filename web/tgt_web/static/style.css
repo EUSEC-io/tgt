@@ -6,7 +6,8 @@ body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 
 header { display: flex; justify-content: space-between; align-items: center;
          border-bottom: 1px solid #30363d; padding: 12px 20px;
-         background: #161b22; flex-shrink: 0; }
+         background: #161b22; flex-shrink: 0;
+         position: relative; z-index: 70; }
 header h1 { font-size: 16px; margin: 0; color: #58a6ff; }
 .header-mid { color: #8b949e; font-size: 12px; }
 .header-mid .active-name { color: #56d364; font-weight: 600; }
@@ -223,3 +224,52 @@ td.row-actions button:last-child { margin-right: 0; }
 .modal-buttons button { font-size: 11px; padding: 4px 14px; }
 .modal-buttons button.danger { background: #b62324; border-color: #b62324; }
 .modal-buttons button.danger:hover { background: #d73a49; }
+
+/* ──────────────── responsive: mobile / narrow viewport ────────────────
+   One breakpoint at 768px. Below that, the sidebar becomes an off-
+   canvas drawer toggled by the ☰ button in the header; tables get a
+   horizontal-scroll wrapper so dense rows don't blow out the layout;
+   header chrome compresses. Desktop layout above 768px is unchanged. */
+.sidebar-toggle { display: none; background: transparent; border: none;
+                  color: #c9d1d9; font-size: 18px; padding: 0 4px 0 0;
+                  cursor: pointer; line-height: 1; }
+.sidebar-toggle:hover { color: #58a6ff; background: transparent; }
+.table-scroll { width: 100%; margin-bottom: 8px; }
+.table-scroll table { margin-bottom: 0; }
+
+@media (max-width: 768px) {
+  .sidebar-toggle { display: inline-block; }
+  header { padding: 8px 12px; gap: 6px; }
+  header h1 { font-size: 14px; }
+  .header-mid { font-size: 11px; flex: 1; min-width: 0;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-right { gap: 8px; font-size: 10px; }
+  .header-right label { gap: 3px; }
+
+  /* Drawer slides in from the left, starting below the header so the
+     header (with its own z-index 70) stays interactive while the
+     drawer is open — the ☰ button must remain clickable to close. */
+  aside { position: fixed; left: 0; top: 48px; bottom: 0; width: 280px;
+          z-index: 60; transform: translateX(-100%);
+          transition: transform 0.18s ease-out;
+          box-shadow: 4px 0 16px rgba(0,0,0,0.4); }
+  body.sidebar-open aside { transform: translateX(0); }
+  body.sidebar-open::after { content: ''; position: fixed; inset: 0;
+                             background: rgba(0,0,0,0.5); z-index: 50; }
+
+  #entity-search-bar { padding: 8px 12px; }
+  #entity-search-bar input { max-width: none; }
+  #detail { padding: 14px 12px; }
+  #detail .scen-title { font-size: 16px; }
+  /* Allow each table to scroll horizontally instead of squashing
+     rows — dense cred / DC rows have ~6 columns and won't fit at
+     375px viewport width. */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll table { min-width: 560px; }
+
+  /* Sticky overlays — keep clear of the soft keyboard / safe area. */
+  .action-panel { right: 8px; bottom: 8px; left: 8px;
+                  max-width: none; min-width: 0; }
+  .action-panel.collapsed { left: auto; }
+  .toast { right: 8px; bottom: 8px; left: 8px; max-width: none; }
+}

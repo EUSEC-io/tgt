@@ -367,7 +367,7 @@ function renderDetail() {
   // Targets
   main.append(el('h2', {}, `targets (${sectionCount(targets.length, d.targets.length)})`));
   if (targets.length === 0) main.append(sectionEmpty(d.targets.length));
-  else main.append(el('table', {},
+  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
@@ -378,7 +378,7 @@ function renderDetail() {
         : document.createTextNode('—')),
       el('td', {}, d.active
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
-        : ''))))));
+        : '')))))));
   // (target_revoke is exposed elsewhere — there's no per-target
   // revoke today; the scenario-level "unload" subsumes it.)
 
@@ -393,7 +393,7 @@ function renderDetail() {
   ));
   credSection.append(buildCredNewForm());
   if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
-  else credSection.append(el('table', {},
+  else credSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
@@ -454,13 +454,13 @@ function renderDetail() {
             message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,
             confirmLabel: 'delete',
           }, 'cred_rm', {alias: c.alias})}, 'rm')));
-    }))));
+    })))));
   main.append(credSection);
 
   // DCs
   main.append(el('h2', {}, `DCs (${sectionCount(dcs.length, d.dcs.length)})`));
   if (dcs.length === 0) main.append(sectionEmpty(d.dcs.length));
-  else main.append(el('table', {},
+  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
                         el('th', {}, 'realm'), el('th', {}, 'kdc'),
                         el('th', {}, 'admin'), el('th', {}, ''))),
@@ -476,7 +476,7 @@ function renderDetail() {
             title: 'Unset active DC?',
             message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
             confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : '')))))));
+          }, 'dc_unset')}, 'unset') : ''))))))));
 }
 
 // ────────────────────────── refresh orchestrator ──────────────────────
@@ -525,6 +525,27 @@ document.getElementById('show-archived').addEventListener('change', (e) => {
 document.getElementById('entity-search').addEventListener('input', (e) => {
   state.entitySearch = e.target.value;
   renderDetail();
+});
+
+// Sidebar drawer (mobile only — desktop CSS keeps it always visible).
+// Toggle on the ☰ button; close when the user clicks a scenario
+// (so the drawer doesn't sit over the chosen scenario's detail) or
+// taps the backdrop / hits Escape.
+const _sidebarToggle = document.getElementById('sidebar-toggle');
+_sidebarToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.body.classList.toggle('sidebar-open');
+});
+document.addEventListener('click', (e) => {
+  if (!document.body.classList.contains('sidebar-open')) return;
+  if (e.target.closest('aside') || e.target.closest('#sidebar-toggle')) return;
+  document.body.classList.remove('sidebar-open');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.body.classList.remove('sidebar-open');
+});
+document.getElementById('scenario-list').addEventListener('click', (e) => {
+  if (e.target.closest('li')) document.body.classList.remove('sidebar-open');
 });
 
 // ────────────────────────── forms: cred new ───────────────────────────
