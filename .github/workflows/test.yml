@@ -53,6 +53,24 @@ jobs:
         working-directory: web
         run: pytest -q
 
+  js-syntax:
+    name: js syntax (node --check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships node. `node --check` parses each file
+      # without executing — catches paren/brace mismatches and stray
+      # commas that browsers only surface as a silent "blank page" at
+      # load time. Cheap insurance; the whole static/ dir is small
+      # enough that this finishes in under a second.
+      - name: Check JavaScript syntax
+        run: |
+          for f in web/tgt_web/static/*.js; do
+            echo "→ $f"
+            node --check "$f"
+          done
+
   drift:
     name: drift contract (fish ↔ web)
     runs-on: ubuntu-latest
