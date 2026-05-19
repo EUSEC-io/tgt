@@ -318,14 +318,19 @@ function renderDetail() {
         el('td', {}, pwCell),
         el('td', {}, c.domain || '—'),
         el('td', {}, c.notes || '—'),
-        el('td', {},
+        el('td', {class: 'row-actions'},
           d.active && !c.active
             ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
             : (c.active ? el('button', {onclick: () => confirmAct({
                 title: 'Unset active credential?',
                 message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
                 confirmLabel: 'unset',
-              }, 'cred_unset')}, 'unset') : '')));
+              }, 'cred_unset')}, 'unset') : ''),
+          el('button', {onclick: () => confirmAct({
+            title: `Delete credential "${c.alias}"?`,
+            message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,
+            confirmLabel: 'delete',
+          }, 'cred_rm', {alias: c.alias})}, 'rm')));
     }))));
   main.append(credSection);
 
