@@ -164,9 +164,13 @@ def _tgt_home_signature() -> tuple:
             for name in sorted(dirnames):
                 entries.append(("d:" + os.path.relpath(
                     os.path.join(dirpath, name), home),))
-    # Bypass the 1 s active-scenario cache: we are the cache invalidator.
+    # Bypass the 1 s active-state caches: we are the cache invalidator.
+    # Both active scenario AND active target must enter the signature
+    # — TGT_ACTIVE flips don't touch $TGT_HOME, so without this a
+    # cross-shell `tgt switch foo` wouldn't trigger a bump.
     reader.invalidate_active_cache()
-    entries.append(("__active__", reader.read_active_scenario()))
+    entries.append(("__active_scenario__", reader.read_active_scenario()))
+    entries.append(("__active_target__", reader.read_active_target()))
     return tuple(entries)
 
 

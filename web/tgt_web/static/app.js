@@ -127,10 +127,14 @@ async function _previewArgv(name, params) {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ action: name, params: params || {} }),
     });
-    if (!r.ok) return '';
+    if (!r.ok) {
+      console.warn(`preview ${name}: HTTP ${r.status}`);
+      return '';
+    }
     const j = await r.json();
     return j.argv ? _formatArgv(j.argv) : '';
   } catch (e) {
+    console.warn(`preview ${name}: ${e.message}`);
     return '';
   }
 }
@@ -139,8 +143,17 @@ async function _previewArgv(name, params) {
 // modal with that preview rendered alongside the message. On accept,
 // dispatch the real action. The fetch is sub-50ms on localhost so
 // the modal-open delay is imperceptible.
+//
+// Sequence-guard: two clicks fired back-to-back race on the preview
+// fetch. Without the guard, an earlier-issued slower preview can
+// overwrite a later-issued faster one — modal shows action A's
+// confirm but the user clicked B last. The seq counter discards
+// any result that's been superseded by a later confirmAct call.
+let _confirmActSeq = 0;
 async function confirmAct(opts, name, params) {
+  const seq = ++_confirmActSeq;
   const preview = await _previewArgv(name, params);
+  if (seq !== _confirmActSeq) return;
   confirmThen({...opts, preview}, () => act(name, params));
 }
 
@@ -158,10 +171,13 @@ async function act(name, params) {
 }
 
 // Whether the action-result panel renders in collapsed (status-pill)
-// form. Toggled by the user via the −/+ button; persists across
-// subsequent actions so a quick power-user flow ("fire ten actions,
-// only peek if I see red") works without re-collapsing every time.
-let _actionPanelCollapsed = false;
+// form. Toggled by the user via the −/+ button; persists in
+// localStorage so it survives reloads — same pattern as the theme
+// preference, consistent power-user expectation.
+let _actionPanelCollapsed = (() => {
+  try { return localStorage.getItem('tgt-ap-collapsed') === '1'; }
+  catch (e) { return false; }
+})();
 
 // Render the sticky action-result panel. Headline always visible;
 // "details" toggle reveals argv + full stdout + stderr. Replaced
@@ -227,17 +243,23 @@ function actionResult(name, r) {
     };
   }
 
-  // Collapse/expand toggle. Persists in _actionPanelCollapsed so the
-  // next action lands in whichever state the user last chose.
+  // Collapse/expand toggle. Persists in _actionPanelCollapsed (and
+  // localStorage) so the next action — and the next reload — land in
+  // whichever state the user last chose.
+  const apLabel = (c) => c ? 'expand action panel' : 'minimize action panel';
   const collapse = el('button', {
     class: 'ap-collapse', type: 'button',
     title: _actionPanelCollapsed ? 'expand' : 'minimize',
+    'aria-label': apLabel(_actionPanelCollapsed),
   }, _actionPanelCollapsed ? '+' : '−');
   collapse.onclick = () => {
     _actionPanelCollapsed = !_actionPanelCollapsed;
     panel.classList.toggle('collapsed', _actionPanelCollapsed);
     collapse.textContent = _actionPanelCollapsed ? '+' : '−';
     collapse.title = _actionPanelCollapsed ? 'expand' : 'minimize';
+    collapse.setAttribute('aria-label', apLabel(_actionPanelCollapsed));
+    try { localStorage.setItem('tgt-ap-collapsed', _actionPanelCollapsed ? '1' : '0'); }
+    catch (e) {}
   };
   head.append(collapse);
 
@@ -402,21 +424,29 @@ function renderDetail() {
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
-      el('td', {}, t.alias),
+      el('td', {class: t.active ? 'active' : ''}, t.alias),
       el('td', {}, valueCell(t.host, 'host')),
       el('td', {}, t.hosts.length
         ? el('span', {class: 'vc-chips'}, ...t.hosts.map(h => valueCell(h, 'hostname')))
         : document.createTextNode('—')),
-      el('td', {}, d.active
-        ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
-        : '')))))));
-  // (target_revoke is exposed elsewhere — there's no per-target
-  // revoke today; the scenario-level "unload" subsumes it.)
+      el('td', {class: 'row-actions'},
+        d.active && !t.active
+          ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
+          : (t.active ? el('button', {onclick: () => confirmAct({
+              title: 'Revoke active target?',
+              message: `Clears the active-target marker and TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE runtime in fish. Also removes "${t.alias}"'s entries from /etc/hosts. The target record stays on disk; creds + DC are unaffected.`,
+              confirmLabel: 'revoke',
+            }, 'target_revoke')}, 'revoke') : ''))))))));
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /
   // error). See `credNewForm` factory at the bottom of this file.
-  const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
+  //
+  // JSON.stringify produces a valid JS string literal — handles the
+  // single-quote / backslash cases that would otherwise break the
+  // attribute. Current validators reject `'` in scenario / cred
+  // names, but the template stays robust if that ever loosens.
+  const credSection = el('div', { 'x-data': `credNewForm(${JSON.stringify(d.name)})` });
   credSection.append(el('h2', {},
     `credentials (${sectionCount(creds.length, d.creds.length)}) `,
     el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
@@ -430,7 +460,7 @@ function renderDetail() {
                         el('th', {}, 'notes'), el('th', {}, ''))),
     el('tbody', {}, ...creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', { 'x-data': `credPw('${d.name}', '${c.alias}')`, 'class': 'pw-cell' },
+        ? el('span', { 'x-data': `credPw(${JSON.stringify(d.name)}, ${JSON.stringify(c.alias)})`, 'class': 'pw-cell' },
             el('span', {
               'class': 'reveal',
               'x-show': '!revealed',
@@ -612,10 +642,17 @@ function buildCredNewForm() {
         })),
       el('label', {},
         el('span', {class: 'form-label'}, 'password'),
-        el('input', {
-          'x-model': 'password', 'type': 'password',
-          'autocomplete': 'new-password',
-        })),
+        el('div', {class: 'pw-input-row'},
+          el('input', {
+            'x-model': 'password',
+            ':type': "showPassword ? 'text' : 'password'",
+            'autocomplete': 'new-password',
+          }),
+          el('button', {
+            'type': 'button', 'class': 'pw-toggle',
+            '@click': 'showPassword = !showPassword',
+            'x-text': "showPassword ? 'hide' : 'show'",
+          }))),
       el('label', {},
         el('span', {class: 'form-label'}, 'domain'),
         el('input', {
@@ -687,18 +724,30 @@ document.addEventListener('alpine:init', () => {
       const remaining = Math.max(PW_AUTO_HIDE_MIN_RESUME_MS, this._hideAt - Date.now());
       this._scheduleHide(remaining);
     },
+    // Returns the password string on success, or `null` on any
+    // failure (HTTP error, network error, JSON parse). Callers branch
+    // on `null` to skip the reveal/copy path so a deleted-between-
+    // render cred doesn't show up as the literal "(empty)".
     async _fetch() {
       try {
         const r = await fetch(passwordUrl(scenario, alias));
+        if (!r.ok) {
+          const msg = r.status === 404
+            ? 'credential no longer exists'
+            : `HTTP ${r.status}`;
+          toast('password fetch failed: ' + msg, 'error');
+          return null;
+        }
         const j = await r.json();
         return j.password || '';
       } catch (e) {
         toast('fetch failed: ' + e.message, 'error');
-        return '';
+        return null;
       }
     },
     async reveal() {
       const v = await this._fetch();
+      if (v === null) return;
       this.value = v || '(empty)';
       this.revealed = true;
       this._scheduleHide(PW_AUTO_HIDE_MS);
@@ -710,6 +759,7 @@ document.addEventListener('alpine:init', () => {
     },
     async copy() {
       const v = await this._fetch();
+      if (v === null) return;
       copyToClipboard(v, 'password');
     },
   }));
@@ -719,10 +769,15 @@ document.addEventListener('alpine:init', () => {
     submitting: false,
     error: '',
     alias: '', username: '', password: '', domain: '', notes: '',
+    // Default visible: a brand-new cred is being typed, not retrieved.
+    // The masking dance only buys you something when an existing value
+    // could be shoulder-surfed off the screen.
+    showPassword: true,
     reset() {
       this.alias = ''; this.username = ''; this.password = '';
       this.domain = ''; this.notes = '';
       this.error = ''; this.submitting = false;
+      this.showPassword = true;
     },
     cancel() { this.open = false; this.reset(); },
     async submit() {
