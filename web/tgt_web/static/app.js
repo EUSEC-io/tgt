@@ -424,16 +424,19 @@ function renderDetail() {
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
-      el('td', {}, t.alias),
+      el('td', {class: t.active ? 'active' : ''}, t.alias),
       el('td', {}, valueCell(t.host, 'host')),
       el('td', {}, t.hosts.length
         ? el('span', {class: 'vc-chips'}, ...t.hosts.map(h => valueCell(h, 'hostname')))
         : document.createTextNode('—')),
-      el('td', {}, d.active
-        ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
-        : '')))))));
-  // (target_revoke is exposed elsewhere — there's no per-target
-  // revoke today; the scenario-level "unload" subsumes it.)
+      el('td', {class: 'row-actions'},
+        d.active && !t.active
+          ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
+          : (t.active ? el('button', {onclick: () => confirmAct({
+              title: 'Revoke active target?',
+              message: `Clears the active-target marker and TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE runtime in fish. Also removes "${t.alias}"'s entries from /etc/hosts. The target record stays on disk; creds + DC are unaffected.`,
+              confirmLabel: 'revoke',
+            }, 'target_revoke')}, 'revoke') : ''))))))));
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /

@@ -13,6 +13,7 @@ from tgt_web import reader
 # tests don't shell out to fish; tests that exercise the real
 # implementation undo that patch by re-binding to this reference.
 _REAL_READ_ACTIVE = reader.read_active_scenario
+_REAL_READ_ACTIVE_TARGET = reader.read_active_target
 
 
 # ── fish_unescape ────────────────────────────────────────────────────────
@@ -148,6 +149,25 @@ def test_scenario_detail_lab_no_active_markers(tgt_home_env):
     assert len(d["targets"]) == 1
 
 
+def test_scenario_detail_target_active_only_when_scenario_active(
+        monkeypatch, tgt_home_env):
+    """TGT_ACTIVE is a single global universal var, not per-scenario
+    on disk. It should only annotate the scenario fish currently has
+    loaded — viewing acme's detail while fish is on lab must NOT
+    mark acme's "web" target as active even if TGT_ACTIVE == web."""
+    monkeypatch.setattr("tgt_web.reader.read_active_target", lambda: "web")
+    monkeypatch.setattr("tgt_web.reader.read_active_scenario", lambda: "lab")
+    d = reader.scenario_detail("acme")
+    assert all(t["active"] is False for t in d["targets"]), \
+        "non-current scenario should not show any active target"
+
+    monkeypatch.setattr("tgt_web.reader.read_active_scenario", lambda: "acme")
+    d = reader.scenario_detail("acme")
+    by_alias = {t["alias"]: t for t in d["targets"]}
+    assert by_alias["web"]["active"] is True
+    assert by_alias["db"]["active"] is False
+
+
 # ── cred_password ────────────────────────────────────────────────────────
 
 
@@ -255,3 +275,43 @@ def test_invalidate_active_cache_forces_requery(real_read_active):
         reader.read_active_scenario()
 
     assert len(calls) == 2
+
+
+# ── read_active_target ───────────────────────────────────────────────────
+
+
+def test_read_active_target_probes_TGT_ACTIVE(monkeypatch):
+    """Mirrors `read_active_scenario` but for the active target alias.
+    The probe must (a) ask fish for $TGT_ACTIVE, (b) scrub TGT_* from
+    the subprocess env so it reads from the universal store."""
+    # Undo the autouse stub from tgt_home_env so the real function runs.
+    monkeypatch.setattr(reader, "read_active_target", _REAL_READ_ACTIVE_TARGET)
+    monkeypatch.setattr("tgt_web.reader._active_target_cache", None)
+    monkeypatch.setenv("TGT_ACTIVE", "stale-target")
+    captured: dict = {}
+
+    class Result:
+        returncode = 0
+        stdout = "fresh-target"
+
+    def fake_run(argv, **kw):
+        captured["argv"] = argv
+        captured["env"] = kw["env"]
+        return Result()
+
+    with patch("tgt_web.reader.subprocess.run", side_effect=fake_run):
+        assert reader.read_active_target() == "fresh-target"
+
+    assert "TGT_ACTIVE" in captured["argv"][2]
+    assert "TGT_ACTIVE" not in captured["env"]
+
+
+def test_invalidate_active_cache_clears_both(monkeypatch):
+    """invalidate_active_cache() must reset BOTH caches — actions
+    can flip either var (scenario_switch flips TGT_SCENARIO,
+    target_switch flips TGT_ACTIVE) and the caller can't tell which."""
+    monkeypatch.setattr("tgt_web.reader._active_cache", (0.0, "scen"))
+    monkeypatch.setattr("tgt_web.reader._active_target_cache", (0.0, "tgt"))
+    reader.invalidate_active_cache()
+    assert reader._active_cache is None
+    assert reader._active_target_cache is None

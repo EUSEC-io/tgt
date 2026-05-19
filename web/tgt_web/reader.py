@@ -21,14 +21,18 @@ from pathlib import Path
 
 EXPORT_RE = re.compile(r"^_tgt_export\s+(\S+)\s+(.*)$")
 
-# `TGT_SCENARIO` is a fish *universal* variable. Python's `os.environ`
-# is a one-shot snapshot taken at launch — when fish flips the var
-# from a subprocess (e.g. `tgt scenario switch`), our parent never
-# sees the update. We re-query fish at request time, with a brief
-# cache so `list_scenarios` + `scenario_detail` share one invocation
-# during a single UI refresh.
+# `TGT_SCENARIO` and `TGT_ACTIVE` are fish *universal* variables.
+# Python's `os.environ` is a one-shot snapshot taken at launch —
+# when fish flips the vars from a subprocess (e.g. `tgt scenario
+# switch` / `tgt switch`), our parent never sees the update. We
+# re-query fish at request time, with a brief cache so
+# `list_scenarios` + `scenario_detail` share one invocation during
+# a single UI refresh.
 _ACTIVE_TTL = 1.0
+# Kept named `_active_cache` (not `_active_scenario_cache`) so the
+# test fixture in `tests/conftest.py` can still reset it by name.
 _active_cache: tuple[float, str] | None = None
+_active_target_cache: tuple[float, str] | None = None
 
 
 def tgt_home() -> Path:
@@ -36,6 +40,23 @@ def tgt_home() -> Path:
     return Path(
         os.environ.get("TGT_HOME") or Path.home() / ".config" / "fish" / "tgt"
     )
+
+
+def _probe_fish_var(name: str) -> str:
+    """Run a child fish with TGT_* scrubbed from the env so it
+    sources the named var from the universal-variable store instead
+    of inheriting the launch-time snapshot. See `read_active_scenario`
+    docstring for the load-bearing rationale."""
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("TGT_")}
+    try:
+        r = subprocess.run(
+            ["fish", "-c", f"set -q {name}; and echo -n -- ${name}"],
+            capture_output=True, text=True, timeout=3,
+            stdin=subprocess.DEVNULL, env=clean_env,
+        )
+        return r.stdout if r.returncode == 0 else ""
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
 
 
 def read_active_scenario() -> str:
@@ -58,25 +79,34 @@ def read_active_scenario() -> str:
     now = time.monotonic()
     if _active_cache and now - _active_cache[0] < _ACTIVE_TTL:
         return _active_cache[1]
-    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("TGT_")}
-    try:
-        r = subprocess.run(
-            ["fish", "-c", "set -q TGT_SCENARIO; and echo -n -- $TGT_SCENARIO"],
-            capture_output=True, text=True, timeout=3,
-            stdin=subprocess.DEVNULL, env=clean_env,
-        )
-        value = r.stdout if r.returncode == 0 else ""
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        value = ""
+    value = _probe_fish_var("TGT_SCENARIO")
     _active_cache = (now, value)
     return value
 
 
+def read_active_target() -> str:
+    """Return the current `$TGT_ACTIVE` (active target alias) from
+    fish, or "" if unset. Same env-scrub rationale as
+    `read_active_scenario`. TGT_ACTIVE is a single global universal
+    var, not per-scenario on disk like .active-cred / .active-dc, so
+    callers should ignore the value when the scenario being viewed
+    isn't fish's current active scenario."""
+    global _active_target_cache
+    now = time.monotonic()
+    if _active_target_cache and now - _active_target_cache[0] < _ACTIVE_TTL:
+        return _active_target_cache[1]
+    value = _probe_fish_var("TGT_ACTIVE")
+    _active_target_cache = (now, value)
+    return value
+
+
 def invalidate_active_cache() -> None:
-    """Drop the active-scenario cache. Called after a write so the
-    next read sees fresh state immediately, without waiting out TTL."""
-    global _active_cache
+    """Drop both active-state caches. Called after a write (any tgt
+    verb could flip either var) and by the watcher before each tick
+    so the next read sees fresh state immediately."""
+    global _active_cache, _active_target_cache
     _active_cache = None
+    _active_target_cache = None
 
 
 def fish_unescape(s: str) -> str:
@@ -160,6 +190,11 @@ def scenario_detail(name: str) -> dict | None:
 
     active_dc = _read_marker(sd / ".active-dc")
     active_cred = _read_marker(sd / ".active-cred")
+    # TGT_ACTIVE is global, not per-scenario, so it only annotates
+    # the scenario fish currently has loaded. Other scenarios get
+    # no active-target marker at all (the field stays false).
+    is_current = name == read_active_scenario()
+    active_target = read_active_target() if is_current else ""
 
     targets = []
     if (sd / "targets").is_dir():
@@ -168,6 +203,7 @@ def scenario_detail(name: str) -> dict | None:
             hosts_raw = data.get("TGT_HOSTS", "")
             targets.append({
                 "alias": f.stem,
+                "active": f.stem == active_target,
                 "host": data.get("TGT", ""),
                 "hosts": hosts_raw.split() if hosts_raw else [],
             })
@@ -202,7 +238,7 @@ def scenario_detail(name: str) -> dict | None:
 
     return {
         "name": name,
-        "active": name == read_active_scenario(),
+        "active": is_current,
         "archived": (sd / ".archived").exists(),
         "targets": targets,
         "creds": creds,

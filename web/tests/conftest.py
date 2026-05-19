@@ -20,9 +20,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def tgt_home_env(monkeypatch):
     monkeypatch.setenv("TGT_HOME", str(FIXTURES))
     monkeypatch.delenv("TGT_SCENARIO", raising=False)
-    # `read_active_scenario` shells out to fish in production; stub
-    # it out so tests don't depend on the host's fish state. Tests
-    # that need a specific active scenario monkeypatch it locally.
+    # `read_active_scenario` / `read_active_target` shell out to fish
+    # in production; stub them out so tests don't depend on the host's
+    # fish state. Tests that need specific active state monkeypatch
+    # locally.
     monkeypatch.setattr("tgt_web.reader.read_active_scenario", lambda: "")
+    monkeypatch.setattr("tgt_web.reader.read_active_target", lambda: "")
     monkeypatch.setattr("tgt_web.reader._active_cache", None)
+    monkeypatch.setattr("tgt_web.reader._active_target_cache", None)
     yield FIXTURES
