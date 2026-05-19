@@ -2,6 +2,7 @@
 const state = {
   selected: null,        // scenario name currently shown in detail pane
   filter: '',            // sidebar substring filter
+  entitySearch: '',      // detail-pane substring filter (across t/c/d)
   showArchived: false,   // toggle for hiding archived scenarios
   scenariosHash: '',     // for skip-render-on-no-change
   detailHash: '',
@@ -29,6 +30,57 @@ function toast(msg, kind) {
   setTimeout(() => { t.className = 'toast'; }, 2500);
 }
 
+// Write `text` to the system clipboard. Requires a secure context;
+// localhost qualifies, so the browser exposes navigator.clipboard.
+async function copyToClipboard(text, label) {
+  if (!text) { toast('nothing to copy', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(label ? `copied ${label}` : 'copied', 'success');
+  } catch (e) {
+    toast('copy failed: ' + e.message, 'error');
+  }
+}
+
+// Substring-match predicate over a list of haystack fields. Empty
+// needle matches everything (search-off is the default). All match
+// is case-insensitive. Used by entity-search filters below.
+function _entityMatch(needle) {
+  if (!needle) return () => true;
+  const n = needle.toLowerCase();
+  return (fields) => fields.some(s => s && s.toLowerCase().includes(n));
+}
+// Per-entity field projections — kept tight (no password / cred-id /
+// archive markers) so a search for "admin" returns entities whose
+// human-visible content actually mentions "admin".
+function _filterTargets(targets, needle) {
+  const m = _entityMatch(needle);
+  return targets.filter(t => m([t.alias, t.host, ...(t.hosts || [])]));
+}
+function _filterCreds(creds, needle) {
+  const m = _entityMatch(needle);
+  return creds.filter(c => m([c.alias, c.username, c.domain, c.notes]));
+}
+function _filterDCs(dcs, needle) {
+  const m = _entityMatch(needle);
+  return dcs.filter(dc => m([dc.alias, dc.domain, dc.realm,
+                              dc.kdc_host, dc.kdc_ip,
+                              dc.admin_host, dc.admin_ip]));
+}
+
+// Generic single-string value cell. Shows the value with a copy icon
+// that appears on hover. Falls back to a plain em-dash for empties so
+// dashes don't accidentally end up on the clipboard.
+function valueCell(text, label) {
+  if (!text) return document.createTextNode('—');
+  return el('span', {class: 'vc'},
+    el('span', {class: 'vc-text'}, text),
+    el('button', {
+      class: 'vc-copy', type: 'button', title: 'copy',
+      onclick: (e) => { e.stopPropagation(); copyToClipboard(text, label || ''); },
+    }, '⧉'));
+}
+
 function el(tag, attrs, ...children) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -52,13 +104,44 @@ function confirmThen(opts, fn) {
   c.open = true;
   c.title = opts.title || 'Are you sure?';
   c.message = opts.message || '';
+  c.preview = opts.preview || '';
   c.confirmLabel = opts.confirmLabel || 'confirm';
   c._fn = fn;
 }
 
-// Shorthand: confirm then dispatch a single web action.
-function confirmAct(opts, name, params) {
-  confirmThen(opts, () => act(name, params));
+// Format an argv as the user-facing `$ tgt arg1 'arg with space'`
+// line. Single-quotes anything containing whitespace so the line
+// stays paste-runnable as-is. Same shape the action-result panel
+// shows post-execution, so pre / post views look consistent.
+function _formatArgv(argv) {
+  return '$ tgt ' + argv.map(a => /\s/.test(a) ? `'${a}'` : a).join(' ');
+}
+
+// Fetch the dry-run preview for `name`/`params`. Returns the
+// formatted "$ tgt …" line, or '' on any failure — the modal must
+// still open if the preview endpoint hiccups; missing preview is
+// degraded UX, not a blocker.
+async function _previewArgv(name, params) {
+  try {
+    const r = await fetch('/api/action/preview', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ action: name, params: params || {} }),
+    });
+    if (!r.ok) return '';
+    const j = await r.json();
+    return j.argv ? _formatArgv(j.argv) : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+// Shorthand: fetch the action's argv preview, then open the confirm
+// modal with that preview rendered alongside the message. On accept,
+// dispatch the real action. The fetch is sub-50ms on localhost so
+// the modal-open delay is imperceptible.
+async function confirmAct(opts, name, params) {
+  const preview = await _previewArgv(name, params);
+  confirmThen({...opts, preview}, () => act(name, params));
 }
 
 async function act(name, params) {
@@ -74,9 +157,15 @@ async function act(name, params) {
   }
 }
 
+// Whether the action-result panel renders in collapsed (status-pill)
+// form. Toggled by the user via the −/+ button; persists across
+// subsequent actions so a quick power-user flow ("fire ten actions,
+// only peek if I see red") works without re-collapsing every time.
+let _actionPanelCollapsed = false;
+
 // Render the sticky action-result panel. Headline always visible;
 // "details" toggle reveals argv + full stdout + stderr. Replaced
-// every time a new action fires; manual × to dismiss.
+// every time a new action fires; manual − minimizes, × dismisses.
 function actionResult(name, r) {
   const panel = document.getElementById('action-panel');
   const ok = r.rc === 0;
@@ -85,7 +174,8 @@ function actionResult(name, r) {
     ? '✓ ' + (lastLine(r.stdout) || name)
     : '✗ ' + (lastLine(r.stderr) || lastLine(r.stdout) || `${name} (rc=${r.rc})`);
 
-  panel.className = 'action-panel ' + (ok ? 'success' : 'error');
+  panel.className = 'action-panel ' + (ok ? 'success' : 'error')
+                  + (_actionPanelCollapsed ? ' collapsed' : '');
   panel.hidden = false;
   panel.innerHTML = '';
 
@@ -137,6 +227,20 @@ function actionResult(name, r) {
     };
   }
 
+  // Collapse/expand toggle. Persists in _actionPanelCollapsed so the
+  // next action lands in whichever state the user last chose.
+  const collapse = el('button', {
+    class: 'ap-collapse', type: 'button',
+    title: _actionPanelCollapsed ? 'expand' : 'minimize',
+  }, _actionPanelCollapsed ? '+' : '−');
+  collapse.onclick = () => {
+    _actionPanelCollapsed = !_actionPanelCollapsed;
+    panel.classList.toggle('collapsed', _actionPanelCollapsed);
+    collapse.textContent = _actionPanelCollapsed ? '+' : '−';
+    collapse.title = _actionPanelCollapsed ? 'expand' : 'minimize';
+  };
+  head.append(collapse);
+
   const close = el('button', {class: 'ap-close', type: 'button', title: 'dismiss'}, '×');
   close.onclick = () => { panel.hidden = true; };
   head.append(close);
@@ -145,14 +249,18 @@ function actionResult(name, r) {
   if (details) panel.append(details);
 }
 
-// Password reveal — Alpine-driven. Each cell carries its own
-// `{revealed, value}` state via x-data; the click handler fetches
-// the password and assigns it to `value`. No imperative DOM swap.
-// `passwordUrl()` returns the encoded fetch URL for a (scenario, alias)
-// pair; called from the inline @click expression.
+// Password reveal — Alpine-driven via the `credPw` data factory
+// (registered in alpine:init). Each cell owns its own state machine:
+// fetch on demand, auto-hide after a timeout, pause while the user
+// is hovering the revealed value, copy without revealing.
 function passwordUrl(scenario, alias) {
   return `/api/scenarios/${encodeURIComponent(scenario)}/creds/${encodeURIComponent(alias)}/password`;
 }
+
+// How long a revealed password stays on screen before auto-re-masking.
+// Tuned so a glance is enough; hover pauses the timer for longer reads.
+const PW_AUTO_HIDE_MS = 10000;
+const PW_AUTO_HIDE_MIN_RESUME_MS = 3000;
 
 // ────────────────────────── render: startup banner ────────────────────
 async function renderBanner() {
@@ -226,10 +334,13 @@ function renderDetail() {
   const main = document.getElementById('detail');
   main.innerHTML = '';
   const d = state.detailData;
+  const searchBar = document.getElementById('entity-search-bar');
   if (!d) {
     main.append(el('div', {class: 'placeholder'}, 'Select a scenario from the list.'));
+    searchBar.hidden = true;
     return;
   }
+  searchBar.hidden = false;
 
   // Title + meta
   main.append(el('div', {class: 'scen-title'}, d.name));
@@ -267,19 +378,38 @@ function renderDetail() {
   }
   main.append(actions);
 
+  // Entity-search filtering. Each section renders the filtered subset
+  // but shows "N of M" in the header so the user can see what's hidden.
+  const q = state.entitySearch;
+  const targets = _filterTargets(d.targets, q);
+  const creds = _filterCreds(d.creds, q);
+  const dcs = _filterDCs(d.dcs, q);
+  const sectionCount = (filtered, total) =>
+    (q && filtered !== total) ? `${filtered} of ${total}` : `${total}`;
+  const sectionEmpty = (total) =>
+    el('div', {class: 'empty'}, q && total > 0 ? '(no matches)' : '(none)');
+  // Aggregate counters for the search bar's "X results" tag.
+  const totalMatches = targets.length + creds.length + dcs.length;
+  const totalAll = d.targets.length + d.creds.length + d.dcs.length;
+  const countEl = document.getElementById('entity-search-count');
+  countEl.textContent = (q && totalMatches !== totalAll)
+    ? `${totalMatches} of ${totalAll} match` : '';
+
   // Targets
-  main.append(el('h2', {}, `targets (${d.targets.length})`));
-  if (d.targets.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
-  else main.append(el('table', {},
+  main.append(el('h2', {}, `targets (${sectionCount(targets.length, d.targets.length)})`));
+  if (targets.length === 0) main.append(sectionEmpty(d.targets.length));
+  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
-    el('tbody', {}, ...d.targets.map(t => el('tr', {},
+    el('tbody', {}, ...targets.map(t => el('tr', {},
       el('td', {}, t.alias),
-      el('td', {}, t.host || '—'),
-      el('td', {}, t.hosts.join(', ') || '—'),
+      el('td', {}, valueCell(t.host, 'host')),
+      el('td', {}, t.hosts.length
+        ? el('span', {class: 'vc-chips'}, ...t.hosts.map(h => valueCell(h, 'hostname')))
+        : document.createTextNode('—')),
       el('td', {}, d.active
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
-        : ''))))));
+        : '')))))));
   // (target_revoke is exposed elsewhere — there's no per-target
   // revoke today; the scenario-level "unload" subsumes it.)
 
@@ -288,35 +418,54 @@ function renderDetail() {
   // error). See `credNewForm` factory at the bottom of this file.
   const credSection = el('div', { 'x-data': `credNewForm('${d.name}')` });
   credSection.append(el('h2', {},
-    `credentials (${d.creds.length}) `,
+    `credentials (${sectionCount(creds.length, d.creds.length)}) `,
     el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
       '+ new'),
   ));
   credSection.append(buildCredNewForm());
-  if (d.creds.length === 0) credSection.append(el('div', {class: 'empty'}, '(none)'));
-  else credSection.append(el('table', {},
+  if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
+  else credSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
                         el('th', {}, 'password'), el('th', {}, 'domain'),
                         el('th', {}, 'notes'), el('th', {}, ''))),
-    el('tbody', {}, ...d.creds.map(c => {
+    el('tbody', {}, ...creds.map(c => {
       const pwCell = c.has_password
-        ? el('span', { 'x-data': "{revealed: false, value: ''}" },
+        ? el('span', { 'x-data': `credPw('${d.name}', '${c.alias}')`, 'class': 'pw-cell' },
             el('span', {
               'class': 'reveal',
               'x-show': '!revealed',
-              '@click': `revealed = true; fetch('${passwordUrl(d.name, c.alias)}').then(r => r.json()).then(j => value = j.password || '(empty)')`,
+              '@click': 'reveal()',
             }, 'reveal'),
+            el('button', {
+              'class': 'vc-copy pw-copy',
+              'x-show': '!revealed',
+              'type': 'button', 'title': 'copy password',
+              '@click': 'copy()',
+            }, '⧉'),
             el('span', {
               'class': 'pw-value',
               'x-show': 'revealed',
               'x-text': "value || '…'",
-            }))
+              '@mouseenter': 'pauseTimer()',
+              '@mouseleave': 'resumeTimer()',
+            }),
+            el('span', {
+              'class': 'reveal hide-link',
+              'x-show': 'revealed',
+              '@click': 'hide()',
+            }, 'hide'),
+            el('button', {
+              'class': 'vc-copy pw-copy',
+              'x-show': 'revealed',
+              'type': 'button', 'title': 'copy password',
+              '@click': 'copy()',
+            }, '⧉'))
         : document.createTextNode('—');
       return el('tr', {},
         el('td', {class: c.active ? 'active' : ''}, c.alias),
-        el('td', {}, c.username),
+        el('td', {}, valueCell(c.username, 'username')),
         el('td', {}, pwCell),
-        el('td', {}, c.domain || '—'),
+        el('td', {}, valueCell(c.domain, 'domain')),
         el('td', {}, c.notes || '—'),
         el('td', {class: 'row-actions'},
           d.active && !c.active
@@ -336,29 +485,29 @@ function renderDetail() {
             message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,
             confirmLabel: 'delete',
           }, 'cred_rm', {alias: c.alias})}, 'rm')));
-    }))));
+    })))));
   main.append(credSection);
 
   // DCs
-  main.append(el('h2', {}, `DCs (${d.dcs.length})`));
-  if (d.dcs.length === 0) main.append(el('div', {class: 'empty'}, '(none)'));
-  else main.append(el('table', {},
+  main.append(el('h2', {}, `DCs (${sectionCount(dcs.length, d.dcs.length)})`));
+  if (dcs.length === 0) main.append(sectionEmpty(d.dcs.length));
+  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
                         el('th', {}, 'realm'), el('th', {}, 'kdc'),
                         el('th', {}, 'admin'), el('th', {}, ''))),
-    el('tbody', {}, ...d.dcs.map(dc => el('tr', {},
+    el('tbody', {}, ...dcs.map(dc => el('tr', {},
       el('td', {class: dc.active ? 'active' : ''}, dc.alias),
-      el('td', {}, dc.domain || '—'),
-      el('td', {}, dc.realm || '—'),
-      el('td', {}, dc.kdc_host || dc.kdc_ip || '—'),
-      el('td', {}, dc.admin_host || dc.admin_ip || '—'),
+      el('td', {}, valueCell(dc.domain, 'domain')),
+      el('td', {}, valueCell(dc.realm, 'realm')),
+      el('td', {}, valueCell(dc.kdc_host || dc.kdc_ip, 'kdc')),
+      el('td', {}, valueCell(dc.admin_host || dc.admin_ip, 'admin')),
       el('td', {}, d.active && !dc.active
         ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
         : (dc.active ? el('button', {onclick: () => confirmAct({
             title: 'Unset active DC?',
             message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
             confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : '')))))));
+          }, 'dc_unset')}, 'unset') : ''))))))));
 }
 
 // ────────────────────────── refresh orchestrator ──────────────────────
@@ -403,6 +552,41 @@ document.getElementById('filter').addEventListener('input', (e) => {
 document.getElementById('show-archived').addEventListener('change', (e) => {
   state.showArchived = e.target.checked;
   renderSidebar();
+});
+document.getElementById('entity-search').addEventListener('input', (e) => {
+  state.entitySearch = e.target.value;
+  renderDetail();
+});
+
+// Theme toggle. Initial theme attribute is set by the inline script in
+// index.html <head> before first paint (to avoid FOUC); this handler
+// just flips and persists.
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('tgt-theme', next); } catch (e) {}
+});
+
+// Sidebar drawer (mobile only — desktop CSS keeps it always visible).
+// Toggle on the ☰ button; close when the user clicks a scenario
+// (so the drawer doesn't sit over the chosen scenario's detail) or
+// taps the backdrop / hits Escape.
+const _sidebarToggle = document.getElementById('sidebar-toggle');
+_sidebarToggle.addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.body.classList.toggle('sidebar-open');
+});
+document.addEventListener('click', (e) => {
+  if (!document.body.classList.contains('sidebar-open')) return;
+  if (e.target.closest('aside') || e.target.closest('#sidebar-toggle')) return;
+  document.body.classList.remove('sidebar-open');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.body.classList.remove('sidebar-open');
+});
+document.getElementById('scenario-list').addEventListener('click', (e) => {
+  if (e.target.closest('li')) document.body.classList.remove('sidebar-open');
 });
 
 // ────────────────────────── forms: cred new ───────────────────────────
@@ -460,19 +644,75 @@ document.addEventListener('alpine:init', () => {
     open: false,
     title: '',
     message: '',
+    preview: '',
     confirmLabel: 'confirm',
     _fn: null,
     accept() {
       const fn = this._fn;
       this.open = false;
       this._fn = null;
+      this.preview = '';
       if (fn) fn();
     },
     cancel() {
       this.open = false;
       this._fn = null;
+      this.preview = '';
     },
   });
+
+  // Per-cred password state. Reveal fetches lazily; auto-hide fires
+  // PW_AUTO_HIDE_MS after reveal. Hovering the revealed value pauses
+  // the timer (so a long read won't snap shut mid-glance), with a
+  // PW_AUTO_HIDE_MIN_RESUME_MS floor so the next mouseleave always
+  // leaves a usable beat. Copy fetches but never sets `revealed`,
+  // so a "just give me the value" gesture doesn't put the password
+  // on screen at all.
+  window.Alpine.data('credPw', (scenario, alias) => ({
+    revealed: false,
+    value: '',
+    _hideAt: 0,
+    _timer: null,
+    _clearTimer() {
+      if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    },
+    _scheduleHide(ms) {
+      this._clearTimer();
+      this._hideAt = Date.now() + ms;
+      this._timer = setTimeout(() => this.hide(), ms);
+    },
+    pauseTimer() { this._clearTimer(); },
+    resumeTimer() {
+      if (!this.revealed) return;
+      const remaining = Math.max(PW_AUTO_HIDE_MIN_RESUME_MS, this._hideAt - Date.now());
+      this._scheduleHide(remaining);
+    },
+    async _fetch() {
+      try {
+        const r = await fetch(passwordUrl(scenario, alias));
+        const j = await r.json();
+        return j.password || '';
+      } catch (e) {
+        toast('fetch failed: ' + e.message, 'error');
+        return '';
+      }
+    },
+    async reveal() {
+      const v = await this._fetch();
+      this.value = v || '(empty)';
+      this.revealed = true;
+      this._scheduleHide(PW_AUTO_HIDE_MS);
+    },
+    hide() {
+      this.revealed = false;
+      this.value = '';
+      this._clearTimer();
+    },
+    async copy() {
+      const v = await this._fetch();
+      copyToClipboard(v, 'password');
+    },
+  }));
 
   window.Alpine.data('credNewForm', (scenario) => ({
     open: false,

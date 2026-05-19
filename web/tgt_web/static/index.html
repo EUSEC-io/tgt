@@ -2,17 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tgt</title>
+<script>
+  // Set the theme before the stylesheet is applied so we never flash
+  // the wrong palette. Saved preference wins; otherwise follow the
+  // OS-level prefers-color-scheme.
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('tgt-theme'); } catch (e) {}
+    var theme = saved
+      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+          ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <link rel="stylesheet" href="/style.css">
 <script defer src="/vendor/alpine-3.14.1.min.js"></script>
 </head>
 <body>
 
 <header>
+  <button id="sidebar-toggle" class="sidebar-toggle" type="button"
+          aria-label="toggle sidebar">☰</button>
   <h1>tgt</h1>
   <div class="header-mid" id="active-info"></div>
   <div class="header-right">
     <label><input type="checkbox" id="show-archived"> show archived</label>
+    <button id="theme-toggle" class="theme-toggle" type="button"
+            title="toggle light / dark" aria-label="toggle theme">🌗</button>
     <button class="refresh" onclick="refresh(true)">↻ refresh</button>
   </div>
 </header>
@@ -24,7 +42,14 @@
     <div class="filter-row"><input id="filter" placeholder="filter scenarios…" autocomplete="off"></div>
     <ul id="scenario-list"></ul>
   </aside>
-  <main id="detail"><div class="placeholder">Select a scenario from the list.</div></main>
+  <main>
+    <div id="entity-search-bar" hidden>
+      <input id="entity-search" type="search" autocomplete="off"
+             placeholder="search targets / creds / DCs…">
+      <span id="entity-search-count" class="search-count"></span>
+    </div>
+    <div id="detail"><div class="placeholder">Select a scenario from the list.</div></div>
+  </main>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -42,6 +67,9 @@
   <div class="modal" @click.outside="$store.confirm.cancel()">
     <div class="modal-title" x-text="$store.confirm.title"></div>
     <div class="modal-message" x-text="$store.confirm.message"></div>
+    <pre class="modal-preview"
+         x-show="$store.confirm.preview"
+         x-text="$store.confirm.preview"></pre>
     <div class="modal-buttons">
       <button type="button" @click="$store.confirm.cancel()">cancel</button>
       <button type="button" class="primary danger"
