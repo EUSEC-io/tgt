@@ -170,6 +170,20 @@ async function act(name, params) {
   }
 }
 
+// Form-side dispatch. Differs from `act` in that the caller wants to
+// branch on success/failure (close the form vs. surface an error in
+// the form panel). Surfaces the action panel for both paths so the
+// user sees what `tgt` actually said.
+async function _submitForm(name, params) {
+  const r = await fetch('/api/action', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ action: name, params: params || {} }),
+  });
+  const result = await r.json();
+  actionResult(name, result);
+  return { ok: r.ok && result.rc === 0, result };
+}
+
 // Whether the action-result panel renders in collapsed (status-pill)
 // form. Toggled by the user via the −/+ button; persists in
 // localStorage so it survives reloads — same pattern as the theme
@@ -783,21 +797,12 @@ document.addEventListener('alpine:init', () => {
     async submit() {
       this.error = ''; this.submitting = true;
       try {
-        const r = await fetch('/api/action', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            action: 'cred_new',
-            params: {
-              alias: this.alias, username: this.username,
-              password: this.password, domain: this.domain, notes: this.notes,
-            },
-          }),
+        const { ok, result } = await _submitForm('cred_new', {
+          alias: this.alias, username: this.username,
+          password: this.password, domain: this.domain, notes: this.notes,
         });
-        const result = await r.json();
-        actionResult('cred_new', result);
-        if (r.ok && result.rc === 0) {
-          this.open = false;
-          this.reset();
+        if (ok) {
+          this.open = false; this.reset();
           await refresh(true);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
