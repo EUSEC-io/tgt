@@ -95,6 +95,19 @@ def test_subprocess_env_disables_gum_and_injects_askpass(monkeypatch):
     assert kw["env"]["SUDO_ASKPASS"] == "/tmp/wrapper.sh"
 
 
+def test_subprocess_stdin_is_devnull():
+    """Regression: tgt-web inherits the TTY where it was launched, so
+    a subprocess without an explicit stdin redirect picks up that
+    TTY. `_tgt_ask_confirm` / `_tgt_scenario_followup` would then
+    `read -P` from Stefan's terminal and time out the request."""
+    import subprocess as _sp
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        actions.dispatch_action("scenario_unload", {})
+    _, kw = recorder.captured
+    assert kw["stdin"] == _sp.DEVNULL
+
+
 def test_argv_shell_quoting_handles_spaces():
     """A scenario name with whitespace must round-trip through
     `fish -c` without splitting into separate words."""

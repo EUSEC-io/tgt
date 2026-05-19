@@ -42,13 +42,21 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
     would block on TTY input). `sudo.prepare_env` adds SUDO_ASKPASS
     when an askpass helper is available, so `_tgt_hosts_write` /
     `_tgt_krb5_write` can prompt graphically instead of hanging.
+
+    `stdin=DEVNULL` is load-bearing: otherwise the subprocess
+    inherits tgt-web's controlling TTY, and any fish `read -P`
+    (e.g. `_tgt_ask_confirm` falling back to non-gum mode, or
+    `_tgt_scenario_followup`'s isatty gate) hangs the request
+    until the user types into the terminal where tgt-web was
+    launched.
     """
     env = sudo.prepare_env(os.environ.copy())
     env["TGT_NO_GUM"] = "1"
     quoted = " ".join(shlex.quote(a) for a in args)
     p = subprocess.run(
         ["fish", "-c", "tgt " + quoted],
-        capture_output=True, text=True, env=env, timeout=timeout,
+        capture_output=True, text=True, env=env,
+        stdin=subprocess.DEVNULL, timeout=timeout,
     )
     return p.returncode, p.stdout, p.stderr
 
