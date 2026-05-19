@@ -39,7 +39,10 @@ where = ["."]
 include = ["tgt_web*"]
 
 [tool.setuptools.package-data]
-tgt_web = ["static/*.html", "static/*.css", "static/*.js"]
+tgt_web = [
+    "static/*.html", "static/*.css", "static/*.js",
+    "static/vendor/*.js", "static/vendor/*.css", "static/vendor/*.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

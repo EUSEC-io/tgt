@@ -27,6 +27,7 @@ function tgt --description 'Set penetration testing target environment variables
             echo '  {"action": "scenario_unarchive", "argv": ["scenario", "unarchive", "<name>"]},'
             echo '  {"action": "target_switch",      "argv": ["switch", "<alias>"]},'
             echo '  {"action": "target_revoke",      "argv": ["revoke"]},'
+            echo '  {"action": "cred_new",           "argv": ["cred", "new", "<alias>", "--username", "<u>", "[--password]", "[--domain]", "[--notes]"]},'
             echo '  {"action": "cred_switch",        "argv": ["cred", "switch", "<alias>"]},'
             echo '  {"action": "cred_unset",         "argv": ["cred", "unset"]},'
             echo '  {"action": "dc_switch",          "argv": ["dc", "switch", "<alias>"]},'

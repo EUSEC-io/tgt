@@ -33,6 +33,17 @@ def _strip_ansi(s: str) -> str:
     return _ANSI_RE.sub("", s)
 
 # action name → (argv builder, list of required params)
+def _cred_new_argv(p: dict) -> list[str]:
+    argv = ["cred", "new", p["alias"], "--username", p["username"]]
+    for key, flag in (("password", "--password"),
+                      ("domain",   "--domain"),
+                      ("notes",    "--notes")):
+        v = p.get(key)
+        if v:
+            argv += [flag, v]
+    return argv
+
+
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
@@ -40,6 +51,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
+    "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),

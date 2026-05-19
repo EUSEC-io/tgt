@@ -137,6 +137,49 @@ def test_subprocess_stdin_is_devnull():
     assert kw["stdin"] == _sp.DEVNULL
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Required only
+        (
+            {"alias": "adm", "username": "Administrator"},
+            ["cred", "new", "adm", "--username", "Administrator"],
+        ),
+        # All fields
+        (
+            {"alias": "adm", "username": "Administrator",
+             "password": "P@ss", "domain": "ACME", "notes": "primary"},
+            ["cred", "new", "adm", "--username", "Administrator",
+             "--password", "P@ss", "--domain", "ACME", "--notes", "primary"],
+        ),
+        # Empty optional fields must be omitted, not passed as "--password" with empty value
+        (
+            {"alias": "adm", "username": "u", "password": "", "domain": "", "notes": ""},
+            ["cred", "new", "adm", "--username", "u"],
+        ),
+        # Notes with whitespace + apostrophe — shlex.quote in tgt_cmd handles the quoting;
+        # the argv list itself just carries the raw string.
+        (
+            {"alias": "svc", "username": "svc", "notes": "it's tricky"},
+            ["cred", "new", "svc", "--username", "svc", "--notes", "it's tricky"],
+        ),
+    ],
+)
+def test_cred_new_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_new", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_cred_new_requires_alias_and_username():
+    s1, b1 = actions.dispatch_action("cred_new", {})
+    assert s1 == 400 and "missing param" in b1["error"]
+    s2, b2 = actions.dispatch_action("cred_new", {"alias": "x"})
+    assert s2 == 400 and "username" in b2["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh
