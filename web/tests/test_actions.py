@@ -44,6 +44,7 @@ def test_missing_param_returns_400():
 @pytest.mark.parametrize(
     "action,params,expected_tail",
     [
+        ("scenario_new",       {"name": "lab"},   ["scenario", "new", "lab"]),
         ("scenario_switch",    {"name": "acme"},  ["scenario", "switch", "acme"]),
         ("scenario_unload",    {},                ["scenario", "unload"]),
         ("scenario_archive",   {"name": "old"},   ["scenario", "archive", "old"]),
@@ -269,6 +270,11 @@ def test_cred_rename_requires_old_and_new():
     assert s1 == 400 and "old" in b1["error"]
     s2, b2 = actions.dispatch_action("cred_rename", {"old": "a"})
     assert s2 == 400 and "new" in b2["error"]
+
+
+def test_scenario_new_requires_name():
+    status, body = actions.dispatch_action("scenario_new", {})
+    assert status == 400 and "name" in body["error"]
 
 
 def test_dispatch_invalidates_active_cache():

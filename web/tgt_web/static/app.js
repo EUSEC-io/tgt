@@ -814,6 +814,34 @@ document.addEventListener('alpine:init', () => {
       }
     },
   }));
+
+  // Sidebar "+ new" scenario form. Lives in index.html under aside.
+  window.Alpine.data('scenarioNewForm', () => ({
+    open: false, submitting: false, error: '', name: '',
+    reset() { this.name = ''; this.error = ''; this.submitting = false; },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('scenario_new', {
+          name: this.name,
+        });
+        if (ok) {
+          // Auto-select the freshly-created scenario so the user
+          // lands in its (empty) detail pane.
+          state.selected = this.name;
+          this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
 });
 
 // ────────────────────────── input wiring ──────────────────────────────

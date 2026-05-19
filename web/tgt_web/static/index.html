@@ -38,8 +38,28 @@
 <div id="banner" class="banner" hidden></div>
 
 <div class="layout">
-  <aside>
-    <div class="filter-row"><input id="filter" placeholder="filter scenarios…" autocomplete="off"></div>
+  <aside x-data="scenarioNewForm()">
+    <div class="filter-row">
+      <input id="filter" placeholder="filter scenarios…" autocomplete="off">
+      <button class="add" type="button" @click="open = true"
+              title="new scenario" aria-label="new scenario">+ new</button>
+    </div>
+    <div class="form-card sidebar-form" x-show="open" x-cloak>
+      <div class="form-title">new scenario</div>
+      <div class="form-error" x-show="error" x-text="error"></div>
+      <form @submit.prevent="submit">
+        <label>
+          <span class="form-label">name</span>
+          <input x-model.trim="name" required autocomplete="off"
+                 placeholder="e.g. lab">
+        </label>
+        <div class="form-buttons">
+          <button type="button" @click="cancel()">cancel</button>
+          <button type="submit" class="primary" :disabled="submitting"
+                  x-text="submitting ? 'creating…' : 'create'"></button>
+        </div>
+      </form>
+    </div>
     <ul id="scenario-list"></ul>
   </aside>
   <main>

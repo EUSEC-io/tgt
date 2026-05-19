@@ -45,6 +45,7 @@ def _cred_new_argv(p: dict) -> list[str]:
 
 
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
+    "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
