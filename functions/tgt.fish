@@ -284,6 +284,12 @@ function tgt --description 'Set penetration testing target environment variables
         return $status
     end
 
+    # ── Web UI (proof of concept, see web/server.py) ────────
+    if test (count $argv) -ge 1 && test $argv[1] = "web"
+        tgt_web $argv[2..]
+        return $status
+    end
+
     # ── Anything else: unknown ──────────────────────────────
     # Fall-through means the user typed something that didn't
     # match any verb / flag above. Refuse loudly instead of
