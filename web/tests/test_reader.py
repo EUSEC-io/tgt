@@ -207,6 +207,37 @@ def test_read_active_scenario_handles_fish_missing(real_read_active):
         assert reader.read_active_scenario() == ""
 
 
+def test_read_active_scenario_strips_tgt_env_from_subprocess(
+    monkeypatch, real_read_active,
+):
+    """The fish probe must NOT inherit tgt-web's own TGT_* env. The
+    parent process captured `TGT_SCENARIO` at launch (it's a fish
+    universal *exported* var) and re-exporting it shadows
+    fish_variables in the child — so we'd keep reading the
+    launch-time snapshot forever even after the user switched."""
+    monkeypatch.setenv("TGT_SCENARIO", "stale-from-launch")
+    monkeypatch.setenv("TGT_CRED_NAME", "stale-cred")
+    monkeypatch.setenv("UNRELATED", "should-pass-through")
+
+    captured: dict = {}
+
+    class Result:
+        returncode = 0
+        stdout = "fresh-on-disk"
+
+    def fake_run(argv, **kw):
+        captured.update(kw)
+        return Result()
+
+    with patch("tgt_web.reader.subprocess.run", side_effect=fake_run):
+        assert reader.read_active_scenario() == "fresh-on-disk"
+
+    env = captured["env"]
+    assert "TGT_SCENARIO" not in env, "stale TGT_SCENARIO leaked into fish probe"
+    assert "TGT_CRED_NAME" not in env, "TGT_* prefix scrub missed sibling vars"
+    assert env.get("UNRELATED") == "should-pass-through"
+
+
 def test_invalidate_active_cache_forces_requery(real_read_active):
     calls = []
 

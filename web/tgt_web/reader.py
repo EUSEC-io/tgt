@@ -43,16 +43,27 @@ def read_active_scenario() -> str:
 
     Cached for `_ACTIVE_TTL` seconds; tests monkeypatch this function
     directly rather than touching the cache.
+
+    Implementation note — env scrubbing is load-bearing. tgt-web's
+    own environment captured `TGT_SCENARIO` from the shell that
+    launched it (it's a universal *exported* var, `set -Ux`). If we
+    pass that env through to the fish probe, fish reads the env-var
+    value, not the on-disk universal — and we get back the
+    launch-time snapshot forever. We strip every `TGT_*` from the
+    child env so fish has to fall back to `fish_variables`, which is
+    the actual source of truth and updates with each `tgt scenario
+    switch`.
     """
     global _active_cache
     now = time.monotonic()
     if _active_cache and now - _active_cache[0] < _ACTIVE_TTL:
         return _active_cache[1]
+    clean_env = {k: v for k, v in os.environ.items() if not k.startswith("TGT_")}
     try:
         r = subprocess.run(
             ["fish", "-c", "set -q TGT_SCENARIO; and echo -n -- $TGT_SCENARIO"],
             capture_output=True, text=True, timeout=3,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL, env=clean_env,
         )
         value = r.stdout if r.returncode == 0 else ""
     except (FileNotFoundError, subprocess.TimeoutExpired):
