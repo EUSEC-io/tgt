@@ -148,3 +148,22 @@ button.add { font-size: 10px; padding: 2px 8px; margin-left: 6px;
 .action-panel .ap-argv { font-family: inherit; color: #8b949e; }
 .empty { color: #6e7681; font-style: italic; padding: 8px 0; font-size: 12px; }
 .placeholder { color: #6e7681; font-style: italic; text-align: center; padding: 40px; }
+
+/* [x-cloak] keeps Alpine-controlled elements hidden until Alpine has
+   initialized — avoids the modal flashing on page load. */
+[x-cloak] { display: none !important; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+                  display: flex; align-items: center; justify-content: center;
+                  z-index: 200; }
+.modal { background: #161b22; border: 1px solid #30363d; border-radius: 4px;
+         padding: 16px 18px; min-width: 320px; max-width: 480px;
+         box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.modal-title { font-size: 13px; color: #c9d1d9; font-weight: 600;
+               margin-bottom: 8px; }
+.modal-message { font-size: 12px; color: #8b949e; margin-bottom: 14px;
+                 white-space: pre-wrap; word-break: break-word; }
+.modal-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-buttons button { font-size: 11px; padding: 4px 14px; }
+.modal-buttons button.danger { background: #b62324; border-color: #b62324; }
+.modal-buttons button.danger:hover { background: #d73a49; }

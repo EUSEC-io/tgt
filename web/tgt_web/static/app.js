@@ -43,6 +43,24 @@ function el(tag, attrs, ...children) {
   return e;
 }
 
+// Open the reusable confirm modal, then run `fn` on accept. Used to
+// gate destructive operations (archive, rm, unset, revoke, unload).
+// The Alpine store lives at $store.confirm — registered in alpine:init.
+function confirmThen(opts, fn) {
+  const c = window.Alpine?.store('confirm');
+  if (!c) { fn(); return; }   // fail open if Alpine isn't ready
+  c.open = true;
+  c.title = opts.title || 'Are you sure?';
+  c.message = opts.message || '';
+  c.confirmLabel = opts.confirmLabel || 'confirm';
+  c._fn = fn;
+}
+
+// Shorthand: confirm then dispatch a single web action.
+function confirmAct(opts, name, params) {
+  confirmThen(opts, () => act(name, params));
+}
+
 async function act(name, params) {
   try {
     const r = await api('/api/action', {
@@ -225,14 +243,28 @@ function renderDetail() {
   // Scenario-level actions
   const actions = el('div', {class: 'scen-actions'});
   if (d.active) {
-    actions.append(el('button', {onclick: () => act('scenario_unload')}, 'unload'));
+    actions.append(el('button', {onclick: () => confirmAct({
+      title: 'Unload active scenario?',
+      message: `This clears the active scenario marker and all live TGT_* runtime in fish. The scenario itself stays on disk.`,
+      confirmLabel: 'unload',
+    }, 'scenario_unload')}, 'unload'));
   } else {
     actions.append(el('button', {class: 'primary',
       onclick: () => act('scenario_switch', {name: d.name})}, 'switch to'));
   }
-  actions.append(el('button', {
-    onclick: () => act(d.archived ? 'scenario_unarchive' : 'scenario_archive', {name: d.name})
-  }, d.archived ? 'unarchive' : 'archive'));
+  if (d.archived) {
+    actions.append(el('button', {
+      onclick: () => act('scenario_unarchive', {name: d.name}),
+    }, 'unarchive'));
+  } else {
+    actions.append(el('button', {
+      onclick: () => confirmAct({
+        title: `Archive scenario "${d.name}"?`,
+        message: 'Archived scenarios are hidden from the default list (toggle "show archived" to see them). Nothing on disk is deleted.',
+        confirmLabel: 'archive',
+      }, 'scenario_archive', {name: d.name}),
+    }, 'archive'));
+  }
   main.append(actions);
 
   // Targets
@@ -248,6 +280,8 @@ function renderDetail() {
       el('td', {}, d.active
         ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
         : ''))))));
+  // (target_revoke is exposed elsewhere — there's no per-target
+  // revoke today; the scenario-level "unload" subsumes it.)
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /
@@ -287,7 +321,11 @@ function renderDetail() {
         el('td', {},
           d.active && !c.active
             ? el('button', {onclick: () => act('cred_switch', {alias: c.alias})}, 'switch')
-            : (c.active ? el('button', {onclick: () => act('cred_unset')}, 'unset') : '')));
+            : (c.active ? el('button', {onclick: () => confirmAct({
+                title: 'Unset active credential?',
+                message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
+                confirmLabel: 'unset',
+              }, 'cred_unset')}, 'unset') : '')));
     }))));
   main.append(credSection);
 
@@ -306,7 +344,11 @@ function renderDetail() {
       el('td', {}, dc.admin_host || dc.admin_ip || '—'),
       el('td', {}, d.active && !dc.active
         ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
-        : (dc.active ? el('button', {onclick: () => act('dc_unset')}, 'unset') : '')))))));
+        : (dc.active ? el('button', {onclick: () => confirmAct({
+            title: 'Unset active DC?',
+            message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
+            confirmLabel: 'unset',
+          }, 'dc_unset')}, 'unset') : '')))))));
 }
 
 // ────────────────────────── refresh orchestrator ──────────────────────
@@ -401,6 +443,27 @@ function buildCredNewForm() {
 }
 
 document.addEventListener('alpine:init', () => {
+  // Global confirm-modal state. `accept` invokes the stored callback;
+  // `cancel` just closes. Both reset the callback so a stale fn
+  // can't fire on a later open.
+  window.Alpine.store('confirm', {
+    open: false,
+    title: '',
+    message: '',
+    confirmLabel: 'confirm',
+    _fn: null,
+    accept() {
+      const fn = this._fn;
+      this.open = false;
+      this._fn = null;
+      if (fn) fn();
+    },
+    cancel() {
+      this.open = false;
+      this._fn = null;
+    },
+  });
+
   window.Alpine.data('credNewForm', (scenario) => ({
     open: false,
     submitting: false,

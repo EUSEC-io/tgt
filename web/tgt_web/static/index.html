@@ -30,6 +30,27 @@
 <div id="toast" class="toast"></div>
 <div id="action-panel" class="action-panel" hidden></div>
 
+<!-- Reusable confirm modal. Driven by Alpine.store('confirm'); any
+     destructive action goes through `confirmThen(title, message, fn)`
+     in app.js. The modal is always present in the DOM; visibility
+     follows the store. -->
+<div class="modal-backdrop"
+     x-data
+     x-show="$store.confirm.open"
+     x-cloak
+     @keydown.escape.window="$store.confirm.cancel()">
+  <div class="modal" @click.outside="$store.confirm.cancel()">
+    <div class="modal-title" x-text="$store.confirm.title"></div>
+    <div class="modal-message" x-text="$store.confirm.message"></div>
+    <div class="modal-buttons">
+      <button type="button" @click="$store.confirm.cancel()">cancel</button>
+      <button type="button" class="primary danger"
+              @click="$store.confirm.accept()"
+              x-text="$store.confirm.confirmLabel"></button>
+    </div>
+  </div>
+</div>
+
 <script src="/app.js"></script>
 </body>
 </html>
