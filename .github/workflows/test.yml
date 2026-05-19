@@ -22,6 +22,9 @@ jobs:
           fish -c 'curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher'
           fish -c 'fisher install jorgebucaran/fishtape'
 
+      - name: Install plugin (symlinks)
+        run: make dev
+
       - name: Run fishtape suite
         run: make test
 
