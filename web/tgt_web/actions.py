@@ -14,11 +14,23 @@ key here. Add new actions in lock-step.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import subprocess
 from typing import Callable
 
 from tgt_web import reader, sudo
+
+# CSI escape sequences (color + cursor). Fish's `set_color` should
+# skip these when stdout isn't a TTY, but some callsites store the
+# value in a variable (`set red (set_color red); echo "$red foo"`)
+# and that bypasses the isatty check. Belt-and-suspenders: strip
+# server-side too, and pass NO_COLOR=1 in the subprocess env.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def _strip_ansi(s: str) -> str:
+    return _ANSI_RE.sub("", s)
 
 # action name → (argv builder, list of required params)
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
@@ -52,13 +64,14 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
     """
     env = sudo.prepare_env(os.environ.copy())
     env["TGT_NO_GUM"] = "1"
+    env["NO_COLOR"] = "1"
     quoted = " ".join(shlex.quote(a) for a in args)
     p = subprocess.run(
         ["fish", "-c", "tgt " + quoted],
         capture_output=True, text=True, env=env,
         stdin=subprocess.DEVNULL, timeout=timeout,
     )
-    return p.returncode, p.stdout, p.stderr
+    return p.returncode, _strip_ansi(p.stdout), _strip_ansi(p.stderr)
 
 
 def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
