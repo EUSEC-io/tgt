@@ -15,9 +15,20 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+import time
 from pathlib import Path
 
 EXPORT_RE = re.compile(r"^_tgt_export\s+(\S+)\s+(.*)$")
+
+# `TGT_SCENARIO` is a fish *universal* variable. Python's `os.environ`
+# is a one-shot snapshot taken at launch — when fish flips the var
+# from a subprocess (e.g. `tgt scenario switch`), our parent never
+# sees the update. We re-query fish at request time, with a brief
+# cache so `list_scenarios` + `scenario_detail` share one invocation
+# during a single UI refresh.
+_ACTIVE_TTL = 1.0
+_active_cache: tuple[float, str] | None = None
 
 
 def tgt_home() -> Path:
@@ -25,6 +36,36 @@ def tgt_home() -> Path:
     return Path(
         os.environ.get("TGT_HOME") or Path.home() / ".config" / "fish" / "tgt"
     )
+
+
+def read_active_scenario() -> str:
+    """Return the current `$TGT_SCENARIO` from fish, or "" if unset.
+
+    Cached for `_ACTIVE_TTL` seconds; tests monkeypatch this function
+    directly rather than touching the cache.
+    """
+    global _active_cache
+    now = time.monotonic()
+    if _active_cache and now - _active_cache[0] < _ACTIVE_TTL:
+        return _active_cache[1]
+    try:
+        r = subprocess.run(
+            ["fish", "-c", "set -q TGT_SCENARIO; and echo -n -- $TGT_SCENARIO"],
+            capture_output=True, text=True, timeout=3,
+            stdin=subprocess.DEVNULL,
+        )
+        value = r.stdout if r.returncode == 0 else ""
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        value = ""
+    _active_cache = (now, value)
+    return value
+
+
+def invalidate_active_cache() -> None:
+    """Drop the active-scenario cache. Called after a write so the
+    next read sees fresh state immediately, without waiting out TTL."""
+    global _active_cache
+    _active_cache = None
 
 
 def fish_unescape(s: str) -> str:
@@ -83,7 +124,7 @@ def list_scenarios() -> list[dict]:
     sc_root = home / "scenarios"
     if not sc_root.is_dir():
         return []
-    active = os.environ.get("TGT_SCENARIO", "")
+    active = read_active_scenario()
     out = []
     for sd in sorted(sc_root.iterdir()):
         if not sd.is_dir():
@@ -150,7 +191,7 @@ def scenario_detail(name: str) -> dict | None:
 
     return {
         "name": name,
-        "active": name == os.environ.get("TGT_SCENARIO", ""),
+        "active": name == read_active_scenario(),
         "archived": (sd / ".archived").exists(),
         "targets": targets,
         "creds": creds,

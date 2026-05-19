@@ -18,7 +18,7 @@ import shlex
 import subprocess
 from typing import Callable
 
-from tgt_web import sudo
+from tgt_web import reader, sudo
 
 # action name → (argv builder, list of required params)
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
@@ -76,6 +76,10 @@ def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
             return 400, {"error": f"missing param: {r}"}
     argv = builder(params)
     rc, out, err = tgt_cmd(argv)
+    # Drop the cached `$TGT_SCENARIO` value — any action might have
+    # flipped it (most obviously `scenario_switch`/`unload`), and we
+    # want the immediate post-action refresh to see fresh state.
+    reader.invalidate_active_cache()
     return (200 if rc == 0 else 500), {
         "rc": rc,
         "stdout": out,

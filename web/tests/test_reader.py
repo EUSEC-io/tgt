@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from tgt_web import reader
+
+# Capture the un-patched implementation at import time. The autouse
+# `tgt_home_env` fixture stubs `reader.read_active_scenario` so other
+# tests don't shell out to fish; tests that exercise the real
+# implementation undo that patch by re-binding to this reference.
+_REAL_READ_ACTIVE = reader.read_active_scenario
 
 
 # ── fish_unescape ────────────────────────────────────────────────────────
@@ -87,8 +95,10 @@ def test_list_scenarios_counts(tgt_home_env):
     assert by_name["lab"]["cred_count"] == 0
 
 
-def test_list_scenarios_active_from_env(monkeypatch, tgt_home_env):
-    monkeypatch.setenv("TGT_SCENARIO", "lab")
+def test_list_scenarios_active_from_fish(monkeypatch, tgt_home_env):
+    """`read_active_scenario` queries fish at request time — tests
+    just patch it to a fixed value, no fish subprocess needed."""
+    monkeypatch.setattr("tgt_web.reader.read_active_scenario", lambda: "lab")
     by_name = {s["name"]: s for s in reader.list_scenarios()}
     assert by_name["lab"]["active"] is True
     assert by_name["acme"]["active"] is False
@@ -148,3 +158,69 @@ def test_cred_password_returns_plaintext(tgt_home_env):
 def test_cred_password_handles_missing(tgt_home_env):
     assert reader.cred_password("acme", "guest") == ""
     assert reader.cred_password("acme", "nope") == ""
+
+
+# ── read_active_scenario / invalidate_active_cache ───────────────────────
+
+
+@pytest.fixture
+def real_read_active(monkeypatch):
+    """Undo the autouse stub so a test can exercise the real function."""
+    monkeypatch.setattr(reader, "read_active_scenario", _REAL_READ_ACTIVE)
+    monkeypatch.setattr(reader, "_active_cache", None)
+
+
+def test_read_active_scenario_shells_out_to_fish(real_read_active):
+    """First call invokes fish; the second is served from cache."""
+    calls = []
+
+    class Result:
+        returncode = 0
+        stdout = "current-scenario"
+
+    def fake_run(argv, **kw):
+        calls.append(argv)
+        return Result()
+
+    with patch("tgt_web.reader.subprocess.run", side_effect=fake_run):
+        assert reader.read_active_scenario() == "current-scenario"
+        assert reader.read_active_scenario() == "current-scenario"
+
+    assert len(calls) == 1
+    assert calls[0][0] == "fish"
+    assert "TGT_SCENARIO" in calls[0][2]
+
+
+def test_read_active_scenario_handles_unset(real_read_active):
+    class Result:
+        returncode = 1
+        stdout = ""
+
+    with patch("tgt_web.reader.subprocess.run", return_value=Result()):
+        assert reader.read_active_scenario() == ""
+
+
+def test_read_active_scenario_handles_fish_missing(real_read_active):
+    """No fish on PATH → return empty, never crash."""
+    with patch("tgt_web.reader.subprocess.run",
+               side_effect=FileNotFoundError("no fish")):
+        assert reader.read_active_scenario() == ""
+
+
+def test_invalidate_active_cache_forces_requery(real_read_active):
+    calls = []
+
+    class Result:
+        returncode = 0
+        stdout = "first"
+
+    def fake_run(argv, **kw):
+        calls.append(argv)
+        return Result()
+
+    with patch("tgt_web.reader.subprocess.run", side_effect=fake_run):
+        reader.read_active_scenario()
+        reader.invalidate_active_cache()
+        reader.read_active_scenario()
+
+    assert len(calls) == 2

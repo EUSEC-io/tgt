@@ -108,6 +108,17 @@ def test_subprocess_stdin_is_devnull():
     assert kw["stdin"] == _sp.DEVNULL
 
 
+def test_dispatch_invalidates_active_cache():
+    """After every action, the cached `$TGT_SCENARIO` must be dropped —
+    most actions can flip it, and the immediate post-action refresh
+    needs to see fresh state without waiting out the TTL."""
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder), \
+         patch("tgt_web.actions.reader.invalidate_active_cache") as inv:
+        actions.dispatch_action("scenario_switch", {"name": "lab"})
+    assert inv.call_count == 1
+
+
 def test_argv_shell_quoting_handles_spaces():
     """A scenario name with whitespace must round-trip through
     `fish -c` without splitting into separate words."""
