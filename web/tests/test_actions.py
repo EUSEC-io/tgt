@@ -193,6 +193,23 @@ def test_cred_rm_requires_alias():
     assert status == 400 and "alias" in body["error"]
 
 
+def test_cred_rename_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "cred_rename", {"old": "admin", "new": "Administrator"},
+        )
+    assert status == 200
+    assert body["argv"] == ["cred", "rename", "admin", "Administrator"]
+
+
+def test_cred_rename_requires_old_and_new():
+    s1, b1 = actions.dispatch_action("cred_rename", {})
+    assert s1 == 400 and "old" in b1["error"]
+    s2, b2 = actions.dispatch_action("cred_rename", {"old": "a"})
+    assert s2 == 400 and "new" in b2["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh

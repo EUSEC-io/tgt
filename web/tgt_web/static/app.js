@@ -326,6 +326,11 @@ function renderDetail() {
                 message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
                 confirmLabel: 'unset',
               }, 'cred_unset')}, 'unset') : ''),
+          el('button', {onclick: () => {
+            const next = window.prompt(`Rename "${c.alias}" to:`, c.alias);
+            if (!next || next === c.alias) return;
+            act('cred_rename', {old: c.alias, new: next});
+          }}, 'rename'),
           el('button', {onclick: () => confirmAct({
             title: `Delete credential "${c.alias}"?`,
             message: `Removes the cred record from "${d.name}". If it's the active cred, the marker + TGT_CRED_* runtime are also cleared.`,

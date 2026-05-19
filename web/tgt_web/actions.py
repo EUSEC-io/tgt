@@ -52,6 +52,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
+    "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),
     "cred_rm":            (lambda p: ["cred", "rm", p["alias"]],            ["alias"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
