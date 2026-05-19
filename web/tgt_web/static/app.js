@@ -558,7 +558,7 @@ function renderDetail() {
             title: 'Unset active DC?',
             message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
             confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : '')))))));
+          }, 'dc_unset')}, 'unset') : ''))))))));
   main.append(dcSection);
 }
 
