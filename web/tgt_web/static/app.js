@@ -434,7 +434,10 @@ function renderDetail() {
   // Targets — wrapped in an Alpine scope for the edit form
   // (no `new` form on the web yet since fish-side `target new`
   // only accepts an alias without field flags).
-  const targetSection = el('div', { 'x-data': `targetEditForm(${JSON.stringify(d.name)})` });
+  const targetSection = el('div', {
+    'x-data': `targetEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'target',
+  });
   targetSection.append(el('h2', {},
     `targets (${sectionCount(targets.length, d.targets.length)})`));
   targetSection.append(buildTargetEditForm());
@@ -476,8 +479,11 @@ function renderDetail() {
   credSection.append(buildCredNewForm());
   // Edit form lives in its own nested Alpine scope. Triggered via
   // `openCredEdit(scenario, cred)` from row buttons — that helper
-  // looks the scope up by attribute and pokes the state in.
-  const credEditScope = el('div', { 'x-data': `credEditForm(${JSON.stringify(d.name)})` });
+  // looks the scope up by `data-edit-scope` and pokes the state in.
+  const credEditScope = el('div', {
+    'x-data': `credEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'cred',
+  });
   credEditScope.append(buildCredEditForm());
   credSection.append(credEditScope);
   if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
@@ -555,7 +561,10 @@ function renderDetail() {
       '+ new'),
   ));
   dcSection.append(buildDcNewForm());
-  const dcEditScope = el('div', { 'x-data': `dcEditForm(${JSON.stringify(d.name)})` });
+  const dcEditScope = el('div', {
+    'x-data': `dcEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'dc',
+  });
   dcEditScope.append(buildDcEditForm());
   dcSection.append(dcEditScope);
   if (dcs.length === 0) dcSection.append(sectionEmpty(d.dcs.length));
@@ -782,8 +791,7 @@ async function openCredEdit(scenario, cred) {
       return;
     }
   }
-  const sel = `[x-data="credEditForm(${JSON.stringify(scenario)})"]`;
-  const scope = document.querySelector(sel);
+  const scope = document.querySelector('[data-edit-scope="cred"]');
   if (!scope || !window.Alpine) return;
   const data = window.Alpine.$data(scope);
   data.alias = cred.alias;
@@ -868,8 +876,7 @@ function buildTargetEditForm() {
 }
 
 async function openTargetEdit(scenario, target) {
-  const sel = `[x-data="targetEditForm(${JSON.stringify(scenario)})"]`;
-  const scope = document.querySelector(sel);
+  const scope = document.querySelector('[data-edit-scope="target"]');
   if (!scope || !window.Alpine) return;
   const data = window.Alpine.$data(scope);
   data.alias = target.alias;
@@ -912,8 +919,7 @@ function buildDcEditForm() {
 }
 
 async function openDcEdit(scenario, dc) {
-  const sel = `[x-data="dcEditForm(${JSON.stringify(scenario)})"]`;
-  const scope = document.querySelector(sel);
+  const scope = document.querySelector('[data-edit-scope="dc"]');
   if (!scope || !window.Alpine) return;
   const data = window.Alpine.$data(scope);
   data.alias = dc.alias;
