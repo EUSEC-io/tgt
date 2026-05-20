@@ -73,6 +73,15 @@ def _dc_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _target_edit_argv(p: dict) -> list[str]:
+    argv = ["edit", p["alias"]]
+    for key, flag in (("host",  "--host"),
+                      ("hosts", "--hosts")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 def _dc_edit_argv(p: dict) -> list[str]:
     """Edit: emit each flag the caller chose to act on, including
     empty values (fish-side treats empty as clear). Key not present
@@ -97,6 +106,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
+    "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
     "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
     "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),

@@ -385,6 +385,35 @@ def test_dc_edit_requires_alias():
     assert status == 400 and "alias" in body["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"alias": "web"}, ["edit", "web"]),
+        ({"alias": "web", "host": "10.0.0.5"},
+         ["edit", "web", "--host", "10.0.0.5"]),
+        ({"alias": "web", "hosts": "a.local b.local"},
+         ["edit", "web", "--hosts", "a.local b.local"]),
+        # Empty hosts → fish clears the field.
+        ({"alias": "web", "hosts": ""},
+         ["edit", "web", "--hosts", ""]),
+        # Both flags together.
+        ({"alias": "web", "host": "10.0.0.5", "hosts": "a.local"},
+         ["edit", "web", "--host", "10.0.0.5", "--hosts", "a.local"]),
+    ],
+)
+def test_target_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_edit_requires_alias():
+    status, body = actions.dispatch_action("target_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh

@@ -431,10 +431,15 @@ function renderDetail() {
   countEl.textContent = (q && totalMatches !== totalAll)
     ? `${totalMatches} of ${totalAll} match` : '';
 
-  // Targets
-  main.append(el('h2', {}, `targets (${sectionCount(targets.length, d.targets.length)})`));
-  if (targets.length === 0) main.append(sectionEmpty(d.targets.length));
-  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
+  // Targets — wrapped in an Alpine scope for the edit form
+  // (no `new` form on the web yet since fish-side `target new`
+  // only accepts an alias without field flags).
+  const targetSection = el('div', { 'x-data': `targetEditForm(${JSON.stringify(d.name)})` });
+  targetSection.append(el('h2', {},
+    `targets (${sectionCount(targets.length, d.targets.length)})`));
+  targetSection.append(buildTargetEditForm());
+  if (targets.length === 0) targetSection.append(sectionEmpty(d.targets.length));
+  else targetSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
@@ -450,7 +455,9 @@ function renderDetail() {
               title: 'Revoke active target?',
               message: `Clears the active-target marker and TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE runtime in fish. Also removes "${t.alias}"'s entries from /etc/hosts. The target record stays on disk; creds + DC are unaffected.`,
               confirmLabel: 'revoke',
-            }, 'target_revoke')}, 'revoke') : ''))))))));
+            }, 'target_revoke')}, 'revoke') : ''),
+        el('button', {onclick: () => openTargetEdit(d.name, t)}, 'edit'))))))));
+  main.append(targetSection);
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /
@@ -826,6 +833,53 @@ function buildDcNewForm() {
         }))));
 }
 
+// ────────────────────────── forms: target edit ───────────────────────
+// Targets store TGT (host) + TGT_HOSTS (space-separated extra
+// hostnames). The form accepts both as scalar inputs; the backend
+// `target_edit` action passes them through to `tgt edit --host /
+// --hosts`.
+function buildTargetEditForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit target'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', { ':value': 'alias', 'readonly': '', 'tabindex': '-1' })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'host'),
+        el('input', {
+          'x-model.trim': 'host', 'autocomplete': 'off',
+          'placeholder': 'IP or hostname',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'hostnames'),
+        el('input', {
+          'x-model.trim': 'hosts', 'autocomplete': 'off',
+          'placeholder': 'space-separated, e.g. web.acme.local mail.acme.local',
+        })),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+async function openTargetEdit(scenario, target) {
+  const sel = `[x-data="targetEditForm(${JSON.stringify(scenario)})"]`;
+  const scope = document.querySelector(sel);
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = target.alias;
+  data.host = target.host || '';
+  data.hosts = (target.hosts || []).join(' ');
+  data.error = '';
+  data.submitting = false;
+  data.open = true;
+}
+
 // ────────────────────────── forms: dc edit ────────────────────────────
 // Same field set as `dc new` plus a readonly alias display.
 function buildDcEditForm() {
@@ -1017,6 +1071,31 @@ document.addEventListener('alpine:init', () => {
         const { ok, result } = await _submitForm('cred_edit', {
           alias: this.alias, username: this.username,
           password: this.password, domain: this.domain, notes: this.notes,
+        });
+        if (ok) {
+          this.open = false;
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing target. Pre-filled by `openTargetEdit`.
+  window.Alpine.data('targetEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', host: '', hosts: '',
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('target_edit', {
+          alias: this.alias, host: this.host, hosts: this.hosts,
         });
         if (ok) {
           this.open = false;
