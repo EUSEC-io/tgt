@@ -277,3 +277,7 @@ complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcom
     -l host  -d 'Target host / IP (empty clears)' -r
 complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario dc ports cred' \
     -l hosts -d 'Hostnames, space-separated (empty clears)' -r
+
+# `tgt ports <verb>` --target flag — pick from active-scenario targets.
+complete -c tgt -n '__fish_seen_subcommand_from ports; and __fish_seen_subcommand_from list add rm clear comment' \
+    -s t -l target -a '(__tgt_complete_active_targets)' -d 'Operate on this target instead of $TGT_ACTIVE'

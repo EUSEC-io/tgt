@@ -1,36 +1,75 @@
-# Dispatch for `tgt ports …` — port records on the active target.
+# Dispatch for `tgt ports …` — port records on a target.
 #
-#   tgt ports                              list + pick → set TGT_PORT
-#   tgt ports list                         list, no picker
-#   tgt ports add <file>                   import from nmap output
-#   tgt ports add <port>[/<proto>] [svc] [comment]   manual add
-#   tgt ports rm  <port>[/<proto>]
-#   tgt ports clear
-#   tgt ports unset                        clear $TGT_PORT (records kept)
-#   tgt ports comment <port>[/<proto>] <text>
+#   tgt ports                                      list + pick → set TGT_PORT
+#   tgt ports list  [--target <t>]                 list, no picker
+#   tgt ports add   [--target <t>] <file>          import from nmap output
+#   tgt ports add   [--target <t>] <port>[/<proto>] [svc] [comment]   manual add
+#   tgt ports rm    [--target <t>] <port>[/<proto>]
+#   tgt ports clear [--target <t>]
+#   tgt ports unset                                clear $TGT_PORT (records kept)
+#   tgt ports comment [--target <t>] <port>[/<proto>] <text>
 #
-# All operations require an active scenario AND target (the records
-# live per-target).
+# `--target <alias>` lets you operate on a non-active target. Without
+# it, `$TGT_ACTIVE` is used (the historical default). The interactive
+# picker form (`tgt ports` with no args) stays active-target-only —
+# it sets TGT_PORT in the current shell, which only makes sense for
+# the active target.
 function _tgt_ports_cli
-    if not set -q TGT_SCENARIO; or not set -q TGT_ACTIVE
-        echo "tgt ports: no active target — run `tgt switch <alias>` or `tgt new <alias>` first" >&2
+    if not set -q TGT_SCENARIO
+        echo "tgt ports: no active scenario — run `tgt scenario new <name>` or `tgt scenario switch <name>` first" >&2
         return 1
     end
     set -l scenario $TGT_SCENARIO
-    set -l target $TGT_ACTIVE
+    # Default target = currently-active. Each subcommand can
+    # override via --target.
+    set -l default_target ""
+    set -q TGT_ACTIVE; and set default_target $TGT_ACTIVE
 
     set -l verb $argv[1]
     set -l rest $argv[2..]
 
+    # Helper: resolve the effective target for this invocation.
+    # Sets the caller's $effective_target. Errors + returns non-zero
+    # when neither --target nor TGT_ACTIVE provides one.
+    # (fish doesn't have output-parameter idioms; this is a plain
+    # function that prints the resolved alias or empty.)
+    function _tgt_ports_cli__resolve_target --no-scope-shadowing
+        # Args: verb, flag-target (may be empty), default
+        set -l verb $argv[1]
+        set -l flag_target $argv[2]
+        set -l default_target $argv[3]
+        set -l resolved $default_target
+        test -n "$flag_target"; and set resolved $flag_target
+        if test -z "$resolved"
+            echo "tgt ports $verb: no active target — run `tgt switch <alias>` first or pass --target <alias>" >&2
+            return 1
+        end
+        echo $resolved
+    end
+
     switch $verb
         case list
+            argparse --name='tgt ports list' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target list "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports list: target '$target' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
             _tgt_ports_print_list $scenario $target
             return 0
 
         case ''
-            # If no records exist, fall back to the friendly note
-            # from print_list rather than dropping into a picker
-            # with nothing to pick from.
+            # Interactive picker stays active-target-only — sets
+            # TGT_PORT in the current shell.
+            if test -z "$default_target"
+                echo "tgt ports: no active target — run `tgt switch <alias>` first" >&2
+                return 1
+            end
+            set -l target $default_target
             set -l records (_tgt_ports_list $scenario $target)
             if test (count $records) -eq 0
                 _tgt_ports_print_list $scenario $target
@@ -47,13 +86,23 @@ function _tgt_ports_cli
             return 0
 
         case add
-            test (count $rest) -ge 1; or begin
-                echo "Usage: tgt ports add <file> | <port>[/<proto>] [service] [comment]" >&2
+            argparse --name='tgt ports add' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target add "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports add: target '$target' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            test (count $argv) -ge 1; or begin
+                echo "Usage: tgt ports add [--target <t>] <file> | <port>[/<proto>] [service] [comment]" >&2
                 return 1
             end
             # File path → import.
-            if test -f $rest[1]
-                set -l count (_tgt_ports_import $scenario $target $rest[1])
+            if test -f $argv[1]
+                set -l count (_tgt_ports_import $scenario $target $argv[1])
                 or return $status
                 set_color green
                 echo "✓ imported $count port records into $scenario:$target"
@@ -61,11 +110,11 @@ function _tgt_ports_cli
                 return 0
             end
             # Manual add: port[/proto] [service] [comment].
-            set -l spec $rest[1]
+            set -l spec $argv[1]
             set -l service ""
             set -l comment ""
-            test (count $rest) -ge 2; and set service $rest[2]
-            test (count $rest) -ge 3; and set comment $rest[3..]
+            test (count $argv) -ge 2; and set service $argv[2]
+            test (count $argv) -ge 3; and set comment $argv[3..]
             set -l port $spec
             set -l proto tcp
             if string match -q '*/*' -- $spec
@@ -84,16 +133,26 @@ function _tgt_ports_cli
             _tgt_ports_add $scenario $target $port $proto $service $comment
             or return $status
             set_color green
-            echo "✓ added $port/$proto"
+            echo "✓ added $port/$proto to $scenario:$target"
             set_color normal
             return 0
 
         case rm
-            test (count $rest) -ge 1; or begin
-                echo "Usage: tgt ports rm <port>[/<proto>]" >&2
+            argparse --name='tgt ports rm' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target rm "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports rm: target '$target' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            set -l spec $rest[1]
+            test (count $argv) -ge 1; or begin
+                echo "Usage: tgt ports rm [--target <t>] <port>[/<proto>]" >&2
+                return 1
+            end
+            set -l spec $argv[1]
             set -l port $spec
             set -l proto tcp
             if string match -q '*/*' -- $spec
@@ -111,11 +170,21 @@ function _tgt_ports_cli
             end
             _tgt_ports_remove $scenario $target $port $proto
             set_color green
-            echo "✓ removed $port/$proto"
+            echo "✓ removed $port/$proto from $scenario:$target"
             set_color normal
             return 0
 
         case clear
+            argparse --name='tgt ports clear' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target clear "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports clear: target '$target' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
             _tgt_ports_clear $scenario $target
             set_color green
             echo "✓ cleared all port records for $scenario:$target"
@@ -135,12 +204,22 @@ function _tgt_ports_cli
             return 0
 
         case comment
-            if test (count $rest) -lt 2
-                echo "Usage: tgt ports comment <port>[/<proto>] <text>" >&2
+            argparse --name='tgt ports comment' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target comment "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports comment: target '$target' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            set -l spec $rest[1]
-            set -l text $rest[2..]
+            if test (count $argv) -lt 2
+                echo "Usage: tgt ports comment [--target <t>] <port>[/<proto>] <text>" >&2
+                return 1
+            end
+            set -l spec $argv[1]
+            set -l text $argv[2..]
             set -l port $spec
             set -l proto tcp
             if string match -q '*/*' -- $spec
@@ -157,11 +236,11 @@ function _tgt_ports_cli
                 return 1
             end
             if not _tgt_ports_comment $scenario $target $port $proto $text
-                echo "tgt ports comment: no record for $port/$proto (add it first with `tgt ports add $port/$proto`)" >&2
+                echo "tgt ports comment: no record for $port/$proto in $scenario:$target (add it first with `tgt ports add $port/$proto`)" >&2
                 return 1
             end
             set_color green
-            echo "✓ comment set on $port/$proto"
+            echo "✓ comment set on $port/$proto in $scenario:$target"
             set_color normal
             return 0
 
