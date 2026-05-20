@@ -130,21 +130,44 @@ def test_subprocess_env_disables_gum_and_injects_askpass(monkeypatch):
 
 def test_ansi_codes_stripped_from_output():
     """Toast in the UI should never show raw escape sequences. Strip
-    them server-side regardless of whether fish suppressed them."""
-    class Result:
-        returncode = 0
-        stdout = "\x1b[32m✓ switched to acme\x1b[0m\n"
-        stderr = "\x1b[1;31mwarning:\x1b[0m something\n"
+    them server-side regardless of whether fish suppressed them.
 
-    recorder = _fake_run(rc=0, stdout=Result.stdout, stderr=Result.stderr)
-    # The recorder's _fake_run doesn't actually use the Result class
-    # above, so override its returned class.
+    Covers both CSI (`ESC [ … final`) and charset-designation
+    (`ESC ( c` / `ESC ) c`) forms. The charset case was a real
+    regression: fish's `set_color normal` emits `\\x1b(B` in some
+    builds — falls outside the CSI pattern, leaked through as
+    `␛(B` in the action panel until the regex got extended.
+    """
+    stdout = (
+        "\x1b[32m✓ active DC: eusec-silver-lining:dc01\x1b(B\x1b[m\n"
+    )
+    stderr = "\x1b[1;31mwarning:\x1b[0m something\n"
+
+    recorder = _fake_run(rc=0, stdout=stdout, stderr=stderr)
     with patch("tgt_web.actions.subprocess.run", recorder):
         _, body = actions.dispatch_action("scenario_unload", {})
-    assert "\x1b[" not in body["stdout"]
-    assert "\x1b[" not in body["stderr"]
-    assert "✓ switched to acme" in body["stdout"]
+    # No raw escape bytes survive at all (CSI or charset).
+    assert "\x1b" not in body["stdout"]
+    assert "\x1b" not in body["stderr"]
+    # Useful content (post-strip) is preserved.
+    assert "✓ active DC: eusec-silver-lining:dc01" in body["stdout"]
     assert "warning:" in body["stderr"]
+
+
+def test_strip_ansi_charset_designation_directly():
+    """Unit test for the regex itself: covers the four escape
+    shapes we care about — CSI with params, CSI bare, G0 select,
+    G1 select — and confirms surrounding text is untouched."""
+    cases = [
+        ("\x1b[32mgreen\x1b[0m", "green"),
+        ("\x1b[m", ""),
+        ("\x1b(B", ""),
+        ("\x1b)0", ""),
+        ("before\x1b(Bafter", "beforeafter"),
+        ("no escapes here", "no escapes here"),
+    ]
+    for raw, expected in cases:
+        assert actions._strip_ansi(raw) == expected, f"failed on {raw!r}"
 
 
 def test_subprocess_env_sets_no_color():
