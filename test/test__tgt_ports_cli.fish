@@ -274,3 +274,55 @@ set -l rc (_tgt_ports_cli add 22 ssh 2>/dev/null; echo $status)
 _tgt_ports_cli add --target web 22 ssh >/dev/null
 @test "ports_cli add (no active, with --target): file written" \
     (_tgt_ports_list dante web | string match -q '*22*'; echo $status) -eq 0
+_test_teardown
+
+#
+# `tgt ports service` — rename the service on an existing record.
+# Comment is preserved (mirrors the comment verb in reverse).
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new web --no-edit >/dev/null
+set -gx TGT 10.0.0.10
+_tgt_target_save dante web
+_tgt_clear_target_runtime
+_tgt_target_cli switch web >/dev/null
+
+_tgt_ports_cli add 22 ssh "OpenSSH 8.4" >/dev/null
+_tgt_ports_cli service 22 ssh-banner-lied >/dev/null
+
+set -l line (_tgt_ports_list dante web | string match -e 22)
+set -l fields (string split \t -- $line)
+@test "ports_cli service: service field updated" \
+    "$fields[3]" = ssh-banner-lied
+@test "ports_cli service: comment preserved" \
+    "$fields[4]" = "OpenSSH 8.4"
+
+# Empty service is allowed (clears the field).
+_tgt_ports_cli service 22 "" >/dev/null
+set -l line2 (_tgt_ports_list dante web | string match -e 22)
+set -l fields2 (string split \t -- $line2)
+@test "ports_cli service '': service cleared" \
+    "$fields2[3]" = ""
+@test "ports_cli service '': comment still preserved" \
+    "$fields2[4]" = "OpenSSH 8.4"
+
+# Wrong port/proto → non-zero (no record to rename).
+set -l rc (_tgt_ports_cli service 9999 nope 2>/dev/null; echo $status)
+@test "ports_cli service: nonexistent record returns non-zero" \
+    "$rc" -ne 0
+
+# --target on service verb.
+_tgt_target_cli new db --no-edit >/dev/null
+set -gx TGT 10.0.0.20
+_tgt_target_save dante db
+_tgt_clear_target_runtime
+_tgt_target_cli switch web >/dev/null
+_tgt_ports_cli add --target db 3306 mysql "MariaDB 10.6" >/dev/null
+_tgt_ports_cli service --target db 3306 postgres >/dev/null
+set -l line3 (_tgt_ports_list dante db | string match -e 3306)
+set -l fields3 (string split \t -- $line3)
+@test "ports_cli service --target: rewrites non-active target" \
+    "$fields3[3]" = postgres
+@test "ports_cli service --target: comment preserved" \
+    "$fields3[4]" = "MariaDB 10.6"

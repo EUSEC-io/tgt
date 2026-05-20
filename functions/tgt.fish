@@ -42,7 +42,8 @@ function tgt --description 'Set penetration testing target environment variables
             echo '  {"action": "ports_add",          "argv": ["ports", "add", "--target", "<t>", "<port>[/<proto>]", "[service]", "[comment]"]},'
             echo '  {"action": "ports_rm",           "argv": ["ports", "rm", "--target", "<t>", "<port>[/<proto>]"]},'
             echo '  {"action": "ports_clear",        "argv": ["ports", "clear", "--target", "<t>"]},'
-            echo '  {"action": "ports_comment",      "argv": ["ports", "comment", "--target", "<t>", "<port>[/<proto>]", "<text>"]}'
+            echo '  {"action": "ports_comment",      "argv": ["ports", "comment", "--target", "<t>", "<port>[/<proto>]", "<text>"]},'
+            echo '  {"action": "ports_service",      "argv": ["ports", "service", "--target", "<t>", "<port>[/<proto>]", "<name>"]}'
             echo ']'
             return 0
         end

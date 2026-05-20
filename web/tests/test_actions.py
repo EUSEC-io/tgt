@@ -510,6 +510,28 @@ def test_ports_comment_argv():
     ]
 
 
+def test_ports_service_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_service",
+            {"target": "web", "port": "22", "proto": "tcp",
+             "service": "ssh-banner-lied"})
+    assert status == 200
+    assert body["argv"] == [
+        "ports", "service", "--target", "web", "22/tcp", "ssh-banner-lied",
+    ]
+
+
+def test_ports_service_requires_target_port_service():
+    s1, b1 = actions.dispatch_action("ports_service", {})
+    assert s1 == 400 and "target" in b1["error"]
+    s2, b2 = actions.dispatch_action("ports_service", {"target": "web"})
+    assert s2 == 400 and "port" in b2["error"]
+    s3, b3 = actions.dispatch_action("ports_service", {"target": "web", "port": "22"})
+    assert s3 == 400 and "service" in b3["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh

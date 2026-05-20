@@ -8,6 +8,7 @@
 #   tgt ports clear [--target <t>]
 #   tgt ports unset                                clear $TGT_PORT (records kept)
 #   tgt ports comment [--target <t>] <port>[/<proto>] <text>
+#   tgt ports service [--target <t>] <port>[/<proto>] <name>   rename service
 #
 # `--target <alias>` lets you operate on a non-active target. Without
 # it, `$TGT_ACTIVE` is used (the historical default). The interactive
@@ -241,6 +242,52 @@ function _tgt_ports_cli
             end
             set_color green
             echo "✓ comment set on $port/$proto in $scenario:$target"
+            set_color normal
+            return 0
+
+        case service
+            # Mirror of `comment` — update the service field of an
+            # existing record, preserving the stored comment. Banner
+            # grabs and nmap fingerprints aren't always right; this
+            # gives the user a fix path without `rm` + `add` (which
+            # would drop the comment).
+            argparse --name='tgt ports service' 't/target=' -- $rest
+            or return 1
+            set -l flag_target ""
+            set -q _flag_target; and set flag_target $_flag_target
+            set -l target (_tgt_ports_cli__resolve_target service "$flag_target" "$default_target")
+            or return $status
+            if not _tgt_target_exists $scenario $target
+                echo "tgt ports service: target '$target' does not exist in scenario '$scenario'" >&2
+                return 1
+            end
+            if test (count $argv) -lt 2
+                echo "Usage: tgt ports service [--target <t>] <port>[/<proto>] <name>" >&2
+                return 1
+            end
+            set -l spec $argv[1]
+            set -l text $argv[2..]
+            set -l port $spec
+            set -l proto tcp
+            if string match -q '*/*' -- $spec
+                set -l parts (string split / -- $spec)
+                set port $parts[1]
+                set proto $parts[2]
+            end
+            if not _tgt_ports_validate_port $port
+                echo "tgt ports service: invalid port '$port'" >&2
+                return 1
+            end
+            if not _tgt_ports_validate_proto $proto
+                echo "tgt ports service: invalid proto '$proto' (use tcp or udp)" >&2
+                return 1
+            end
+            if not _tgt_ports_service $scenario $target $port $proto $text
+                echo "tgt ports service: no record for $port/$proto in $scenario:$target (add it first with `tgt ports add $port/$proto`)" >&2
+                return 1
+            end
+            set_color green
+            echo "✓ service set on $port/$proto in $scenario:$target"
             set_color normal
             return 0
 

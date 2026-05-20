@@ -150,6 +150,8 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
                                                                             ["target"]),
     "ports_comment":      (lambda p: ["ports", "comment", "--target", p["target"],
                                        _ports_spec(p), p["comment"]],      ["target", "port", "comment"]),
+    "ports_service":      (lambda p: ["ports", "service", "--target", p["target"],
+                                       _ports_spec(p), p["service"]],      ["target", "port", "service"]),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
     "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
     "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),

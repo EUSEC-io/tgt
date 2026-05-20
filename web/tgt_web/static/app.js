@@ -971,19 +971,24 @@ function buildPortsManagerForm() {
 // Build a single port row's <tr>. Each row's inputs survive
 // independently across add / rm operations — only the row that was
 // added or removed touches the DOM. Other rows' (possibly unsaved)
-// comment edits stay intact.
+// service / comment edits stay intact.
 function _buildPortRow(scenario, target, p) {
+  const serviceInput = el('input', {
+    'value': p.service || '', 'data-port': p.port, 'data-proto': p.proto,
+    class: 'pm-svc-edit',
+  });
   const commentInput = el('input', {
     'value': p.comment || '', 'data-port': p.port, 'data-proto': p.proto,
     class: 'pm-cmt-edit',
   });
-  const serviceInput = el('input', {
-    'value': p.service || '', 'data-port': p.port, 'data-proto': p.proto,
-    class: 'pm-svc-edit', readonly: '', tabindex: '-1',
-  });
+  // One save button per row — fires either the service or the
+  // comment update (or both) depending on which fields actually
+  // differ from the on-record value. Cheap to over-fire but we
+  // skip no-op writes anyway.
   const saveBtn = el('button', {
-    class: 'pm-comment-save', type: 'button',
-    onclick: () => _savePortComment(scenario, target, p.port, p.proto, commentInput.value),
+    class: 'pm-row-save', type: 'button',
+    onclick: () => _savePortRow(scenario, target, p,
+                                 serviceInput.value, commentInput.value),
   }, 'save');
   const rmBtn = el('button', {
     class: 'pm-rm', type: 'button',
@@ -1063,27 +1068,44 @@ async function _rmPort(scenario, target, port, proto) {
   }
 }
 
-async function _savePortComment(scenario, target, port, proto, comment) {
-  const { ok, result } = await _submitForm('ports_comment', {
-    target, port, proto, comment,
-  });
-  if (!ok) {
-    toast('comment failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
-    return;
-  }
-  // Update local cache and flash a brief "saved" tag on the row —
-  // we deliberately do NOT re-render the table here so other rows'
-  // unsaved comment edits survive.
+// Save whichever of service / comment changed on this row. We
+// deliberately do NOT re-render the table so other rows' unsaved
+// edits survive. Each successful write flashes the relevant input
+// green for ~1.2 s so the user sees confirmation in place.
+async function _savePortRow(scenario, target, p, newService, newComment) {
   const scope = _portsScope();
-  if (!scope) return;
+  if (!scope || !window.Alpine) return;
   const data = window.Alpine.$data(scope);
-  const entry = data.ports.find(p => p.port === port && p.proto === proto);
-  if (entry) entry.comment = comment;
-  const input = scope.querySelector(
-    `.pm-cmt-edit[data-port="${port}"][data-proto="${proto}"]`);
-  if (input) {
-    input.classList.add('pm-cmt-saved');
-    setTimeout(() => input.classList.remove('pm-cmt-saved'), 1500);
+  const entry = data.ports.find(x => x.port === p.port && x.proto === p.proto);
+  const flashInput = (cls) => {
+    const inp = scope.querySelector(`.${cls}[data-port="${p.port}"][data-proto="${p.proto}"]`);
+    if (!inp) return;
+    inp.classList.add('pm-cmt-saved');
+    setTimeout(() => inp.classList.remove('pm-cmt-saved'), 1500);
+  };
+  // Service: fish requires a matching record, so the record must
+  // already exist on disk (it does — we're editing it).
+  if ((p.service || '') !== newService) {
+    const { ok, result } = await _submitForm('ports_service', {
+      target, port: p.port, proto: p.proto, service: newService,
+    });
+    if (!ok) {
+      toast('service save failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+      return;
+    }
+    if (entry) entry.service = newService;
+    flashInput('pm-svc-edit');
+  }
+  if ((p.comment || '') !== newComment) {
+    const { ok, result } = await _submitForm('ports_comment', {
+      target, port: p.port, proto: p.proto, comment: newComment,
+    });
+    if (!ok) {
+      toast('comment save failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+      return;
+    }
+    if (entry) entry.comment = newComment;
+    flashInput('pm-cmt-edit');
   }
 }
 
