@@ -51,7 +51,7 @@ def test_dashboard_loads_without_console_errors(monkeypatch):
         askpass=None, wrapper=None, nopasswd=True, note="(stub) NOPASSWD",
     ))
     monkeypatch.setattr(vc_mod, "check", lambda: vc_mod.VersionInfo(
-        web="1.0.0", tgt="1.0.0", mismatch=False, note="(stub) match",
+        web="1.0.1", tgt="1.0.1", mismatch=False, note="(stub) match",
     ))
 
     console, errors = [], []

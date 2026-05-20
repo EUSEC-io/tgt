@@ -3,6 +3,24 @@
 Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
+## 1.0.1 — 2026-05-20
+
+Internal-only patch release. No user-visible changes; just version
+strings catching up with master HEAD so `tgt --version` /
+`tgt-web --version` report the running code accurately.
+
+### Internal
+- `web/tgt_web/static/app.js` (1533 lines) split into six native ES
+  modules — `state.js`, `helpers.js`, `actions.js`, `render.js`,
+  `forms.js`, `app.js` (entry). `<script type="module">` import
+  resolution, no build step. ARCHITECTURE.md note that ES modules
+  don't count as a build step. `server.py` static-file allowlist
+  generalized to a charset-constrained regex.
+- New optional `web/tests/test_browser.py` (skipped without
+  Playwright) loads the page in headless Chromium and fails on any
+  console error / page exception — catches runtime regressions
+  that static checks miss.
+
 ## 1.0.0 — 2026-05-20
 
 First tagged release. Covers everything since the early
