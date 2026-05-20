@@ -30,16 +30,26 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-PROMPT = "tgt needs sudo to update /etc/hosts or /etc/krb5.conf"
 WRAPPER_PATH = Path.home() / ".cache" / "tgt-web" / "askpass.sh"
 
-# Probed in order; first match wins.
+# Probed in order; first match wins. Each template uses `"$1"`,
+# which is what `sudo -A -p '<reason>'` passes through to the
+# wrapper. Fish-side (`_tgt_hosts_write` / `_tgt_krb5_write`) sets
+# `-p` from `$TGT_SUDO_REASON` so the user sees *which* tgt action
+# wants /etc/hosts modified.
+#
+# Zenity quirk worth recording: zenity 4.x's `--password` mode
+# IGNORES `--text`. The `--entry --hide-text` form does honor it
+# and behaves the same security-wise (input is masked). Took
+# in-browser testing on 2026-05-20 to find this — switching to
+# `--entry --hide-text` is what makes the per-action reason
+# visible under zenity.
 _HELPERS: list[tuple[str, str]] = [
-    ("zenity",           "{bin} --password --title='tgt-web' --text='{prompt}'"),
-    ("kdialog",          "{bin} --password '{prompt}' --title 'tgt-web'"),
-    ("ssh-askpass",      "{bin} '{prompt}'"),
-    ("ssh-askpass-gnome","{bin} '{prompt}'"),
-    ("x11-ssh-askpass",  "{bin} '{prompt}'"),
+    ("zenity",           '{bin} --entry --hide-text --title="tgt-web — sudo" --text="$1"'),
+    ("kdialog",          '{bin} --password "$1" --title "tgt-web — sudo"'),
+    ("ssh-askpass",      '{bin} "$1"'),
+    ("ssh-askpass-gnome",'{bin} "$1"'),
+    ("x11-ssh-askpass",  '{bin} "$1"'),
 ]
 
 INSTALL_TIPS = (
@@ -83,8 +93,10 @@ def _find_helper() -> Optional[tuple[str, str, str]]:
 
 
 def _write_wrapper(bin_path: str, template: str) -> Path:
-    """Write a tiny shell script invoking the helper with our prompt."""
-    cmd = template.format(bin=bin_path, prompt=PROMPT)
+    """Write a tiny shell script that invokes the helper with the
+    prompt sudo gives it (`$1`). The template was built with `$1`
+    literally embedded; we only fill in the binary path."""
+    cmd = template.format(bin=bin_path)
     script = f"#!/bin/sh\nexec {cmd}\n"
     WRAPPER_PATH.parent.mkdir(parents=True, exist_ok=True)
     WRAPPER_PATH.write_text(script)
