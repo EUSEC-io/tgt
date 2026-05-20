@@ -84,10 +84,50 @@ def test_css_served(http_server):
     assert b"font-family" in body
 
 
-def test_js_served(http_server):
-    status, body = _get(http_server, "/app.js")
+@pytest.mark.parametrize("name,marker", [
+    ("app.js", b"startEvents"),
+    ("state.js", b"export const state"),
+    ("helpers.js", b"export function el"),
+    ("actions.js", b"export function actionResult"),
+    ("render.js", b"export function renderSidebar"),
+    ("forms.js", b"Alpine.data('credPw'"),
+])
+def test_js_modules_served(http_server, name, marker):
+    """All ES modules served as static files; the static-file
+    allowlist regex covers `[a-z0-9_-]+.js` so each module is
+    reachable."""
+    status, body = _get(http_server, f"/{name}")
     assert status == 200
-    assert b"renderSidebar" in body
+    assert marker in body
+
+
+def test_arbitrary_js_outside_static_404s(http_server):
+    """The static-file regex constrains the name charset, so a path
+    that doesn't match (uppercase letters, leading dot, etc.) gets
+    rejected before the loader runs."""
+    status, _ = _get(http_server, "/UPPER.js")
+    assert status == 404
+    status, _ = _get(http_server, "/.hidden.js")
+    assert status == 404
+
+
+def test_index_html_has_no_inline_event_handlers(http_server):
+    """Module-loaded scripts don't put their exports on `window`,
+    so HTML attributes like `onclick="refresh(true)"` can't resolve
+    the name — every click would throw `refresh is not defined`.
+    Caught one of these (the ↻ refresh button) live on the module-
+    split PR; this test makes the regression class CI-visible.
+    Every interactive control must go through `el(…)` /
+    `addEventListener(…)` so the closure captures the import."""
+    import re as _re
+    _, body = _get(http_server, "/")
+    html = body.decode("utf-8", errors="replace")
+    # `on<event>=…` attributes — onclick, onsubmit, onmouseenter, etc.
+    leftovers = _re.findall(r"\bon[a-z]+\s*=\s*\"[^\"]+\"", html)
+    assert not leftovers, (
+        "inline event-handler attributes break under "
+        "<script type='module'>: " + str(leftovers)
+    )
 
 
 def test_vendor_alpine_served(http_server):

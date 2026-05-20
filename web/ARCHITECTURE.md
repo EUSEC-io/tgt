@@ -20,7 +20,11 @@ business logic; this layer is presentation + dispatch.
 2. **No build step, ever.** No npm, no Vite, no transpilation, no
    bundlers. Every JS/CSS file in `static/` is what gets served. If
    a future framework requires a build step, it's the wrong
-   framework.
+   framework. Native `<script type="module">` imports are NOT a
+   build step — the browser resolves the dependency tree at load
+   time. `static/app.js` is the entry point; it imports the other
+   modules (`state.js`, `helpers.js`, `actions.js`, `render.js`,
+   `forms.js`) directly.
 3. **Vendor everything.** Pentest hosts go offline. CDN script tags
    are forbidden. Third-party JS/CSS lives in `static/vendor/`
    pinned to a specific version and checked into git. A single
