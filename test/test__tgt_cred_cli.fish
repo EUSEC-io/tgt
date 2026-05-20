@@ -348,3 +348,95 @@ _tgt_scenario_cli new acme >/dev/null
 @test "scenario switch (acme, no creds): TGT_CRED_NAME cleared" \
     (set -q TGT_CRED_NAME; echo $status) -ne 0
 _test_teardown
+
+#
+# tgt cred edit <alias> --field value — non-interactive flag-driven
+# update. Missing flag preserves; empty flag clears; any flag
+# present skips the wizard.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt cred new admin --username Administrator --password hunter2 \
+    --domain dante.local --notes "default admin" >/dev/null
+
+# Single flag: update domain only, leave everything else.
+tgt cred edit admin --domain new.dante.local >/dev/null
+set -l line (_tgt_cred_read_fields dante admin)
+set -l fields (string split \t -- $line)
+@test "cred edit --domain: domain updated" \
+    "$fields[3]" = "new.dante.local"
+@test "cred edit --domain: username preserved" \
+    "$fields[1]" = Administrator
+@test "cred edit --domain: password preserved" \
+    "$fields[2]" = hunter2
+@test "cred edit --domain: notes preserved" \
+    "$fields[4]" = "default admin"
+_test_teardown
+
+#
+# Empty flag value clears that field on disk.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt cred new admin --username Administrator --password hunter2 \
+    --domain dante.local --notes "default admin" >/dev/null
+
+tgt cred edit admin --notes "" >/dev/null
+set -l line (_tgt_cred_read_fields dante admin)
+set -l fields (string split \t -- $line)
+@test "cred edit --notes '': notes cleared" \
+    "$fields[4]" = ""
+@test "cred edit --notes '': no TGT_CRED_NOTES line on disk" \
+    (grep -q TGT_CRED_NOTES (_tgt_cred_file dante admin); echo $status) -ne 0
+@test "cred edit --notes '': domain still set" \
+    "$fields[3]" = dante.local
+_test_teardown
+
+#
+# Multiple flags in one invocation.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
+
+tgt cred edit admin --username Charlotte --password "qwerty 123" >/dev/null
+set -l line (_tgt_cred_read_fields dante admin)
+set -l fields (string split \t -- $line)
+@test "cred edit (multi-flag): username updated" \
+    "$fields[1]" = Charlotte
+@test "cred edit (multi-flag): password updated (with space)" \
+    "$fields[2]" = "qwerty 123"
+_test_teardown
+
+#
+# Empty --username is rejected — username is required.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
+
+set -l rc (tgt cred edit admin --username "" 2>/dev/null; echo $status)
+set -l line (_tgt_cred_read_fields dante admin)
+set -l fields (string split \t -- $line)
+@test "cred edit --username '': returns non-zero" \
+    "$rc" -ne 0
+@test "cred edit --username '': username unchanged" \
+    "$fields[1]" = Administrator
+_test_teardown
+
+#
+# Flag mode does NOT prompt the wizard, even with no TGT_ASK_QUEUE.
+# Sanity guard: if my flag-path accidentally fell through, the
+# wizard would block on _tgt_ask_text and hang the test (or fail
+# loudly). This exercises the cheapest happy path.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt cred new admin --username Administrator --password hunter2 >/dev/null
+set -e TGT_ASK_QUEUE
+tgt cred edit admin --notes wired >/dev/null
+set -l line (_tgt_cred_read_fields dante admin)
+set -l fields (string split \t -- $line)
+@test "cred edit (flag mode, no ask queue): notes set without wizard" \
+    "$fields[4]" = wired
+_test_teardown

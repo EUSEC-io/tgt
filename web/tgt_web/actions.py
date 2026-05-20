@@ -44,6 +44,21 @@ def _cred_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _cred_edit_argv(p: dict) -> list[str]:
+    """Edit semantics differ from new: every flag is optional, and
+    we explicitly emit `--flag ''` for fields the caller wants to
+    clear. Caller passes the field key when they want to act on it
+    (set or clear); omitted keys preserve the current value."""
+    argv = ["cred", "edit", p["alias"]]
+    for key, flag in (("username", "--username"),
+                      ("password", "--password"),
+                      ("domain",   "--domain"),
+                      ("notes",    "--notes")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 def _dc_new_argv(p: dict) -> list[str]:
     argv = ["dc", "new", p["alias"]]
     for key, flag in (("domain",     "--domain"),
@@ -58,6 +73,31 @@ def _dc_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _target_edit_argv(p: dict) -> list[str]:
+    argv = ["edit", p["alias"]]
+    for key, flag in (("host",  "--host"),
+                      ("hosts", "--hosts")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
+def _dc_edit_argv(p: dict) -> list[str]:
+    """Edit: emit each flag the caller chose to act on, including
+    empty values (fish-side treats empty as clear). Key not present
+    in params = preserve. See _cred_edit_argv for the same pattern."""
+    argv = ["dc", "edit", p["alias"]]
+    for key, flag in (("domain",     "--domain"),
+                      ("realm",      "--realm"),
+                      ("kdc_host",   "--kdc-host"),
+                      ("kdc_ip",     "--kdc-ip"),
+                      ("admin_host", "--admin-host"),
+                      ("admin_ip",   "--admin-ip")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
@@ -66,12 +106,15 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
+    "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
+    "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
     "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),
     "cred_rm":            (lambda p: ["cred", "rm", p["alias"]],            ["alias"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
     "dc_new":             (_dc_new_argv,                                    ["alias"]),
+    "dc_edit":            (_dc_edit_argv,                                   ["alias"]),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
     "dc_unset":           (lambda p: ["dc", "unset"],                       []),
 }

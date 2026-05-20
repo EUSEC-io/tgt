@@ -272,6 +272,39 @@ def test_cred_rename_requires_old_and_new():
     assert s2 == 400 and "new" in b2["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Alias only — preserves everything fish-side (no flags emitted).
+        ({"alias": "adm"}, ["cred", "edit", "adm"]),
+        # Single-field update.
+        ({"alias": "adm", "domain": "new.local"},
+         ["cred", "edit", "adm", "--domain", "new.local"]),
+        # Multi-field update.
+        ({"alias": "adm", "username": "Alice", "password": "qwerty"},
+         ["cred", "edit", "adm", "--username", "Alice", "--password", "qwerty"]),
+        # Empty value passes through — fish clears the field on disk.
+        # Key MUST be present in `params` for the flag to be emitted.
+        ({"alias": "adm", "notes": ""},
+         ["cred", "edit", "adm", "--notes", ""]),
+        # Mixed clear + set in one call.
+        ({"alias": "adm", "domain": "", "username": "Bob"},
+         ["cred", "edit", "adm", "--username", "Bob", "--domain", ""]),
+    ],
+)
+def test_cred_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_cred_edit_requires_alias():
+    status, body = actions.dispatch_action("cred_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
 def test_scenario_new_requires_name():
     status, body = actions.dispatch_action("scenario_new", {})
     assert status == 400 and "name" in body["error"]
@@ -315,6 +348,69 @@ def test_dc_new_argv_builder(params, expected):
 
 def test_dc_new_requires_alias():
     status, body = actions.dispatch_action("dc_new", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"alias": "dc01"}, ["dc", "edit", "dc01"]),
+        ({"alias": "dc01", "realm": "CUSTOM.LOCAL"},
+         ["dc", "edit", "dc01", "--realm", "CUSTOM.LOCAL"]),
+        # Empty admin-host + admin-ip clear those fields.
+        ({"alias": "dc01", "admin_host": "", "admin_ip": ""},
+         ["dc", "edit", "dc01", "--admin-host", "", "--admin-ip", ""]),
+        # All six flags at once.
+        (
+            {"alias": "dc01", "domain": "acme.local", "realm": "ACME.LOCAL",
+             "kdc_host": "dc01.acme.local", "kdc_ip": "10.0.0.10",
+             "admin_host": "dc01.acme.local", "admin_ip": "10.0.0.10"},
+            ["dc", "edit", "dc01",
+             "--domain", "acme.local", "--realm", "ACME.LOCAL",
+             "--kdc-host", "dc01.acme.local", "--kdc-ip", "10.0.0.10",
+             "--admin-host", "dc01.acme.local", "--admin-ip", "10.0.0.10"],
+        ),
+    ],
+)
+def test_dc_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("dc_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_dc_edit_requires_alias():
+    status, body = actions.dispatch_action("dc_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"alias": "web"}, ["edit", "web"]),
+        ({"alias": "web", "host": "10.0.0.5"},
+         ["edit", "web", "--host", "10.0.0.5"]),
+        ({"alias": "web", "hosts": "a.local b.local"},
+         ["edit", "web", "--hosts", "a.local b.local"]),
+        # Empty hosts → fish clears the field.
+        ({"alias": "web", "hosts": ""},
+         ["edit", "web", "--hosts", ""]),
+        # Both flags together.
+        ({"alias": "web", "host": "10.0.0.5", "hosts": "a.local"},
+         ["edit", "web", "--host", "10.0.0.5", "--hosts", "a.local"]),
+    ],
+)
+def test_target_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_edit_requires_alias():
+    status, body = actions.dispatch_action("target_edit", {})
     assert status == 400 and "alias" in body["error"]
 
 

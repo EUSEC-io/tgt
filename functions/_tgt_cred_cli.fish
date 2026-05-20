@@ -206,7 +206,17 @@ function _tgt_cred_cli
             return 0
 
         case edit
-            set -l alias $rest[1]
+            # Flag-driven non-interactive edit when ANY of --username
+            # --password --domain --notes is given; falls through to
+            # the wizard when none is. Empty flag value clears that
+            # field; absent flag preserves the current value.
+            argparse --name='tgt cred edit' \
+                'u/username=' 'p/password=' 'd/domain=' 'n/notes=' \
+                -- $rest
+            or return 1
+
+            set -l alias ""
+            test (count $argv) -ge 1; and set alias $argv[1]
             if test -z "$alias"
                 set -l aliases (_tgt_cred_list $scenario)
                 if test (count $aliases) -eq 0
@@ -220,8 +230,57 @@ function _tgt_cred_cli
                 echo "tgt cred edit: credential '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            _tgt_cred_edit_wizard $scenario $alias
-            return $status
+
+            set -l any_flag 0
+            for f in _flag_username _flag_password _flag_domain _flag_notes
+                set -q $f; and set any_flag 1; and break
+            end
+            if test $any_flag -eq 0
+                _tgt_cred_edit_wizard $scenario $alias
+                return $status
+            end
+
+            # Read current values via the canonical helper.
+            set -l line (_tgt_cred_read_fields $scenario $alias)
+            set -l fields (string split \t -- $line)
+            set -l new_username $fields[1]
+            set -l new_password $fields[2]
+            set -l new_domain   $fields[3]
+            set -l new_notes    $fields[4]
+            set -q _flag_username; and set new_username $_flag_username
+            set -q _flag_password; and set new_password $_flag_password
+            set -q _flag_domain;   and set new_domain   $_flag_domain
+            set -q _flag_notes;    and set new_notes    $_flag_notes
+
+            if test -z "$new_username"
+                echo "tgt cred edit: username cannot be empty" >&2
+                return 1
+            end
+
+            # Stage into env vars then save — same dance the wizard
+            # does so empty values actually drop the corresponding
+            # _tgt_export line on disk.
+            for v in TGT_CRED_USERNAME TGT_CRED_PASSWORD TGT_CRED_DOMAIN TGT_CRED_NOTES
+                set -q $v; and _tgt_unexport $v
+            end
+            set -gx TGT_CRED_USERNAME $new_username
+            test -n "$new_password"; and set -gx TGT_CRED_PASSWORD $new_password
+            test -n "$new_domain"  ; and set -gx TGT_CRED_DOMAIN $new_domain
+            test -n "$new_notes"   ; and set -gx TGT_CRED_NOTES $new_notes
+
+            _tgt_cred_save $scenario $alias
+            or return $status
+
+            # Restore runtime around whichever cred is currently
+            # active — staging above wiped TGT_CRED_*.
+            set -l active (_tgt_cred_get_active $scenario 2>/dev/null)
+            _tgt_cred_clear_runtime
+            if test -n "$active"
+                _tgt_cred_load $scenario $active
+            end
+
+            set_color green; echo "✓ credential '$alias' updated in '$scenario'"; set_color normal
+            return 0
 
         case rename
             set -l old ""

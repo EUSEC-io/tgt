@@ -431,10 +431,18 @@ function renderDetail() {
   countEl.textContent = (q && totalMatches !== totalAll)
     ? `${totalMatches} of ${totalAll} match` : '';
 
-  // Targets
-  main.append(el('h2', {}, `targets (${sectionCount(targets.length, d.targets.length)})`));
-  if (targets.length === 0) main.append(sectionEmpty(d.targets.length));
-  else main.append(el('div', {class: 'table-scroll'}, el('table', {},
+  // Targets — wrapped in an Alpine scope for the edit form
+  // (no `new` form on the web yet since fish-side `target new`
+  // only accepts an alias without field flags).
+  const targetSection = el('div', {
+    'x-data': `targetEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'target',
+  });
+  targetSection.append(el('h2', {},
+    `targets (${sectionCount(targets.length, d.targets.length)})`));
+  targetSection.append(buildTargetEditForm());
+  if (targets.length === 0) targetSection.append(sectionEmpty(d.targets.length));
+  else targetSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
                         el('th', {}, 'hostnames'), el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
@@ -450,7 +458,9 @@ function renderDetail() {
               title: 'Revoke active target?',
               message: `Clears the active-target marker and TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE runtime in fish. Also removes "${t.alias}"'s entries from /etc/hosts. The target record stays on disk; creds + DC are unaffected.`,
               confirmLabel: 'revoke',
-            }, 'target_revoke')}, 'revoke') : ''))))))));
+            }, 'target_revoke')}, 'revoke') : ''),
+        el('button', {onclick: () => openTargetEdit(d.name, t)}, 'edit'))))))));
+  main.append(targetSection);
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
   // open the inline create form (state: open / fields / submitting /
@@ -467,6 +477,15 @@ function renderDetail() {
       '+ new'),
   ));
   credSection.append(buildCredNewForm());
+  // Edit form lives in its own nested Alpine scope. Triggered via
+  // `openCredEdit(scenario, cred)` from row buttons — that helper
+  // looks the scope up by `data-edit-scope` and pokes the state in.
+  const credEditScope = el('div', {
+    'x-data': `credEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'cred',
+  });
+  credEditScope.append(buildCredEditForm());
+  credSection.append(credEditScope);
   if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
   else credSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
@@ -519,6 +538,7 @@ function renderDetail() {
                 message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
                 confirmLabel: 'unset',
               }, 'cred_unset')}, 'unset') : ''),
+          el('button', {onclick: () => openCredEdit(d.name, c)}, 'edit'),
           el('button', {onclick: () => {
             const next = window.prompt(`Rename "${c.alias}" to:`, c.alias);
             if (!next || next === c.alias) return;
@@ -541,6 +561,12 @@ function renderDetail() {
       '+ new'),
   ));
   dcSection.append(buildDcNewForm());
+  const dcEditScope = el('div', {
+    'x-data': `dcEditForm(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'dc',
+  });
+  dcEditScope.append(buildDcEditForm());
+  dcSection.append(dcEditScope);
   if (dcs.length === 0) dcSection.append(sectionEmpty(d.dcs.length));
   else dcSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
@@ -552,13 +578,15 @@ function renderDetail() {
       el('td', {}, valueCell(dc.realm, 'realm')),
       el('td', {}, valueCell(dc.kdc_host || dc.kdc_ip, 'kdc')),
       el('td', {}, valueCell(dc.admin_host || dc.admin_ip, 'admin')),
-      el('td', {}, d.active && !dc.active
-        ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
-        : (dc.active ? el('button', {onclick: () => confirmAct({
-            title: 'Unset active DC?',
-            message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
-            confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : ''))))))));
+      el('td', {class: 'row-actions'},
+        d.active && !dc.active
+          ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
+          : (dc.active ? el('button', {onclick: () => confirmAct({
+              title: 'Unset active DC?',
+              message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
+              confirmLabel: 'unset',
+            }, 'dc_unset')}, 'unset') : ''),
+        el('button', {onclick: () => openDcEdit(d.name, dc)}, 'edit'))))))));
   main.append(dcSection);
 }
 
@@ -695,6 +723,88 @@ function buildCredNewForm() {
         }))));
 }
 
+// ────────────────────────── forms: cred edit ─────────────────────────
+// Same field set as `cred new` plus a read-only alias display. The
+// password input prefills with the current stored value (fetched by
+// `openCredEdit`); clearing it and submitting clears it on disk.
+function buildCredEditForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit credential'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          ':value': 'alias', 'readonly': '', 'tabindex': '-1',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'username'),
+        el('input', {
+          'x-model.trim': 'username', 'required': '', 'autocomplete': 'off',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'password'),
+        el('div', {class: 'pw-input-row'},
+          el('input', {
+            'x-model': 'password',
+            ':type': "showPassword ? 'text' : 'password'",
+            'autocomplete': 'new-password',
+          }),
+          el('button', {
+            'type': 'button', 'class': 'pw-toggle',
+            '@click': 'showPassword = !showPassword',
+            'x-text': "showPassword ? 'hide' : 'show'",
+          }))),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'domain'),
+        el('input', { 'x-model.trim': 'domain', 'autocomplete': 'off' })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'notes'),
+        el('textarea', { 'x-model': 'notes', 'rows': '2' })),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+// Triggered from each cred row's `edit` button. Fetches the
+// current password (`has_password` only — saves a round-trip
+// otherwise), then locates the credEditForm Alpine scope for
+// this scenario and pokes its state in so the form opens
+// already-prefilled.
+async function openCredEdit(scenario, cred) {
+  let password = '';
+  if (cred.has_password) {
+    try {
+      const r = await fetch(passwordUrl(scenario, cred.alias));
+      if (!r.ok) {
+        toast('failed to load password: HTTP ' + r.status, 'error');
+        return;
+      }
+      const j = await r.json();
+      password = j.password || '';
+    } catch (e) {
+      toast('failed to load password: ' + e.message, 'error');
+      return;
+    }
+  }
+  const scope = document.querySelector('[data-edit-scope="cred"]');
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = cred.alias;
+  data.username = cred.username || '';
+  data.password = password;
+  data.domain = cred.domain || '';
+  data.notes = cred.notes || '';
+  data.error = '';
+  data.submitting = false;
+  data.showPassword = true;
+  data.open = true;
+}
+
 // ────────────────────────── forms: dc new ─────────────────────────────
 // Inline form for `tgt dc new`. Every field except alias is optional —
 // fish-side `argparse` accepts any subset and the argv builder drops
@@ -729,6 +839,99 @@ function buildDcNewForm() {
           ':disabled': 'submitting',
           'x-text': "submitting ? 'saving…' : 'create'",
         }))));
+}
+
+// ────────────────────────── forms: target edit ───────────────────────
+// Targets store TGT (host) + TGT_HOSTS (space-separated extra
+// hostnames). The form accepts both as scalar inputs; the backend
+// `target_edit` action passes them through to `tgt edit --host /
+// --hosts`.
+function buildTargetEditForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit target'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', { ':value': 'alias', 'readonly': '', 'tabindex': '-1' })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'host'),
+        el('input', {
+          'x-model.trim': 'host', 'autocomplete': 'off',
+          'placeholder': 'IP or hostname',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'hostnames'),
+        el('input', {
+          'x-model.trim': 'hosts', 'autocomplete': 'off',
+          'placeholder': 'space-separated, e.g. web.acme.local mail.acme.local',
+        })),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+async function openTargetEdit(scenario, target) {
+  const scope = document.querySelector('[data-edit-scope="target"]');
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = target.alias;
+  data.host = target.host || '';
+  data.hosts = (target.hosts || []).join(' ');
+  data.error = '';
+  data.submitting = false;
+  data.open = true;
+}
+
+// ────────────────────────── forms: dc edit ────────────────────────────
+// Same field set as `dc new` plus a readonly alias display.
+function buildDcEditForm() {
+  const field = (label, model, placeholder) => el('label', {},
+    el('span', {class: 'form-label'}, label),
+    el('input', {
+      'x-model.trim': model, 'autocomplete': 'off',
+      'placeholder': placeholder || '',
+    }));
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit DC'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', { ':value': 'alias', 'readonly': '', 'tabindex': '-1' })),
+      field('domain',     'domain',    'e.g. acme.local'),
+      field('realm',      'realm',     'e.g. ACME.LOCAL'),
+      field('kdc host',   'kdcHost',   'e.g. dc01.acme.local'),
+      field('kdc ip',     'kdcIp',     'e.g. 10.0.0.10'),
+      field('admin host', 'adminHost', 'optional'),
+      field('admin ip',   'adminIp',   'optional'),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+async function openDcEdit(scenario, dc) {
+  const scope = document.querySelector('[data-edit-scope="dc"]');
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = dc.alias;
+  data.domain = dc.domain || '';
+  data.realm = dc.realm || '';
+  data.kdcHost = dc.kdc_host || '';
+  data.kdcIp = dc.kdc_ip || '';
+  data.adminHost = dc.admin_host || '';
+  data.adminIp = dc.admin_ip || '';
+  data.error = '';
+  data.submitting = false;
+  data.open = true;
 }
 
 document.addEventListener('alpine:init', () => {
@@ -847,6 +1050,93 @@ document.addEventListener('alpine:init', () => {
         });
         if (ok) {
           this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing cred. Pre-filled by `openCredEdit`
+  // before opening; submit posts every field every time, so empty
+  // fields here clear the corresponding TGT_CRED_* on disk —
+  // matches the backend rule.
+  window.Alpine.data('credEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', username: '', password: '', domain: '', notes: '',
+    showPassword: true,
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('cred_edit', {
+          alias: this.alias, username: this.username,
+          password: this.password, domain: this.domain, notes: this.notes,
+        });
+        if (ok) {
+          this.open = false;
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing target. Pre-filled by `openTargetEdit`.
+  window.Alpine.data('targetEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', host: '', hosts: '',
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('target_edit', {
+          alias: this.alias, host: this.host, hosts: this.hosts,
+        });
+        if (ok) {
+          this.open = false;
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing DC. Pre-filled by `openDcEdit`.
+  // Submit posts every field every time; empty fields clear on
+  // disk (modulo domain which is required and realm which
+  // auto-derives from domain when empty).
+  window.Alpine.data('dcEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', domain: '', realm: '',
+    kdcHost: '', kdcIp: '', adminHost: '', adminIp: '',
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('dc_edit', {
+          alias: this.alias,
+          domain: this.domain, realm: this.realm,
+          kdc_host: this.kdcHost, kdc_ip: this.kdcIp,
+          admin_host: this.adminHost, admin_ip: this.adminIp,
+        });
+        if (ok) {
+          this.open = false;
           await refresh(true);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();

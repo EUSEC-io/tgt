@@ -239,30 +239,41 @@ complete -c tgt -n "__fish_seen_subcommand_from cred; and not __fish_seen_subcom
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from show rm switch edit rename' \
     -a '(__tgt_complete_active_creds)' -d credential
 
-# `tgt cred new` flag completions
-complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
-    -l username -d 'Username (required; alias defaults to it if omitted)' -r
-complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
-    -l password -d 'Plaintext password or NTLM hash' -r
-complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
-    -l domain   -d 'AD domain (optional, e.g. dante.local)' -r
-complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new' \
-    -l notes    -d 'Free-form notes' -r
+# `tgt cred new` + `tgt cred edit` flag completions. Same set —
+# edit treats omitted flags as preserve and empty values as clear.
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new edit' \
+    -l username -d 'Username (new: required; edit: pass empty to reject)' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new edit' \
+    -l password -d 'Plaintext password or NTLM hash (edit: empty clears)' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new edit' \
+    -l domain   -d 'AD domain (edit: empty clears)' -r
+complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from new edit' \
+    -l notes    -d 'Free-form notes (edit: empty clears)' -r
 
 # `tgt cred list` flag completions
 complete -c tgt -n '__fish_seen_subcommand_from cred; and __fish_seen_subcommand_from list' \
     -l show-passwords -d 'Render the actual password / hash value (default: pw:Y/N)'
 
-# `tgt dc new` flag completions
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+# `tgt dc new` + `tgt dc edit` flag completions. Same set — edit
+# treats omitted flags as preserve and empty values as clear (with
+# domain still required and at least one of --kdc-host/--kdc-ip
+# required after the edit).
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l domain     -d 'AD domain (lowercase, e.g. dante.local)' -r
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l realm      -d 'Kerberos realm (default: upper(domain))' -r
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l kdc-host   -d 'KDC FQDN (used in krb5.conf when set)' -r
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l kdc-ip     -d 'KDC IP (paired with --kdc-host writes /etc/hosts)' -r
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l admin-host -d 'admin_server FQDN (optional)' -r
-complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new' \
+complete -c tgt -n '__fish_seen_subcommand_from dc; and __fish_seen_subcommand_from new edit' \
     -l admin-ip   -d 'admin_server IP (optional)' -r
+
+# `tgt edit` (top-level target edit) flag completions for non-
+# interactive use. No flags → wizard (existing behavior).
+complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario dc ports cred' \
+    -l host  -d 'Target host / IP (empty clears)' -r
+complete -c tgt -n '__fish_seen_subcommand_from edit; and not __fish_seen_subcommand_from scenario dc ports cred' \
+    -l hosts -d 'Hostnames, space-separated (empty clears)' -r

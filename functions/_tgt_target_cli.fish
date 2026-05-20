@@ -157,27 +157,119 @@ function _tgt_target_cli
             return 0
 
         case edit
+            # Flag-driven non-interactive edit when --host or --hosts
+            # is set; falls through to the existing wizard flow when
+            # neither is. Flag mode does NOT switch the active target
+            # (so editing target B while A is active leaves A loaded);
+            # the wizard path still does because it operates via the
+            # live TGT/TGT_HOSTS env vars.
+            argparse --name='tgt edit' \
+                'host=' 'hosts=' \
+                -- $rest
+            or return 1
+
             set -l alias ""
-            test (count $rest) -ge 1; and set alias $rest[1]
-            if test -n "$alias"
-                if not _tgt_target_exists $scenario $alias
-                    echo "tgt edit: target '$alias' does not exist in scenario '$scenario'" >&2
+            test (count $argv) -ge 1; and set alias $argv[1]
+
+            if not set -q _flag_host; and not set -q _flag_hosts
+                if test -n "$alias"
+                    if not _tgt_target_exists $scenario $alias
+                        echo "tgt edit: target '$alias' does not exist in scenario '$scenario'" >&2
+                        return 1
+                    end
+                    if not set -q TGT_ACTIVE; or test "$TGT_ACTIVE" != "$alias"
+                        _tgt_target_cli switch $alias
+                        or return $status
+                    end
+                else if not set -q TGT_ACTIVE
+                    echo "tgt edit: no active target. Specify <alias> or run `tgt switch` first." >&2
                     return 1
                 end
-                if not set -q TGT_ACTIVE; or test "$TGT_ACTIVE" != "$alias"
-                    _tgt_target_cli switch $alias
-                    or return $status
+                if set -q TGT_TEST_MODE
+                    # Don't drop into the wizard during tests.
+                    return 0
                 end
-            else if not set -q TGT_ACTIVE
-                echo "tgt edit: no active target. Specify <alias> or run `tgt switch` first." >&2
+                _tgt_wizard
+                return $status
+            end
+
+            # Flag-driven path.
+            if test -z "$alias"
+                if not set -q TGT_ACTIVE
+                    echo "tgt edit: alias required when no target is active" >&2
+                    return 1
+                end
+                set alias $TGT_ACTIVE
+            end
+            if not _tgt_target_exists $scenario $alias
+                echo "tgt edit: target '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            if set -q TGT_TEST_MODE
-                # Don't drop into the wizard during tests.
-                return 0
+
+            # Read current TGT / TGT_HOSTS from disk.
+            set -l cur_host ""
+            set -l cur_hosts ""
+            set -l file (_tgt_target_file $scenario $alias)
+            while read -l line
+                set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
+                test (count $m) -lt 3; and continue
+                set -l val (string unescape -- $m[3])
+                switch $m[2]
+                    case TGT
+                        set cur_host $val
+                    case TGT_HOSTS
+                        set cur_hosts $val
+                end
+            end < $file
+
+            set -l new_host $cur_host
+            set -l new_hosts $cur_hosts
+            set -q _flag_host;  and set new_host $_flag_host
+            set -q _flag_hosts; and set new_hosts $_flag_hosts
+
+            # Snapshot any existing TGT/TGT_HOSTS so we can put them
+            # back after save — they might belong to a different
+            # target that's currently active in this shell.
+            set -l have_tgt 0
+            set -l have_hosts 0
+            set -l save_tgt
+            set -l save_hosts
+            set -q TGT      ; and set have_tgt 1  ; and set save_tgt $TGT
+            set -q TGT_HOSTS; and set have_hosts 1; and set save_hosts $TGT_HOSTS
+
+            # Stage + save.
+            for v in TGT TGT_HOSTS
+                set -q $v; and _tgt_unexport $v
             end
-            _tgt_wizard
-            return $status
+            test -n "$new_host" ; and set -gx TGT $new_host
+            test -n "$new_hosts"; and set -gx TGT_HOSTS $new_hosts
+
+            _tgt_target_save $scenario $alias
+            or return $status
+
+            # Restore universal-scope state across all shells. The
+            # unexport at the top cleared TGT / TGT_HOSTS universally
+            # (so the save would drop fields that became empty); we
+            # have to put them back so other open shells reflect the
+            # newly-saved values (or, when editing a non-active
+            # target, the previously-loaded active target's values).
+            # Re-loading from disk goes through `_tgt_export` =
+            # `set -Ux`, which is what `tgt switch` does — same
+            # universal propagation.
+            for v in TGT TGT_HOSTS
+                set -q $v; and _tgt_unexport $v
+            end
+            if set -q TGT_ACTIVE; and test -n "$TGT_ACTIVE"
+                _tgt_target_load $scenario $TGT_ACTIVE
+            end
+            # If the edit affected the currently-active target, also
+            # re-apply /etc/hosts since TGT_HOSTS may have changed.
+            if set -q TGT_ACTIVE; and test "$TGT_ACTIVE" = "$alias"
+                _tgt_hosts_apply_scenario $scenario
+            end
+
+            set_color green; echo "✓ target '$alias' updated in '$scenario'"; set_color normal
+            return 0
 
         case rm
             argparse --name='tgt rm' 'purge-workspace' -- $rest
