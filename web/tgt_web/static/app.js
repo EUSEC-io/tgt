@@ -467,6 +467,12 @@ function renderDetail() {
       '+ new'),
   ));
   credSection.append(buildCredNewForm());
+  // Edit form lives in its own nested Alpine scope. Triggered via
+  // `openCredEdit(scenario, cred)` from row buttons — that helper
+  // looks the scope up by attribute and pokes the state in.
+  const credEditScope = el('div', { 'x-data': `credEditForm(${JSON.stringify(d.name)})` });
+  credEditScope.append(buildCredEditForm());
+  credSection.append(credEditScope);
   if (creds.length === 0) credSection.append(sectionEmpty(d.creds.length));
   else credSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'username'),
@@ -519,6 +525,7 @@ function renderDetail() {
                 message: `Clears the active-cred marker in "${d.name}" and all TGT_CRED_* runtime in fish. The cred record stays on disk.`,
                 confirmLabel: 'unset',
               }, 'cred_unset')}, 'unset') : ''),
+          el('button', {onclick: () => openCredEdit(d.name, c)}, 'edit'),
           el('button', {onclick: () => {
             const next = window.prompt(`Rename "${c.alias}" to:`, c.alias);
             if (!next || next === c.alias) return;
@@ -695,6 +702,89 @@ function buildCredNewForm() {
         }))));
 }
 
+// ────────────────────────── forms: cred edit ─────────────────────────
+// Same field set as `cred new` plus a read-only alias display. The
+// password input prefills with the current stored value (fetched by
+// `openCredEdit`); clearing it and submitting clears it on disk.
+function buildCredEditForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit credential'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          ':value': 'alias', 'readonly': '', 'tabindex': '-1',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'username'),
+        el('input', {
+          'x-model.trim': 'username', 'required': '', 'autocomplete': 'off',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'password'),
+        el('div', {class: 'pw-input-row'},
+          el('input', {
+            'x-model': 'password',
+            ':type': "showPassword ? 'text' : 'password'",
+            'autocomplete': 'new-password',
+          }),
+          el('button', {
+            'type': 'button', 'class': 'pw-toggle',
+            '@click': 'showPassword = !showPassword',
+            'x-text': "showPassword ? 'hide' : 'show'",
+          }))),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'domain'),
+        el('input', { 'x-model.trim': 'domain', 'autocomplete': 'off' })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'notes'),
+        el('textarea', { 'x-model': 'notes', 'rows': '2' })),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+// Triggered from each cred row's `edit` button. Fetches the
+// current password (`has_password` only — saves a round-trip
+// otherwise), then locates the credEditForm Alpine scope for
+// this scenario and pokes its state in so the form opens
+// already-prefilled.
+async function openCredEdit(scenario, cred) {
+  let password = '';
+  if (cred.has_password) {
+    try {
+      const r = await fetch(passwordUrl(scenario, cred.alias));
+      if (!r.ok) {
+        toast('failed to load password: HTTP ' + r.status, 'error');
+        return;
+      }
+      const j = await r.json();
+      password = j.password || '';
+    } catch (e) {
+      toast('failed to load password: ' + e.message, 'error');
+      return;
+    }
+  }
+  const sel = `[x-data="credEditForm(${JSON.stringify(scenario)})"]`;
+  const scope = document.querySelector(sel);
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = cred.alias;
+  data.username = cred.username || '';
+  data.password = password;
+  data.domain = cred.domain || '';
+  data.notes = cred.notes || '';
+  data.error = '';
+  data.submitting = false;
+  data.showPassword = true;
+  data.open = true;
+}
+
 // ────────────────────────── forms: dc new ─────────────────────────────
 // Inline form for `tgt dc new`. Every field except alias is optional —
 // fish-side `argparse` accepts any subset and the argv builder drops
@@ -847,6 +937,36 @@ document.addEventListener('alpine:init', () => {
         });
         if (ok) {
           this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing cred. Pre-filled by `openCredEdit`
+  // before opening; submit posts every field every time, so empty
+  // fields here clear the corresponding TGT_CRED_* on disk —
+  // matches the backend rule.
+  window.Alpine.data('credEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', username: '', password: '', domain: '', notes: '',
+    showPassword: true,
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('cred_edit', {
+          alias: this.alias, username: this.username,
+          password: this.password, domain: this.domain, notes: this.notes,
+        });
+        if (ok) {
+          this.open = false;
           await refresh(true);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();

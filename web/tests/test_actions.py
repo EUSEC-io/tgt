@@ -272,6 +272,39 @@ def test_cred_rename_requires_old_and_new():
     assert s2 == 400 and "new" in b2["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Alias only — preserves everything fish-side (no flags emitted).
+        ({"alias": "adm"}, ["cred", "edit", "adm"]),
+        # Single-field update.
+        ({"alias": "adm", "domain": "new.local"},
+         ["cred", "edit", "adm", "--domain", "new.local"]),
+        # Multi-field update.
+        ({"alias": "adm", "username": "Alice", "password": "qwerty"},
+         ["cred", "edit", "adm", "--username", "Alice", "--password", "qwerty"]),
+        # Empty value passes through — fish clears the field on disk.
+        # Key MUST be present in `params` for the flag to be emitted.
+        ({"alias": "adm", "notes": ""},
+         ["cred", "edit", "adm", "--notes", ""]),
+        # Mixed clear + set in one call.
+        ({"alias": "adm", "domain": "", "username": "Bob"},
+         ["cred", "edit", "adm", "--username", "Bob", "--domain", ""]),
+    ],
+)
+def test_cred_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("cred_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_cred_edit_requires_alias():
+    status, body = actions.dispatch_action("cred_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
 def test_scenario_new_requires_name():
     status, body = actions.dispatch_action("scenario_new", {})
     assert status == 400 and "name" in body["error"]

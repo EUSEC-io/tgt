@@ -44,6 +44,21 @@ def _cred_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _cred_edit_argv(p: dict) -> list[str]:
+    """Edit semantics differ from new: every flag is optional, and
+    we explicitly emit `--flag ''` for fields the caller wants to
+    clear. Caller passes the field key when they want to act on it
+    (set or clear); omitted keys preserve the current value."""
+    argv = ["cred", "edit", p["alias"]]
+    for key, flag in (("username", "--username"),
+                      ("password", "--password"),
+                      ("domain",   "--domain"),
+                      ("notes",    "--notes")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 def _dc_new_argv(p: dict) -> list[str]:
     argv = ["dc", "new", p["alias"]]
     for key, flag in (("domain",     "--domain"),
@@ -67,6 +82,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
+    "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
     "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),
     "cred_rm":            (lambda p: ["cred", "rm", p["alias"]],            ["alias"]),
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
