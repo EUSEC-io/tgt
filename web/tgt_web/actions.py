@@ -26,7 +26,18 @@ from tgt_web import reader, sudo
 # value in a variable (`set red (set_color red); echo "$red foo"`)
 # and that bypasses the isatty check. Belt-and-suspenders: strip
 # server-side too, and pass NO_COLOR=1 in the subprocess env.
-_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+# Two escape forms leak through tgt's output:
+#  1. CSI: `ESC [ … <final>` — colors, cursor moves. The bulk of
+#     what `set_color` emits.
+#  2. Charset designation: `ESC ( c` / `ESC ) c` — `set_color
+#     normal` in some fish builds emits `ESC ( B` (designate ASCII
+#     as G0). Falls outside the CSI pattern; until this rule was
+#     added the literal `␛(B` showed up in toasts + the action
+#     panel.
+_ANSI_RE = re.compile(
+    r"\x1b\[[0-9;?]*[ -/]*[@-~]"
+    r"|\x1b[()][A-Za-z0-9]"
+)
 
 
 def _strip_ansi(s: str) -> str:
