@@ -94,18 +94,16 @@ def _ports_spec(p: dict) -> str:
 
 def _ports_add_argv(p: dict) -> list[str]:
     """`tgt ports add --target <t> <port>[/<proto>] [service] [comment]`.
-    Service + comment are optional positionals; we only emit them
-    when non-empty to keep the argv lean."""
+    Both positionals are optional fish-side. Comment lives in slot
+    [2] (after service), so when the caller provides a comment
+    without a service we still need to emit an empty string in
+    the service slot — otherwise the comment would land where
+    `service` is parsed and never get stored."""
     argv = ["ports", "add", "--target", p["target"], _ports_spec(p)]
     service = p.get("service", "")
     comment = p.get("comment", "")
-    if service:
-        argv.append(service)
-        # `comment` is captured as rest[3..] fish-side, so it MUST
-        # come after a non-empty service to land in the right slot.
-        # An empty service with a comment isn't representable on
-        # the CLI; surface that case the same way fish does (no
-        # comment unless service is set).
+    if service or comment:
+        argv.append(service)            # may be the empty string
         if comment:
             argv.append(comment)
     return argv

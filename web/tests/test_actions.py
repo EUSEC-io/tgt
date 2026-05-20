@@ -453,10 +453,15 @@ def test_target_edit_requires_alias():
         ({"target": "web", "port": "22", "proto": "tcp",
           "service": "ssh", "comment": "OpenSSH 8.4"},
          ["ports", "add", "--target", "web", "22/tcp", "ssh", "OpenSSH 8.4"]),
-        # Empty service + comment is harmless — comment can't be set
-        # without a service on the CLI so we just omit both.
+        # Comment without service: emit an empty string in the
+        # service slot so the comment lands in positional[3]
+        # fish-side, where it actually gets stored.
         ({"target": "web", "port": "443", "proto": "tcp",
-          "service": "", "comment": "should-not-appear"},
+          "service": "", "comment": "https"},
+         ["ports", "add", "--target", "web", "443/tcp", "", "https"]),
+        # Both empty: no positionals after spec.
+        ({"target": "web", "port": "443", "proto": "tcp",
+          "service": "", "comment": ""},
          ["ports", "add", "--target", "web", "443/tcp"]),
     ],
 )
