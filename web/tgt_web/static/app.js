@@ -441,16 +441,33 @@ function renderDetail() {
   targetSection.append(el('h2', {},
     `targets (${sectionCount(targets.length, d.targets.length)})`));
   targetSection.append(buildTargetEditForm());
+  // Ports manager — separate Alpine scope (same pattern as the
+  // edit scopes). Opens prefilled when any target row's "ports"
+  // button is clicked.
+  const portsScope = el('div', {
+    'x-data': `portsManager(${JSON.stringify(d.name)})`,
+    'data-edit-scope': 'ports',
+  });
+  portsScope.append(buildPortsManagerForm());
+  targetSection.append(portsScope);
   if (targets.length === 0) targetSection.append(sectionEmpty(d.targets.length));
   else targetSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'host'),
-                        el('th', {}, 'hostnames'), el('th', {}, ''))),
+                        el('th', {}, 'hostnames'), el('th', {}, 'ports'),
+                        el('th', {}, ''))),
     el('tbody', {}, ...targets.map(t => el('tr', {},
       el('td', {class: t.active ? 'active' : ''}, t.alias),
       el('td', {}, valueCell(t.host, 'host')),
       el('td', {}, t.hosts.length
         ? el('span', {class: 'vc-chips'}, ...t.hosts.map(h => valueCell(h, 'hostname')))
         : document.createTextNode('—')),
+      el('td', {},
+        el('button', {
+          class: 'ports-link',
+          onclick: () => openPortsManager(d.name, t),
+        }, t.ports && t.ports.length
+            ? `${t.ports.length} port${t.ports.length === 1 ? '' : 's'}`
+            : '+ add')),
       el('td', {class: 'row-actions'},
         d.active && !t.active
           ? el('button', {onclick: () => act('target_switch', {alias: t.alias})}, 'switch')
@@ -887,6 +904,144 @@ async function openTargetEdit(scenario, target) {
   data.open = true;
 }
 
+// ────────────────────────── forms: ports manager ─────────────────────
+// One form-card per scenario; manages a single target's ports at a
+// time. Triggered via `openPortsManager(scenario, target)` from each
+// target row's ports button. Lists existing ports with rm buttons,
+// plus an add-port sub-form. Comment changes happen via a per-row
+// inline `save` (calls `tgt ports comment --target …`).
+function buildPortsManagerForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'},
+      el('span', {}, 'ports for '),
+      el('span', {'x-text': 'target', 'class': 'pm-target'})),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('div', {'x-show': 'ports.length === 0', class: 'pm-empty'},
+      '(no ports recorded)'),
+    el('table', { 'x-show': 'ports.length > 0', class: 'pm-table' },
+      el('thead', {}, el('tr', {},
+        el('th', {}, 'port'), el('th', {}, 'service'),
+        el('th', {}, 'comment'), el('th', {}, ''))),
+      el('tbody', { 'x-html': '\'\'' /* tbody populated dynamically below */ })),
+    // The tbody is built imperatively in `_renderPortsRows` to keep
+    // per-row state simple (no Alpine x-for; mutation patterns are
+    // confusing alongside the dynamic refresh).
+    el('div', {class: 'pm-add'},
+      el('div', {class: 'pm-label'}, 'add port'),
+      el('form', { '@submit.prevent': 'submitAdd' },
+        el('div', {class: 'pm-add-row'},
+          el('input', {
+            'x-model.trim': 'addPort', 'required': '',
+            'placeholder': 'port', class: 'pm-port',
+          }),
+          el('select', { 'x-model': 'addProto', class: 'pm-proto' },
+            el('option', {value: 'tcp'}, 'tcp'),
+            el('option', {value: 'udp'}, 'udp')),
+          el('input', {
+            'x-model.trim': 'addService',
+            'placeholder': 'service (optional)', class: 'pm-svc',
+          }),
+          el('input', {
+            'x-model.trim': 'addComment',
+            'placeholder': 'comment (optional)', class: 'pm-cmt',
+          }),
+          el('button', {
+            'type': 'submit', 'class': 'primary',
+            ':disabled': 'submitting',
+            'x-text': "submitting ? 'adding…' : 'add'",
+          }))),
+    ),
+    el('div', {class: 'form-buttons'},
+      el('button', { 'type': 'button', '@click': 'close()' }, 'close')));
+}
+
+// Render the per-port rows inside the manager's tbody. Called from
+// `openPortsManager` and after every add/rm/comment so the table
+// stays in sync with the (refreshed) state.
+function _renderPortsRows(scopeEl, scenario, target, ports) {
+  const tbody = scopeEl.querySelector('.pm-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  for (const p of ports) {
+    const serviceInput = el('input', {
+      'value': p.service || '', 'data-port': p.port, 'data-proto': p.proto,
+      class: 'pm-svc-edit', readonly: '', tabindex: '-1',
+    });
+    const commentInput = el('input', {
+      'value': p.comment || '', 'data-port': p.port, 'data-proto': p.proto,
+      class: 'pm-cmt-edit',
+    });
+    const saveBtn = el('button', {
+      class: 'pm-comment-save', type: 'button',
+      onclick: () => _savePortComment(scenario, target, p.port, p.proto, commentInput.value),
+    }, 'save');
+    const rmBtn = el('button', {
+      class: 'pm-rm', type: 'button',
+      onclick: () => _rmPort(scenario, target, p.port, p.proto),
+    }, 'rm');
+    tbody.append(el('tr', {},
+      el('td', {}, `${p.port}/${p.proto}`),
+      el('td', {}, serviceInput),
+      el('td', {}, commentInput),
+      el('td', {class: 'row-actions'}, saveBtn, rmBtn)));
+  }
+}
+
+async function _refreshPortsManager(scope, scenario, target) {
+  await refresh(true);
+  const detail = state.detailData;
+  if (!detail) return;
+  const t = (detail.targets || []).find(x => x.alias === target);
+  const data = window.Alpine.$data(scope);
+  data.ports = (t && t.ports) ? t.ports : [];
+  _renderPortsRows(scope, scenario, target, data.ports);
+}
+
+function _portsScope() {
+  return document.querySelector('[data-edit-scope="ports"]');
+}
+
+async function openPortsManager(scenario, target) {
+  const scope = _portsScope();
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.target = target.alias;
+  data.ports = target.ports || [];
+  data.addPort = '';
+  data.addProto = 'tcp';
+  data.addService = '';
+  data.addComment = '';
+  data.error = '';
+  data.submitting = false;
+  data.open = true;
+  // Wait a tick so Alpine renders the table skeleton, then populate.
+  setTimeout(() => _renderPortsRows(scope, scenario, target.alias, data.ports), 0);
+}
+
+async function _rmPort(scenario, target, port, proto) {
+  const { ok, result } = await _submitForm('ports_rm', {
+    target, port, proto,
+  });
+  if (ok) {
+    const scope = _portsScope();
+    if (scope) await _refreshPortsManager(scope, scenario, target);
+  } else {
+    toast('rm failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+  }
+}
+
+async function _savePortComment(scenario, target, port, proto, comment) {
+  const { ok, result } = await _submitForm('ports_comment', {
+    target, port, proto, comment,
+  });
+  if (ok) {
+    const scope = _portsScope();
+    if (scope) await _refreshPortsManager(scope, scenario, target);
+  } else {
+    toast('comment failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+  }
+}
+
 // ────────────────────────── forms: dc edit ────────────────────────────
 // Same field set as `dc new` plus a readonly alias display.
 function buildDcEditForm() {
@@ -1081,6 +1236,46 @@ document.addEventListener('alpine:init', () => {
         if (ok) {
           this.open = false;
           await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Ports manager state. Pre-filled by `openPortsManager`. The
+  // ports[] array is read-only as far as Alpine bindings go — rows
+  // are rendered imperatively via `_renderPortsRows` so we can
+  // attach plain JS onclick handlers per row (the add form, by
+  // contrast, uses Alpine for input binding + submit).
+  window.Alpine.data('portsManager', (scenario) => ({
+    open: false, submitting: false, error: '',
+    target: '', ports: [],
+    addPort: '', addProto: 'tcp', addService: '', addComment: '',
+    close() { this.open = false; this.error = ''; },
+    async submitAdd() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('ports_add', {
+          target: this.target,
+          port: this.addPort,
+          proto: this.addProto,
+          service: this.addService,
+          comment: this.addComment,
+        });
+        if (ok) {
+          this.addPort = '';
+          this.addService = '';
+          this.addComment = '';
+          // Keep proto sticky — most pentest workflows add several
+          // ports of the same proto in a row.
+          this.submitting = false;
+          const scope = _portsScope();
+          if (scope) await _refreshPortsManager(scope, scenario, this.target);
         } else {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
           this.submitting = false;
