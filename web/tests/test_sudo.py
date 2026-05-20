@@ -44,6 +44,12 @@ def test_zenity_found_writes_wrapper(monkeypatch):
     script = status.wrapper.read_text()
     assert "/usr/bin/zenity" in script
     assert "tgt-web" in script
+    # The wrapper passes sudo's -p prompt through to the helper as $1.
+    # Zenity 4.x's --password mode ignores --text, so we use
+    # --entry --hide-text (which does honor --text and behaves the
+    # same security-wise — input is masked).
+    assert "--entry" in script and "--hide-text" in script
+    assert '"$1"' in script
     # Executable bit set
     assert status.wrapper.stat().st_mode & 0o111
 
@@ -54,8 +60,10 @@ def test_kdialog_used_when_zenity_missing(monkeypatch):
         sudo.shutil, "which",
         lambda b: "/usr/bin/kdialog" if b == "kdialog" else None,
     )
-    status = sudo.probe()
-    assert "kdialog" in status.wrapper.read_text()
+    script = sudo.probe().wrapper.read_text()
+    assert "kdialog" in script
+    # Same prompt-passthrough contract.
+    assert '"$1"' in script
 
 
 def test_falls_back_to_nopasswd(monkeypatch):

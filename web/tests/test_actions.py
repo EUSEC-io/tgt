@@ -180,6 +180,25 @@ def test_subprocess_env_sets_no_color():
     assert kw["env"]["NO_COLOR"] == "1"
 
 
+def test_subprocess_env_carries_sudo_reason():
+    """dispatch_action computes a per-action reason and injects it
+    as TGT_SUDO_REASON in the fish subprocess env, so fish-side
+    `sudo -A -p` can label the askpass dialog with what the user
+    actually clicked. `TGT_SUDO_REASON` survives the TGT_* scrub
+    (same exemption mechanism as TGT_HOME)."""
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        actions.dispatch_action("scenario_switch", {"name": "acme"})
+    _, kw = recorder.captured
+    env = kw["env"]
+    # Reason starts with "Sudo password" so zenity / kdialog /
+    # ssh-askpass make it clear the dialog is a password prompt,
+    # then carries the action's argv as context.
+    reason = env["TGT_SUDO_REASON"]
+    assert reason.startswith("Sudo password — tgt-web: ")
+    assert "scenario switch acme" in reason
+
+
 def test_subprocess_env_scrubs_stale_tgt_vars(monkeypatch):
     """Regression: tgt-web inherits TGT_SCENARIO / TGT_CRED_* from
     the shell that launched it. Those are fish universal-exported

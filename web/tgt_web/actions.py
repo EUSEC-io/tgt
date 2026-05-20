@@ -165,7 +165,8 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
 }
 
 
-def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
+def tgt_cmd(args: list[str], timeout: float = 15,
+            reason: str = "") -> tuple[int, str, str]:
     """Run `tgt <args>` via `fish -c`. Returns (returncode, stdout, stderr).
 
     The web UI server is non-interactive, so we suppress gum (which
@@ -189,13 +190,18 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
     the currently-active one. Same trap caught `read_active_scenario`
     on the read side; we mirror it here. `TGT_HOME` is kept because
     the user may have set it intentionally (e.g. tests) and it's
-    not state that fish flips at runtime.
+    not state that fish flips at runtime. `TGT_SUDO_REASON` is
+    KEPT because we set it ourselves (below) — fish-side sudo
+    wrappers read it to label the askpass dialog with what the
+    user actually clicked.
     """
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith("TGT_") or k == "TGT_HOME"}
+           if not k.startswith("TGT_") or k in ("TGT_HOME", "TGT_SUDO_REASON")}
     env = sudo.prepare_env(env)
     env["TGT_NO_GUM"] = "1"
     env["NO_COLOR"] = "1"
+    if reason:
+        env["TGT_SUDO_REASON"] = reason
     quoted = " ".join(shlex.quote(a) for a in args)
     p = subprocess.run(
         ["fish", "-c", "tgt " + quoted],
@@ -203,6 +209,26 @@ def tgt_cmd(args: list[str], timeout: float = 15) -> tuple[int, str, str]:
         stdin=subprocess.DEVNULL, timeout=timeout,
     )
     return p.returncode, _strip_ansi(p.stdout), _strip_ansi(p.stderr)
+
+
+def _action_reason(argv: list[str]) -> str:
+    """Format an action's argv into the prompt text the sudo dialog
+    will show. Starts with "Sudo password" so users understand the
+    dialog is asking for their password (zenity / kdialog / ssh-
+    askpass don't otherwise make it clear). Long enough arguments
+    get truncated to keep the dialog readable."""
+    parts = []
+    for a in argv:
+        if not a:
+            continue
+        if any(c.isspace() for c in a):
+            parts.append(f"'{a}'")
+        else:
+            parts.append(a)
+    cmd = "tgt " + " ".join(parts)
+    if len(cmd) > 120:
+        cmd = cmd[:117] + "…"
+    return f"Sudo password — tgt-web: {cmd}"
 
 
 def _validate_and_build(name: str, params: dict) -> tuple[int, dict]:
@@ -241,7 +267,7 @@ def dispatch_action(name: str, params: dict) -> tuple[int, dict]:
     if status != 200:
         return status, body
     argv = body["argv"]
-    rc, out, err = tgt_cmd(argv)
+    rc, out, err = tgt_cmd(argv, reason=_action_reason(argv))
     # Drop the cached `$TGT_SCENARIO` value — any action might have
     # flipped it (most obviously `scenario_switch`/`unload`), and we
     # want the immediate post-action refresh to see fresh state.
