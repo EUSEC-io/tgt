@@ -11,9 +11,16 @@ function _tgt_hosts_write
         _tgt_sudo_notice
         # When invoked from tgt-web, SUDO_ASKPASS points at a
         # graphical helper (zenity/kdialog/ssh-askpass); `sudo -A`
-        # consults it instead of blocking on a non-existent TTY.
+        # consults it instead of blocking on a non-existent TTY,
+        # and we pass `-p $TGT_SUDO_REASON` so the dialog says
+        # *which* tgt action wants /etc/hosts modified. The CLI
+        # path stays untouched — sudo's default TTY prompt is
+        # what shell users expect, no -p override there.
         if set -q SUDO_ASKPASS
-            command sudo -A install -m 644 -o root -g root $tmp $hosts_file
+            set -l prompt 'tgt: update /etc/hosts'
+            set -q TGT_SUDO_REASON; and test -n "$TGT_SUDO_REASON"
+                and set prompt $TGT_SUDO_REASON
+            command sudo -A -p $prompt install -m 644 -o root -g root $tmp $hosts_file
         else
             command sudo install -m 644 -o root -g root $tmp $hosts_file
         end
