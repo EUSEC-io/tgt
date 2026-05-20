@@ -299,3 +299,90 @@ set -e TGT_DC_DOMAIN TGT_DC_REALM
 @test "top-level: 'tgt dc list' dispatched correctly" \
     (tgt dc list 2>&1 | string match -q '*dc01*'; echo $status) -eq 0
 _test_teardown
+
+#
+# tgt dc edit <alias> --field value — non-interactive flag-driven
+# update. Same preserve/set/clear semantics as cred edit.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 --domain dante.local --realm DANTE.LOCAL \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 \
+    --admin-host dc01.dante.local --admin-ip 10.10.10.5 >/dev/null
+
+# Single flag: update realm only, leave other fields.
+tgt dc edit dc01 --realm CUSTOM.LOCAL >/dev/null
+# `_tgt_dc_inspect` only emits the resolved kdc/admin (host wins
+# over IP), so we grep the file directly for kdc-ip preservation.
+set -l file (_tgt_dc_file dante dc01)
+set -l line (_tgt_dc_inspect dante dc01)
+set -l fields (string split \t -- $line)
+@test "dc edit --realm: realm updated (uppercased)" \
+    "$fields[3]" = CUSTOM.LOCAL
+@test "dc edit --realm: domain preserved" \
+    "$fields[2]" = dante.local
+@test "dc edit --realm: kdc resolves to host" \
+    "$fields[4]" = dc01.dante.local
+@test "dc edit --realm: kdc-ip line preserved on disk" \
+    (grep -q "TGT_DC_IP 10.10.10.5" $file; echo $status) -eq 0
+
+# Realm provided lowercase still uppercases on save.
+tgt dc edit dc01 --realm lower.case >/dev/null
+set -l line (_tgt_dc_inspect dante dc01)
+set -l fields (string split \t -- $line)
+@test "dc edit --realm lower: stored uppercase" \
+    "$fields[3]" = LOWER.CASE
+_test_teardown
+
+#
+# Empty admin-host / admin-ip clear those fields.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 --domain dante.local --realm DANTE.LOCAL \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 \
+    --admin-host dc01.dante.local --admin-ip 10.10.10.5 >/dev/null
+
+tgt dc edit dc01 --admin-host "" --admin-ip "" >/dev/null
+@test "dc edit --admin-host '': removed from disk" \
+    (grep -q TGT_DC_ADMIN_HOST (_tgt_dc_file dante dc01); echo $status) -ne 0
+@test "dc edit --admin-ip '': removed from disk" \
+    (grep -q TGT_DC_ADMIN_IP (_tgt_dc_file dante dc01); echo $status) -ne 0
+_test_teardown
+
+#
+# Edit rejects empty --domain and the "no kdc-host nor kdc-ip" state.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+tgt dc new dc01 --domain dante.local --realm DANTE.LOCAL \
+    --kdc-host dc01.dante.local --kdc-ip 10.10.10.5 >/dev/null
+
+set -l rc1 (tgt dc edit dc01 --domain "" 2>/dev/null; echo $status)
+@test "dc edit --domain '': non-zero" "$rc1" -ne 0
+set -l rc2 (tgt dc edit dc01 --kdc-host "" --kdc-ip "" 2>/dev/null; echo $status)
+@test "dc edit clearing both kdc-host and kdc-ip: non-zero" "$rc2" -ne 0
+_test_teardown
+
+#
+# Realm auto-derives from domain when --realm is omitted on a record
+# that had no realm. Mirrors wizard fallback.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+# Build a DC with no realm by saving manually (skip 'new' which
+# requires --realm via validation). Doing it through the save path
+# keeps the test honest about what the edit case sees on disk.
+set -gx TGT_DC_DOMAIN dante.local
+set -gx TGT_DC_HOST dc01.dante.local
+_tgt_dc_save dante dc01
+set -e TGT_DC_DOMAIN TGT_DC_HOST
+
+# Now flag-edit a non-realm field; realm should auto-derive to
+# uppercase domain.
+tgt dc edit dc01 --kdc-ip 10.10.10.5 >/dev/null
+set -l line (_tgt_dc_inspect dante dc01)
+set -l fields (string split \t -- $line)
+@test "dc edit (no realm on disk): realm auto-derives from domain" \
+    "$fields[3]" = DANTE.LOCAL
+_test_teardown

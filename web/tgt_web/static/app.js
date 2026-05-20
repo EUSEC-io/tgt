@@ -548,6 +548,9 @@ function renderDetail() {
       '+ new'),
   ));
   dcSection.append(buildDcNewForm());
+  const dcEditScope = el('div', { 'x-data': `dcEditForm(${JSON.stringify(d.name)})` });
+  dcEditScope.append(buildDcEditForm());
+  dcSection.append(dcEditScope);
   if (dcs.length === 0) dcSection.append(sectionEmpty(d.dcs.length));
   else dcSection.append(el('div', {class: 'table-scroll'}, el('table', {},
     el('thead', {}, el('tr', {}, el('th', {}, 'alias'), el('th', {}, 'domain'),
@@ -559,13 +562,15 @@ function renderDetail() {
       el('td', {}, valueCell(dc.realm, 'realm')),
       el('td', {}, valueCell(dc.kdc_host || dc.kdc_ip, 'kdc')),
       el('td', {}, valueCell(dc.admin_host || dc.admin_ip, 'admin')),
-      el('td', {}, d.active && !dc.active
-        ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
-        : (dc.active ? el('button', {onclick: () => confirmAct({
-            title: 'Unset active DC?',
-            message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
-            confirmLabel: 'unset',
-          }, 'dc_unset')}, 'unset') : ''))))))));
+      el('td', {class: 'row-actions'},
+        d.active && !dc.active
+          ? el('button', {onclick: () => act('dc_switch', {alias: dc.alias})}, 'switch')
+          : (dc.active ? el('button', {onclick: () => confirmAct({
+              title: 'Unset active DC?',
+              message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
+              confirmLabel: 'unset',
+            }, 'dc_unset')}, 'unset') : ''),
+        el('button', {onclick: () => openDcEdit(d.name, dc)}, 'edit'))))))));
   main.append(dcSection);
 }
 
@@ -821,6 +826,54 @@ function buildDcNewForm() {
         }))));
 }
 
+// ────────────────────────── forms: dc edit ────────────────────────────
+// Same field set as `dc new` plus a readonly alias display.
+function buildDcEditForm() {
+  const field = (label, model, placeholder) => el('label', {},
+    el('span', {class: 'form-label'}, label),
+    el('input', {
+      'x-model.trim': model, 'autocomplete': 'off',
+      'placeholder': placeholder || '',
+    }));
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'edit DC'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', { ':value': 'alias', 'readonly': '', 'tabindex': '-1' })),
+      field('domain',     'domain',    'e.g. acme.local'),
+      field('realm',      'realm',     'e.g. ACME.LOCAL'),
+      field('kdc host',   'kdcHost',   'e.g. dc01.acme.local'),
+      field('kdc ip',     'kdcIp',     'e.g. 10.0.0.10'),
+      field('admin host', 'adminHost', 'optional'),
+      field('admin ip',   'adminIp',   'optional'),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'saving…' : 'save'",
+        }))));
+}
+
+async function openDcEdit(scenario, dc) {
+  const sel = `[x-data="dcEditForm(${JSON.stringify(scenario)})"]`;
+  const scope = document.querySelector(sel);
+  if (!scope || !window.Alpine) return;
+  const data = window.Alpine.$data(scope);
+  data.alias = dc.alias;
+  data.domain = dc.domain || '';
+  data.realm = dc.realm || '';
+  data.kdcHost = dc.kdc_host || '';
+  data.kdcIp = dc.kdc_ip || '';
+  data.adminHost = dc.admin_host || '';
+  data.adminIp = dc.admin_ip || '';
+  data.error = '';
+  data.submitting = false;
+  data.open = true;
+}
+
 document.addEventListener('alpine:init', () => {
   // Global confirm-modal state. `accept` invokes the stored callback;
   // `cancel` just closes. Both reset the callback so a stale fn
@@ -964,6 +1017,38 @@ document.addEventListener('alpine:init', () => {
         const { ok, result } = await _submitForm('cred_edit', {
           alias: this.alias, username: this.username,
           password: this.password, domain: this.domain, notes: this.notes,
+        });
+        if (ok) {
+          this.open = false;
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // Edit form for an existing DC. Pre-filled by `openDcEdit`.
+  // Submit posts every field every time; empty fields clear on
+  // disk (modulo domain which is required and realm which
+  // auto-derives from domain when empty).
+  window.Alpine.data('dcEditForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', domain: '', realm: '',
+    kdcHost: '', kdcIp: '', adminHost: '', adminIp: '',
+    cancel() { this.open = false; },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await _submitForm('dc_edit', {
+          alias: this.alias,
+          domain: this.domain, realm: this.realm,
+          kdc_host: this.kdcHost, kdc_ip: this.kdcIp,
+          admin_host: this.adminHost, admin_ip: this.adminIp,
         });
         if (ok) {
           this.open = false;

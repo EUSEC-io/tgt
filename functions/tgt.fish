@@ -35,6 +35,7 @@ function tgt --description 'Set penetration testing target environment variables
             echo '  {"action": "cred_switch",        "argv": ["cred", "switch", "<alias>"]},'
             echo '  {"action": "cred_unset",         "argv": ["cred", "unset"]},'
             echo '  {"action": "dc_new",             "argv": ["dc", "new", "<alias>", "[--domain]", "[--realm]", "[--kdc-host]", "[--kdc-ip]", "[--admin-host]", "[--admin-ip]"]},'
+            echo '  {"action": "dc_edit",            "argv": ["dc", "edit", "<alias>", "[--domain]", "[--realm]", "[--kdc-host]", "[--kdc-ip]", "[--admin-host]", "[--admin-ip]"]},'
             echo '  {"action": "dc_switch",          "argv": ["dc", "switch", "<alias>"]},'
             echo '  {"action": "dc_unset",           "argv": ["dc", "unset"]}'
             echo ']'

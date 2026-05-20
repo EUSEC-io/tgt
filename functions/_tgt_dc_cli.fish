@@ -280,7 +280,20 @@ function _tgt_dc_cli
             return 0
 
         case edit
-            set -l alias $rest[1]
+            # Flag-driven non-interactive edit when ANY of the six
+            # field flags is set; falls through to the wizard when
+            # none is. Empty value clears that field (domain stays
+            # required; realm auto-derives from domain when empty,
+            # matching the wizard).
+            argparse --name='tgt dc edit' \
+                'd/domain=' 'r/realm=' \
+                'kdc-host=' 'kdc-ip=' \
+                'admin-host=' 'admin-ip=' \
+                -- $rest
+            or return 1
+
+            set -l alias ""
+            test (count $argv) -ge 1; and set alias $argv[1]
             if test -z "$alias"
                 set -l aliases (_tgt_dc_list $scenario)
                 if test (count $aliases) -eq 0
@@ -294,8 +307,117 @@ function _tgt_dc_cli
                 echo "tgt dc edit: DC '$alias' does not exist in scenario '$scenario'" >&2
                 return 1
             end
-            _tgt_dc_edit_wizard $scenario $alias
-            return $status
+
+            set -l any_flag 0
+            for f in _flag_domain _flag_realm _flag_kdc_host _flag_kdc_ip \
+                     _flag_admin_host _flag_admin_ip
+                set -q $f; and set any_flag 1; and break
+            end
+            if test $any_flag -eq 0
+                _tgt_dc_edit_wizard $scenario $alias
+                return $status
+            end
+
+            # Read current fields from disk (no helper exists for DC
+            # the way _tgt_cred_read_fields does for creds — wizard
+            # inlines the same loop).
+            set -l cur_domain ""
+            set -l cur_realm ""
+            set -l cur_kdc_host ""
+            set -l cur_kdc_ip ""
+            set -l cur_admin_host ""
+            set -l cur_admin_ip ""
+            set -l file (_tgt_dc_file $scenario $alias)
+            while read -l line
+                set -l m (string match -r '^_tgt_export\s+(\S+)\s+(.*)$' -- $line)
+                test (count $m) -lt 3; and continue
+                set -l val (string unescape -- $m[3])
+                switch $m[2]
+                    case TGT_DC_DOMAIN
+                        set cur_domain $val
+                    case TGT_DC_REALM
+                        set cur_realm $val
+                    case TGT_DC_HOST
+                        set cur_kdc_host $val
+                    case TGT_DC_IP
+                        set cur_kdc_ip $val
+                    case TGT_DC_ADMIN_HOST
+                        set cur_admin_host $val
+                    case TGT_DC_ADMIN_IP
+                        set cur_admin_ip $val
+                end
+            end < $file
+
+            set -l new_domain $cur_domain
+            set -l new_realm $cur_realm
+            set -l new_kdc_host $cur_kdc_host
+            set -l new_kdc_ip $cur_kdc_ip
+            set -l new_admin_host $cur_admin_host
+            set -l new_admin_ip $cur_admin_ip
+            set -q _flag_domain;     and set new_domain $_flag_domain
+            set -q _flag_realm;      and set new_realm $_flag_realm
+            set -q _flag_kdc_host;   and set new_kdc_host $_flag_kdc_host
+            set -q _flag_kdc_ip;     and set new_kdc_ip $_flag_kdc_ip
+            set -q _flag_admin_host; and set new_admin_host $_flag_admin_host
+            set -q _flag_admin_ip;   and set new_admin_ip $_flag_admin_ip
+
+            if test -z "$new_domain"
+                echo "tgt dc edit: domain cannot be empty" >&2
+                return 1
+            end
+            if test -z "$new_kdc_host"; and test -z "$new_kdc_ip"
+                echo "tgt dc edit: at least one of --kdc-host or --kdc-ip must be set" >&2
+                return 1
+            end
+            # Auto-derive realm from domain when empty, then always
+            # uppercase. Mirrors wizard.
+            test -z "$new_realm"; and set new_realm $new_domain
+            set new_realm (string upper -- $new_realm)
+
+            # Stage + save (matches wizard). Flag-mode IPs are always
+            # attributed to `user` (vs. wizard which preserves DNS-
+            # resolver attribution for accepted-default IPs).
+            for v in TGT_DC_DOMAIN TGT_DC_REALM \
+                     TGT_DC_HOST TGT_DC_IP TGT_DC_IP_SOURCE \
+                     TGT_DC_ADMIN_HOST TGT_DC_ADMIN_IP TGT_DC_ADMIN_IP_SOURCE
+                set -q $v; and _tgt_unexport $v
+            end
+            set -gx TGT_DC_DOMAIN $new_domain
+            set -gx TGT_DC_REALM $new_realm
+            test -n "$new_kdc_host"  ; and set -gx TGT_DC_HOST $new_kdc_host
+            if test -n "$new_kdc_ip"
+                set -gx TGT_DC_IP $new_kdc_ip
+                set -gx TGT_DC_IP_SOURCE user
+            end
+            test -n "$new_admin_host"; and set -gx TGT_DC_ADMIN_HOST $new_admin_host
+            if test -n "$new_admin_ip"
+                set -gx TGT_DC_ADMIN_IP $new_admin_ip
+                set -gx TGT_DC_ADMIN_IP_SOURCE user
+            end
+
+            _tgt_dc_save $scenario $alias
+            or return $status
+
+            # Resolve any host without an IP, honoring "user just
+            # cleared" intent (mirrors the wizard).
+            set -l skip_kdc 0
+            set -l skip_admin 0
+            test -n "$cur_kdc_ip";   and test -z "$new_kdc_ip";   and set skip_kdc 1
+            test -n "$cur_admin_ip"; and test -z "$new_admin_ip"; and set skip_admin 1
+            _tgt_dc_resolve_missing $scenario $alias $skip_kdc $skip_admin
+
+            _tgt_krb5_apply_scenario $scenario
+            _tgt_hosts_apply_scenario $scenario
+
+            set -l active (_tgt_dc_get_active $scenario 2>/dev/null)
+            _tgt_dc_clear_runtime
+            if test -n "$active"
+                _tgt_dc_load $scenario $active
+                set -q TGT_DC_REALM; and _tgt_krb5_set_default_realm $TGT_DC_REALM
+            end
+
+            set_color green; echo "✓ DC '$alias' updated in '$scenario'"; set_color normal
+            return 0
 
         case rm
             set -l alias $rest[1]

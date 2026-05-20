@@ -351,6 +351,40 @@ def test_dc_new_requires_alias():
     assert status == 400 and "alias" in body["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"alias": "dc01"}, ["dc", "edit", "dc01"]),
+        ({"alias": "dc01", "realm": "CUSTOM.LOCAL"},
+         ["dc", "edit", "dc01", "--realm", "CUSTOM.LOCAL"]),
+        # Empty admin-host + admin-ip clear those fields.
+        ({"alias": "dc01", "admin_host": "", "admin_ip": ""},
+         ["dc", "edit", "dc01", "--admin-host", "", "--admin-ip", ""]),
+        # All six flags at once.
+        (
+            {"alias": "dc01", "domain": "acme.local", "realm": "ACME.LOCAL",
+             "kdc_host": "dc01.acme.local", "kdc_ip": "10.0.0.10",
+             "admin_host": "dc01.acme.local", "admin_ip": "10.0.0.10"},
+            ["dc", "edit", "dc01",
+             "--domain", "acme.local", "--realm", "ACME.LOCAL",
+             "--kdc-host", "dc01.acme.local", "--kdc-ip", "10.0.0.10",
+             "--admin-host", "dc01.acme.local", "--admin-ip", "10.0.0.10"],
+        ),
+    ],
+)
+def test_dc_edit_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("dc_edit", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_dc_edit_requires_alias():
+    status, body = actions.dispatch_action("dc_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh

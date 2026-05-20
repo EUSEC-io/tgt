@@ -73,6 +73,22 @@ def _dc_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _dc_edit_argv(p: dict) -> list[str]:
+    """Edit: emit each flag the caller chose to act on, including
+    empty values (fish-side treats empty as clear). Key not present
+    in params = preserve. See _cred_edit_argv for the same pattern."""
+    argv = ["dc", "edit", p["alias"]]
+    for key, flag in (("domain",     "--domain"),
+                      ("realm",      "--realm"),
+                      ("kdc_host",   "--kdc-host"),
+                      ("kdc_ip",     "--kdc-ip"),
+                      ("admin_host", "--admin-host"),
+                      ("admin_ip",   "--admin-ip")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
@@ -88,6 +104,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "cred_switch":        (lambda p: ["cred", "switch", p["alias"]],        ["alias"]),
     "cred_unset":         (lambda p: ["cred", "unset"],                     []),
     "dc_new":             (_dc_new_argv,                                    ["alias"]),
+    "dc_edit":            (_dc_edit_argv,                                   ["alias"]),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
     "dc_unset":           (lambda p: ["dc", "unset"],                       []),
 }
