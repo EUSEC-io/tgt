@@ -259,6 +259,12 @@ button.ports-link:hover { color: var(--fg); border-color: var(--accent); }
                   border-radius: 3px; font-family: inherit; font-size: 12px;
                   width: 100%; box-sizing: border-box; }
 .pm-svc-edit { color: var(--fg-dim); }   /* read-only: dim the text */
+/* Brief flash after a successful comment save — fades back over ~1.5s
+   so the user gets visual confirmation without the row re-rendering. */
+.pm-cmt-edit.pm-cmt-saved { background: var(--success-bg);
+                            border-color: var(--success);
+                            transition: background 1.2s ease-out,
+                                        border-color 1.2s ease-out; }
 .pm-add { margin-top: 8px; padding-top: 8px;
           border-top: 1px solid var(--border-subtle); }
 .pm-add .pm-label { color: var(--fg-dim); font-size: 11px;

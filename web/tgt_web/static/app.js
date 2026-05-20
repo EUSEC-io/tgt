@@ -8,6 +8,11 @@ const state = {
   detailHash: '',
   scenariosData: [],     // cache so filter/toggle don't refetch
   detailData: null,
+  // True while the ports manager owns its slice of the screen. The
+  // detail-pane re-render is suppressed in that case so SSE / poll
+  // refreshes don't wipe the open form (and the user's in-flight
+  // comment edits). Set by openPortsManager; cleared in close().
+  managingPorts: false,
 };
 
 // ────────────────────────── helpers ───────────────────────────────────
@@ -631,9 +636,17 @@ async function refresh(force) {
         state.detailData = detail;
         state.detailHash = dHash;
         state.selected = target;       // sync selection if it came from active
-        renderDetail();
-        // Re-render sidebar so the "selected" highlight tracks the detail pane.
-        renderSidebar();
+        // While the ports manager owns its slice of the screen,
+        // skip the detail re-render — otherwise SSE / poll bumps
+        // wipe the open form (and the user's in-flight comment
+        // edits across multiple rows). `state.detailData` is still
+        // updated, so the manager's `close()` can pull fresh data
+        // and the next refresh after close picks it all up.
+        if (!state.managingPorts) {
+          renderDetail();
+          // Re-render sidebar so the "selected" highlight tracks the detail pane.
+          renderSidebar();
+        }
       }
     }
   } catch (e) {
@@ -955,46 +968,51 @@ function buildPortsManagerForm() {
       el('button', { 'type': 'button', '@click': 'close()' }, 'close')));
 }
 
-// Render the per-port rows inside the manager's tbody. Called from
-// `openPortsManager` and after every add/rm/comment so the table
-// stays in sync with the (refreshed) state.
+// Build a single port row's <tr>. Each row's inputs survive
+// independently across add / rm operations — only the row that was
+// added or removed touches the DOM. Other rows' (possibly unsaved)
+// comment edits stay intact.
+function _buildPortRow(scenario, target, p) {
+  const commentInput = el('input', {
+    'value': p.comment || '', 'data-port': p.port, 'data-proto': p.proto,
+    class: 'pm-cmt-edit',
+  });
+  const serviceInput = el('input', {
+    'value': p.service || '', 'data-port': p.port, 'data-proto': p.proto,
+    class: 'pm-svc-edit', readonly: '', tabindex: '-1',
+  });
+  const saveBtn = el('button', {
+    class: 'pm-comment-save', type: 'button',
+    onclick: () => _savePortComment(scenario, target, p.port, p.proto, commentInput.value),
+  }, 'save');
+  const rmBtn = el('button', {
+    class: 'pm-rm', type: 'button',
+    onclick: () => _rmPort(scenario, target, p.port, p.proto),
+  }, 'rm');
+  return el('tr', {},
+    el('td', {}, `${p.port}/${p.proto}`),
+    el('td', {}, serviceInput),
+    el('td', {}, commentInput),
+    el('td', {class: 'row-actions'}, saveBtn, rmBtn));
+}
+
+// Render the initial per-port row list inside the manager's tbody.
+// Called once from openPortsManager; add / rm operations append /
+// remove specific rows without re-rendering the whole list (which
+// would lose other rows' in-flight comment edits).
 function _renderPortsRows(scopeEl, scenario, target, ports) {
   const tbody = scopeEl.querySelector('.pm-table tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
   for (const p of ports) {
-    const serviceInput = el('input', {
-      'value': p.service || '', 'data-port': p.port, 'data-proto': p.proto,
-      class: 'pm-svc-edit', readonly: '', tabindex: '-1',
-    });
-    const commentInput = el('input', {
-      'value': p.comment || '', 'data-port': p.port, 'data-proto': p.proto,
-      class: 'pm-cmt-edit',
-    });
-    const saveBtn = el('button', {
-      class: 'pm-comment-save', type: 'button',
-      onclick: () => _savePortComment(scenario, target, p.port, p.proto, commentInput.value),
-    }, 'save');
-    const rmBtn = el('button', {
-      class: 'pm-rm', type: 'button',
-      onclick: () => _rmPort(scenario, target, p.port, p.proto),
-    }, 'rm');
-    tbody.append(el('tr', {},
-      el('td', {}, `${p.port}/${p.proto}`),
-      el('td', {}, serviceInput),
-      el('td', {}, commentInput),
-      el('td', {class: 'row-actions'}, saveBtn, rmBtn)));
+    tbody.append(_buildPortRow(scenario, target, p));
   }
 }
 
-async function _refreshPortsManager(scope, scenario, target) {
-  await refresh(true);
-  const detail = state.detailData;
-  if (!detail) return;
-  const t = (detail.targets || []).find(x => x.alias === target);
-  const data = window.Alpine.$data(scope);
-  data.ports = (t && t.ports) ? t.ports : [];
-  _renderPortsRows(scope, scenario, target, data.ports);
+function _appendPortRow(scopeEl, scenario, target, p) {
+  const tbody = scopeEl.querySelector('.pm-table tbody');
+  if (!tbody) return;
+  tbody.append(_buildPortRow(scenario, target, p));
 }
 
 function _portsScope() {
@@ -1006,7 +1024,9 @@ async function openPortsManager(scenario, target) {
   if (!scope || !window.Alpine) return;
   const data = window.Alpine.$data(scope);
   data.target = target.alias;
-  data.ports = target.ports || [];
+  // Copy the array so our local mutations (add/rm) don't bleed back
+  // into the source detail object reference held by state.detailData.
+  data.ports = (target.ports || []).map(p => ({...p}));
   data.addPort = '';
   data.addProto = 'tcp';
   data.addService = '';
@@ -1014,6 +1034,10 @@ async function openPortsManager(scenario, target) {
   data.error = '';
   data.submitting = false;
   data.open = true;
+  // Claim the detail pane — refresh() will skip its renderDetail
+  // call while this is true, preserving open form state across
+  // SSE / poll updates.
+  state.managingPorts = true;
   // Wait a tick so Alpine renders the table skeleton, then populate.
   setTimeout(() => _renderPortsRows(scope, scenario, target.alias, data.ports), 0);
 }
@@ -1022,11 +1046,20 @@ async function _rmPort(scenario, target, port, proto) {
   const { ok, result } = await _submitForm('ports_rm', {
     target, port, proto,
   });
-  if (ok) {
-    const scope = _portsScope();
-    if (scope) await _refreshPortsManager(scope, scenario, target);
-  } else {
+  if (!ok) {
     toast('rm failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+    return;
+  }
+  // Patch state + DOM in place so other rows' unsaved edits survive.
+  const scope = _portsScope();
+  if (!scope) return;
+  const data = window.Alpine.$data(scope);
+  data.ports = data.ports.filter(p => !(p.port === port && p.proto === proto));
+  const cell = scope.querySelector(
+    `.pm-cmt-edit[data-port="${port}"][data-proto="${proto}"]`);
+  if (cell) {
+    const row = cell.closest('tr');
+    if (row) row.remove();
   }
 }
 
@@ -1034,11 +1067,23 @@ async function _savePortComment(scenario, target, port, proto, comment) {
   const { ok, result } = await _submitForm('ports_comment', {
     target, port, proto, comment,
   });
-  if (ok) {
-    const scope = _portsScope();
-    if (scope) await _refreshPortsManager(scope, scenario, target);
-  } else {
+  if (!ok) {
     toast('comment failed: ' + (result.stderr || result.error || 'rc=' + result.rc).trim(), 'error');
+    return;
+  }
+  // Update local cache and flash a brief "saved" tag on the row —
+  // we deliberately do NOT re-render the table here so other rows'
+  // unsaved comment edits survive.
+  const scope = _portsScope();
+  if (!scope) return;
+  const data = window.Alpine.$data(scope);
+  const entry = data.ports.find(p => p.port === port && p.proto === proto);
+  if (entry) entry.comment = comment;
+  const input = scope.querySelector(
+    `.pm-cmt-edit[data-port="${port}"][data-proto="${proto}"]`);
+  if (input) {
+    input.classList.add('pm-cmt-saved');
+    setTimeout(() => input.classList.remove('pm-cmt-saved'), 1500);
   }
 }
 
@@ -1256,7 +1301,14 @@ document.addEventListener('alpine:init', () => {
     open: false, submitting: false, error: '',
     target: '', ports: [],
     addPort: '', addProto: 'tcp', addService: '', addComment: '',
-    close() { this.open = false; this.error = ''; },
+    close() {
+      this.open = false;
+      this.error = '';
+      // Release the detail-pane lock and refresh to catch up on any
+      // SSE updates suppressed while we were open.
+      state.managingPorts = false;
+      refresh(true);
+    },
     async submitAdd() {
       this.error = ''; this.submitting = true;
       try {
@@ -1267,19 +1319,27 @@ document.addEventListener('alpine:init', () => {
           service: this.addService,
           comment: this.addComment,
         });
-        if (ok) {
-          this.addPort = '';
-          this.addService = '';
-          this.addComment = '';
-          // Keep proto sticky — most pentest workflows add several
-          // ports of the same proto in a row.
-          this.submitting = false;
-          const scope = _portsScope();
-          if (scope) await _refreshPortsManager(scope, scenario, this.target);
-        } else {
+        if (!ok) {
           this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
           this.submitting = false;
+          return;
         }
+        // Append to local cache + DOM imperatively — re-rendering
+        // the whole table would clobber other rows' in-flight
+        // comment edits.
+        const newEntry = {
+          port: this.addPort, proto: this.addProto,
+          service: this.addService, comment: this.addComment,
+        };
+        this.ports.push(newEntry);
+        const scope = _portsScope();
+        if (scope) _appendPortRow(scope, scenario, this.target, newEntry);
+        // Clear the add form. Proto stays sticky — pentest flows
+        // often add several ports of the same proto back-to-back.
+        this.addPort = '';
+        this.addService = '';
+        this.addComment = '';
+        this.submitting = false;
       } catch (e) {
         this.error = e.message;
         this.submitting = false;
