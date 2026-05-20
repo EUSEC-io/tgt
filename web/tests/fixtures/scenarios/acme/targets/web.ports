@@ -1,0 +1,4 @@
+22	tcp	ssh	OpenSSH 8.4
+80	tcp	http	Apache 2.4
+443	tcp	https	
+3389	tcp	rdp	terminal services

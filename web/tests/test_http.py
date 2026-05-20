@@ -247,3 +247,36 @@ def test_action_unknown(http_server):
     )
     assert status == 400
     assert "unknown action" in body["error"]
+
+
+def test_action_ports_add_round_trips_comment(http_server):
+    """Regression: an end-to-end POST of ports_add with both
+    service AND comment must reach the fish subprocess with the
+    comment intact. The JSON → params → argv → shlex pipeline
+    has multiple places a value could get dropped; this test
+    asserts the comment lands in the final argv that
+    subprocess.run sees (subprocess itself is mocked so we don't
+    need fish + a real $TGT_HOME during the test)."""
+    class Result:
+        returncode = 0
+        stdout = "✓ added 22/tcp to test:web\n"
+        stderr = ""
+
+    with patch("tgt_web.actions.subprocess.run", return_value=Result()) as run:
+        status, body = _post_json(
+            http_server, "/api/action",
+            {"action": "ports_add",
+             "params": {"target": "web", "port": "22", "proto": "tcp",
+                        "service": "ssh",
+                        "comment": "OpenSSH 8.4 hardened"}},
+        )
+    assert status == 200
+    assert body["argv"] == [
+        "ports", "add", "--target", "web", "22/tcp",
+        "ssh", "OpenSSH 8.4 hardened",
+    ]
+    # The subprocess actually got called — and the comment is
+    # present in the shell-quoted command string fish receives.
+    assert run.call_count == 1
+    fish_cmd = run.call_args[0][0][2]   # subprocess.run([…, "-c", "tgt …"])
+    assert "OpenSSH 8.4 hardened" in fish_cmd

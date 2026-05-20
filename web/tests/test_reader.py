@@ -141,6 +141,23 @@ def test_scenario_detail_acme(tgt_home_env):
     assert dcs["dc01"]["realm"] == "ACME.LOCAL"
 
 
+def test_scenario_detail_includes_ports(tgt_home_env):
+    """Each target's `ports` field carries the parsed .ports file —
+    list of {port, proto, service, comment} dicts. Targets with no
+    .ports file get an empty list."""
+    d = reader.scenario_detail("acme")
+    targets = {t["alias"]: t for t in d["targets"]}
+    web_ports = targets["web"]["ports"]
+    assert len(web_ports) == 4
+    by_port = {(p["port"], p["proto"]): p for p in web_ports}
+    assert by_port[("22", "tcp")]["service"] == "ssh"
+    assert by_port[("22", "tcp")]["comment"] == "OpenSSH 8.4"
+    # Empty comment is the empty string, not missing.
+    assert by_port[("443", "tcp")]["comment"] == ""
+    # Target with no .ports file → empty list (not missing key).
+    assert targets["db"]["ports"] == []
+
+
 def test_scenario_detail_lab_no_active_markers(tgt_home_env):
     d = reader.scenario_detail("lab")
     assert d is not None

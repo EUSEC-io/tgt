@@ -437,6 +437,101 @@ def test_target_edit_requires_alias():
     assert status == 400 and "alias" in body["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Minimal: target + port. proto defaults fish-side.
+        ({"target": "web", "port": "22"},
+         ["ports", "add", "--target", "web", "22"]),
+        # Explicit proto.
+        ({"target": "web", "port": "53", "proto": "udp"},
+         ["ports", "add", "--target", "web", "53/udp"]),
+        # Service.
+        ({"target": "web", "port": "22", "proto": "tcp", "service": "ssh"},
+         ["ports", "add", "--target", "web", "22/tcp", "ssh"]),
+        # Service + comment.
+        ({"target": "web", "port": "22", "proto": "tcp",
+          "service": "ssh", "comment": "OpenSSH 8.4"},
+         ["ports", "add", "--target", "web", "22/tcp", "ssh", "OpenSSH 8.4"]),
+        # Comment without service: emit an empty string in the
+        # service slot so the comment lands in positional[3]
+        # fish-side, where it actually gets stored.
+        ({"target": "web", "port": "443", "proto": "tcp",
+          "service": "", "comment": "https"},
+         ["ports", "add", "--target", "web", "443/tcp", "", "https"]),
+        # Both empty: no positionals after spec.
+        ({"target": "web", "port": "443", "proto": "tcp",
+          "service": "", "comment": ""},
+         ["ports", "add", "--target", "web", "443/tcp"]),
+    ],
+)
+def test_ports_add_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("ports_add", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_ports_add_requires_target_and_port():
+    s1, b1 = actions.dispatch_action("ports_add", {})
+    assert s1 == 400 and "target" in b1["error"]
+    s2, b2 = actions.dispatch_action("ports_add", {"target": "web"})
+    assert s2 == 400 and "port" in b2["error"]
+
+
+def test_ports_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_rm", {"target": "web", "port": "22", "proto": "tcp"})
+    assert status == 200
+    assert body["argv"] == ["ports", "rm", "--target", "web", "22/tcp"]
+
+
+def test_ports_clear_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("ports_clear", {"target": "web"})
+    assert status == 200
+    assert body["argv"] == ["ports", "clear", "--target", "web"]
+
+
+def test_ports_comment_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_comment",
+            {"target": "web", "port": "22", "proto": "tcp",
+             "comment": "rotated key"})
+    assert status == 200
+    assert body["argv"] == [
+        "ports", "comment", "--target", "web", "22/tcp", "rotated key",
+    ]
+
+
+def test_ports_service_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_service",
+            {"target": "web", "port": "22", "proto": "tcp",
+             "service": "ssh-banner-lied"})
+    assert status == 200
+    assert body["argv"] == [
+        "ports", "service", "--target", "web", "22/tcp", "ssh-banner-lied",
+    ]
+
+
+def test_ports_service_requires_target_port_service():
+    s1, b1 = actions.dispatch_action("ports_service", {})
+    assert s1 == 400 and "target" in b1["error"]
+    s2, b2 = actions.dispatch_action("ports_service", {"target": "web"})
+    assert s2 == 400 and "port" in b2["error"]
+    s3, b3 = actions.dispatch_action("ports_service", {"target": "web", "port": "22"})
+    assert s3 == 400 and "service" in b3["error"]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh

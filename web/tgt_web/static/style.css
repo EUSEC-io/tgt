@@ -242,6 +242,42 @@ button.add { font-size: 10px; padding: 2px 8px; margin-left: 6px;
 .form-card .pw-input-row input { flex: 1; }
 .form-card .pw-toggle { font-size: 11px; padding: 4px 10px; }
 
+/* Per-target "ports" cell link: looks like a row-action button.
+   Compact since most target tables have many rows. */
+button.ports-link { font-size: 11px; padding: 2px 8px;
+                    background: var(--bg-elev); color: var(--fg-dim);
+                    border: 1px solid var(--border); border-radius: 3px;
+                    cursor: pointer; }
+button.ports-link:hover { color: var(--fg); border-color: var(--accent); }
+
+/* Ports manager: list of existing ports + an add-form below. */
+.pm-target { color: var(--accent); font-weight: 600; }
+.pm-empty { color: var(--fg-muted); font-size: 11px; padding: 4px 0 8px; }
+.pm-table { width: 100%; margin-bottom: 8px; }
+.pm-table input { background: var(--bg-input); color: var(--fg);
+                  border: 1px solid var(--border); padding: 3px 6px;
+                  border-radius: 3px; font-family: inherit; font-size: 12px;
+                  width: 100%; box-sizing: border-box; }
+/* Brief flash after a successful service / comment save — fades
+   back over ~1.5s so the user gets visual confirmation without
+   the row re-rendering. */
+.pm-cmt-edit.pm-cmt-saved,
+.pm-svc-edit.pm-cmt-saved { background: var(--success-bg);
+                            border-color: var(--success);
+                            transition: background 1.2s ease-out,
+                                        border-color 1.2s ease-out; }
+.pm-add { margin-top: 8px; padding-top: 8px;
+          border-top: 1px solid var(--border-subtle); }
+.pm-add .pm-label { color: var(--fg-dim); font-size: 11px;
+                    text-transform: uppercase; letter-spacing: 0.5px;
+                    margin-bottom: 4px; }
+.pm-add-row { display: flex; gap: 6px; align-items: center; }
+.pm-add-row .pm-port  { width: 70px; }
+.pm-add-row .pm-proto { width: 60px; }
+.pm-add-row .pm-svc   { flex: 1; }
+.pm-add-row .pm-cmt   { flex: 2; }
+.pm-add-row button    { font-size: 11px; padding: 5px 12px; }
+
 /* Per-row action button cluster — keeps multiple inline buttons
    readable when a row exposes more than one operation. */
 td.row-actions { white-space: nowrap; }

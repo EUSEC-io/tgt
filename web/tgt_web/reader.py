@@ -159,6 +159,29 @@ def _read_marker(p: Path) -> str:
     return p.read_text(errors="replace").strip()
 
 
+def _read_ports(p: Path) -> list[dict]:
+    """Parse a target's `.ports` file: one record per line, tab-
+    separated `<port>\\t<proto>\\t<service>\\t<comment>`. Empty file
+    or missing file → empty list. Lines with fewer than 2 fields
+    (port + proto are required) are skipped."""
+    if not p.is_file():
+        return []
+    out: list[dict] = []
+    for line in p.read_text(errors="replace").splitlines():
+        if not line.strip():
+            continue
+        fields = line.split("\t")
+        if len(fields) < 2:
+            continue
+        out.append({
+            "port": fields[0],
+            "proto": fields[1],
+            "service": fields[2] if len(fields) >= 3 else "",
+            "comment": fields[3] if len(fields) >= 4 else "",
+        })
+    return out
+
+
 def list_scenarios() -> list[dict]:
     """List all scenarios with summary counts + archived/active flags."""
     home = tgt_home()
@@ -206,6 +229,7 @@ def scenario_detail(name: str) -> dict | None:
                 "active": f.stem == active_target,
                 "host": data.get("TGT", ""),
                 "hosts": hosts_raw.split() if hosts_raw else [],
+                "ports": _read_ports(sd / "targets" / f"{f.stem}.ports"),
             })
 
     creds = []
