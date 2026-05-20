@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tgt-web"
-version = "0.1.0"
+version = "1.0.0"
 description = "Local browser UI for the tgt fish plugin"
 requires-python = ">=3.10"
 dependencies = []
@@ -13,7 +13,7 @@ license = {text = "MIT"}
 authors = [{name = "Stefan Mayer-Popp"}]
 keywords = ["pentest", "fish", "tgt", "active-directory"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Environment :: Web Environment",
     "License :: OSI Approved :: MIT License",

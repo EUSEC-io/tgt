@@ -85,7 +85,7 @@ def http_server(monkeypatch):
         askpass=None, wrapper=None, nopasswd=True, note="(stub) NOPASSWD",
     ))
     monkeypatch.setattr(vc_mod, "check", lambda: vc_mod.VersionInfo(
-        web="0.1.0", tgt="0.1.0", mismatch=False, note="(stub) match",
+        web="1.0.0", tgt="1.0.0", mismatch=False, note="(stub) match",
     ))
     # Reset the broker between tests so generations are predictable.
     monkeypatch.setattr(server, "_broker", server._EventBroker())

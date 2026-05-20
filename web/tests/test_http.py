@@ -62,7 +62,7 @@ def http_server(monkeypatch):
         askpass=None, wrapper=None, nopasswd=True, note="(stub) NOPASSWD",
     ))
     monkeypatch.setattr(vc_mod, "check", lambda: vc_mod.VersionInfo(
-        web="0.1.0", tgt="0.1.0", mismatch=False, note="(stub) match",
+        web="1.0.0", tgt="1.0.0", mismatch=False, note="(stub) match",
     ))
     with _running_server() as port:
         yield port
@@ -109,7 +109,7 @@ def test_vendor_path_traversal_rejected(http_server):
 def test_status_endpoint(http_server):
     status, body = _get(http_server, "/api/status")
     assert status == 200
-    assert body["version"] == "0.1.0"
+    assert body["version"] == "1.0.0"
     assert body["sudo"]["nopasswd"] is True
 
 

@@ -1,12 +1,72 @@
 # Changelog
 
-This plugin doesn't cut versioned releases — `master` is what you
-get. Entries are reverse-chronological; the top is the freshest.
+Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
-## Unreleased
+## 1.0.0 — 2026-05-20
+
+First tagged release. Covers everything since the early
+`pentest-fish-functions` arc, including the new `tgt-web` browser UI
+and a substantial round of CLI feature work.
+
+### Web UI (`tgt-web`)
+
+Brand-new localhost web UI for browsing and editing the same data
+the CLI manages. Installed separately via `pipx`:
+
+```bash
+pipx install "git+https://github.com/EUSEC-io/tgt#subdirectory=web"
+tgt-web
+```
+
+- **Stdlib-only Python** (`http.server` + Alpine.js, no bundler).
+  Reads `$TGT_HOME` directly; writes always shell out to `tgt`,
+  so the fish-side stays the single source of truth.
+- **Live cross-shell sync** via server-sent events (`/api/events`).
+  A background watcher polls `$TGT_HOME` and the
+  `$TGT_SCENARIO` / `$TGT_ACTIVE` universals; flips in any fish
+  shell propagate to the browser within ~1.5 s.
+- **Inline forms** for `scenario new`, `cred new` / `cred edit`,
+  `dc new` / `dc edit`, `target edit`, `ports add` / `ports rm` /
+  `ports comment` / `ports service`.
+- **Per-target ports manager** with editable service + comment
+  cells, imperative DOM updates so in-flight edits across
+  multiple rows survive each save.
+- **Active-state visibility**: active scenario / target / cred / DC
+  shown with green ★ markers. `revoke` / `unset` /
+  `archive` are gated by a confirm modal that previews the exact
+  `tgt` command before commit.
+- **Graphical sudo prompts** with per-action reasons. When tgt-web
+  shells out to fish and `_tgt_hosts_write` / `_tgt_krb5_write` need
+  sudo, the askpass dialog (zenity / kdialog / ssh-askpass) shows
+  `Sudo password — tgt-web: tgt scenario switch acme` instead of
+  the generic prompt. Zenity 4.x users get `--entry --hide-text`
+  (the `--password` mode silently drops `--text`). CLI invocations
+  keep sudo's default TTY prompt unchanged.
+- **Light / dark theme** with persistence; defaults to dark
+  (pentest terminals are dark).
+- **Mobile-responsive layout** for the scenarios sidebar.
+
+See [web/ARCHITECTURE.md](web/ARCHITECTURE.md) for the design
+constraints (no build step, no SPA frameworks, vendor everything).
 
 ### Commands added
+- `tgt cred edit [alias] [--username U] [--password P] [--domain D] [--notes N]`,
+  `tgt dc edit [alias] [--domain D] [--realm R] [--kdc-host H] [--kdc-ip I] [--admin-host H] [--admin-ip I]`,
+  `tgt edit [alias] [--host H] [--hosts "h1 h2 …"]` — non-interactive
+  flag-mode for each edit verb. Wizard fallback unchanged when no
+  flags are passed. Empty flag value clears that field; absent flag
+  preserves it. Lets tgt-web edit fields without a wizard.
+- `tgt ports [--target <t>] add|rm|clear|comment|service` —
+  `--target` lets you operate on a non-active target's ports
+  without first switching to it. Drives the web UI's ports
+  manager; the interactive picker form (`tgt ports`) stays
+  active-target-only since it sets `TGT_PORT` in the current
+  shell.
+- `tgt ports service [--target <t>] <port>[/<proto>] <name>` —
+  mirror of `tgt ports comment` for renaming a port's service
+  field (pentest banner grabs / nmap fingerprints aren't always
+  right). Preserves the existing comment.
 - `tgt cred …` — credentials are now first-class scenario-level
   entries, mirroring `tgt dc`. Subcommands: `list / show / new /
   switch / edit / rename / unset / rm` (bare `tgt cred` drops into

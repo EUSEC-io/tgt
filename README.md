@@ -1,25 +1,25 @@
-# pentest-fish-functions
+# tgt
 
-A [fish shell](https://fishshell.com/) plugin for pentesting workflows.
-Tested on Arch, Parrot OS, and Kali.
+A [fish shell](https://fishshell.com/) plugin for managing pentesting
+target environments. Tested on Arch, Parrot OS, and Kali.
 
+`tgt` tracks the hosts you're working on — IP, hostnames, ports,
+credentials, AD realms — and the system files those touch
+(`/etc/hosts`, `/etc/krb5.conf`, per-engagement workspace folders).
+Targets group into **scenarios**, so a Pro Lab season or client
+engagement is one namespace; switching targets pulls up the right
+details and updates the system files in lock-step.
 
-## What it does
+There's also a localhost web UI (`tgt-web`) that exposes the same
+data and operations through a browser — convenient for reviewing
+state, editing fields, and managing multiple scenarios without
+typing CLI commands for every change.
 
-`tgt` is the flagship command. It remembers everything about the box
-you're working on (IP, hostnames, ports) plus the floating context
-around it — credentials and AD/DC entries are scenario-level so you
-can pivot users without rewriting each target — and keeps `/etc/hosts`,
-`/etc/krb5.conf`, and an optional per-engagement folder tree in sync.
-Targets organize into **scenarios**, so a Pro Lab season or a client
-engagement is one namespace; switching targets pulls up every detail
-and updates the right system files.
-
-A few flagged extras: a colored `[scenario:target:port@dc+cred]` prompt
-segment, fzf pickers, archive support to hide finished engagements,
-BloodHound ingest with auto-routed loot folders, nmap port-record import,
-and a gum-based config wizard when [`gum`](https://github.com/charmbracelet/gum)
-is installed.
+Additional features: a `[scenario:target:port@dc+cred]` prompt
+segment, fzf pickers, archive support for finished engagements,
+BloodHound ingest with auto-routed loot folders, nmap port-record
+import, and a gum-based config wizard when
+[`gum`](https://github.com/charmbracelet/gum) is installed.
 
 
 ## Concepts
@@ -33,14 +33,60 @@ is installed.
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
-## At a glance
+## CLI at a glance
 
 ![dashboard](assets/dashboard.svg)
 
-`tgt scenario show` gives you a per-scenario dashboard: every target's
+`tgt scenario show` is the per-scenario dashboard: every target's
 host and hostname count, plus the scenario's credentials and DCs in
-their own sections (the active one in each is starred). Data is read
-straight from the registry — no shell env pollution to inspect it.
+their own sections (the active one in each is starred). Data is
+read straight from the registry — no shell env pollution to
+inspect it.
+
+
+## Web UI
+
+`tgt-web` is a localhost-only HTTP UI (`127.0.0.1`, no auth — same
+threat model as `fish_config`) for browsing and editing the same
+data. It reads `$TGT_HOME` directly, mirrors every CLI mutation to
+`tgt` under the hood, and updates live across shells via SSE so a
+`tgt scenario switch` in one terminal flips the dashboard
+immediately.
+
+**Install + run:**
+
+```bash
+pipx install "git+https://github.com/EUSEC-io/tgt#subdirectory=web"
+tgt-web                 # binds to a random port, opens the browser
+tgt-web --port 8080     # pin a port
+tgt-web --no-open       # don't auto-open
+```
+
+**What it covers:**
+
+- All scenarios / targets / credentials / DCs / ports — list, add,
+  edit, rename, remove. Same shape on disk; same `tgt` verbs under
+  the hood.
+- Inline forms for `cred new` / `cred edit` / `dc new` / `dc edit` /
+  `scenario new` / `target edit` / `ports add` / `ports rm` /
+  `ports comment` / `ports service`.
+- Switch / unset / revoke / archive flows behind confirmation
+  modals with a dry-run preview of the exact `tgt` command.
+- Per-target ports manager: add, remove, rename service, edit
+  comment — inline editable cells with imperative DOM updates so
+  unsaved edits don't get clobbered by background refreshes.
+
+**Sudo and graphical password prompts:** the writers
+(`/etc/hosts`, `/etc/krb5.conf`) shell out to `sudo install`. When
+launched from a non-terminal context, `tgt-web` probes for a
+graphical askpass helper (zenity / kdialog / ssh-askpass) and
+points `SUDO_ASKPASS` at a wrapper. The dialog body reports the
+specific `tgt` action that triggered the prompt, so you see e.g.
+`Sudo password — tgt-web: tgt scenario switch acme`. CLI
+invocations keep sudo's default TTY prompt unchanged.
+
+See [web/ARCHITECTURE.md](web/ARCHITECTURE.md) for the design
+discussion (stdlib-only Python, no build step, Alpine.js for state).
 
 
 ## Install
@@ -51,10 +97,11 @@ straight from the registry — no shell env pollution to inspect it.
 |---|---|---|---|
 | `fish` | the shell | `fish` | `fish` |
 | `fzf` | switch picker (no-arg `tgt switch` etc.) | `fzf` | `fzf` |
-| `pipx` | installing `bloodhound-python` (optional) | `python-pipx` | `pipx` |
+| `pipx` | installing `tgt-web` or `bloodhound-python` | `python-pipx` | `pipx` |
 | `gum` | nicer wizards (optional, but worth it) | `gum` | `gum` |
 | `tree` | nicer `tgt workspace` visualization (optional) | `tree` | `tree` |
 | `bloodhound-python` | `tgt ingest` (optional) | `pipx install bloodhound` | `pipx install bloodhound` |
+| `zenity` / `kdialog` / `ssh-askpass` | graphical sudo prompts for `tgt-web` (optional) | `zenity` or `kdialog` | `zenity` or `ssh-askpass` |
 
 Most are pre-installed on pentesting-focused distros. Arch:
 
@@ -110,11 +157,13 @@ tgt prompt install            # writes ~/.config/fish/functions/fish_right_promp
 tgt prompt install --left     # left prompt instead
 ```
 
-Renders `[scenario:target[:port][@dc][+cred]]` color-coded by damage
-potential. Details in [docs/commands.md](docs/commands.md#prompt-segment).
+Renders `[scenario:target[:port][@dc][+cred]]`, color-coded by load
+state (neutral → yellow once a host/port/DC is loaded → red once a
+credential is loaded). Details in
+[docs/commands.md](docs/commands.md#prompt-segment).
 
 
-## Best practices
+## Typical workflows
 
 ### Working a single HTB box
 
@@ -184,34 +233,35 @@ tgt scenario unarchive lame  # bring it back
 ![ports](assets/ports.svg)
 
 `tgt ports add <file>` imports `nmap -oG` (gnmap) or `-oX` (xml)
-output. Common pentest ports get a bright cyan ★ marker so they jump
-out. Comments are free-form per record. The picker exports `TGT_PORT`
-for use in subsequent tools.
+output. Common pentest ports get a bright cyan ★ marker. Comments
+are free-form per record. The picker exports `TGT_PORT` for use in
+subsequent tools.
 
-### The prompt always tells you where you stand
+### Prompt segment
 
 ![prompt](assets/prompt.svg)
 
-`tgt_prompt` is color-coded by damage potential — neutral for
-scenario-only, yellow once a host / port / DC is loaded (recon), red
-as soon as a credential is loaded. `@dc` and `+cred` segments appear
-when those are active.
+`tgt_prompt` shows scenario / target / port / DC / credential
+context, color-coded by load state — neutral for scenario-only,
+yellow once a host / port / DC is loaded, red once a credential is
+loaded. `@dc` and `+cred` segments appear only when those are
+active.
 
-### Hide finished engagements
+### Archive finished engagements
 
 ![archive](assets/archive.svg)
 
-`tgt scenario archive` keeps the data on disk and switchable by name
-but hides it from the default list. `--all` to surface them, or
-`--archived` for the archived-only view.
+`tgt scenario archive` keeps the data on disk and switchable by
+name but hides it from the default list. `--all` to surface them,
+or `--archived` for the archived-only view.
 
 ### Bulk-import existing notes
 
 ![import](assets/import.svg)
 
-`tgt scenario import` walks each subdirectory under a path and turns
-it into a scenario. `--prefix htb-` to namespace, `--copy` to keep
-the source intact, `--dry-run` to preview.
+`tgt scenario import` walks each subdirectory under a path and
+turns it into a scenario. `--prefix htb-` to namespace, `--copy` to
+keep the source intact, `--dry-run` to preview.
 
 ### Jumping between targets
 
@@ -220,14 +270,14 @@ the source intact, `--dry-run` to preview.
 No-arg `tgt switch` opens an fzf picker over the active scenario's
 targets. Type to filter, arrow + Enter to select.
 
-### Clean up between targets
+### Clearing target runtime
 
 ![revoke](assets/revoke.svg)
 
 `tgt --revoke` clears the active target's runtime state — `$TGT`,
 `$TGT_HOSTS`, `$TGT_PORT` — but keeps the scenario, the active
-credential, and the active DC. The persisted target file on disk is
-untouched, so `tgt switch <name>` loads it back instantly.
+credential, and the active DC. The persisted target file on disk
+is untouched, so `tgt switch <name>` loads it back instantly.
 
 ### More
 
@@ -244,16 +294,21 @@ untouched, so `tgt switch <name>` loads it back instantly.
   plus state-on-disk and upgrading notes).
 - **[docs/workspace.md](docs/workspace.md)** — workspace deep-dive:
   layouts, settings storage, templates.
-- **[CHANGELOG.md](CHANGELOG.md)** — reverse-chronological feature log.
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — layout, conventions, how to
-  add a function, test mode primer, demo recording.
-- **[specs/](specs/)** — design discussions behind the larger features.
+- **[web/ARCHITECTURE.md](web/ARCHITECTURE.md)** — `tgt-web` design
+  decisions: stdlib-only Python, no build step, framework choices.
+- **[CHANGELOG.md](CHANGELOG.md)** — release notes.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — layout, conventions, how
+  to add a function, test mode primer, demo recording.
+- **[specs/](specs/)** — design discussions behind the larger
+  features.
 
 
 ## Tests
 
 ```bash
-make test
+make test       # fish-side (fishtape)
+make test-web   # Python (pytest)
+make test-all   # both, plus the drift contract
 ```
 
 Tests run sudoless against tmp files via the `TGT_TEST_MODE`
@@ -265,6 +320,7 @@ indirection.
 ```bash
 make undev      # if you used `make dev`
 make uninstall  # if you used Fisher
+pipx uninstall tgt-web      # if you installed the web UI
 ```
 
 `make undev` removes only the symlinks that point into this repo —

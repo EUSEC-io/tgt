@@ -8,7 +8,7 @@ function tgt --description 'Set penetration testing target environment variables
     # in the UI banner. Bump in lock-step with tgt-web's
     # __version__.
     if test (count $argv) -ge 1; and begin; test $argv[1] = "--version"; or test $argv[1] = "-v"; end
-        echo "0.1.0"
+        echo "1.0.0"
         return 0
     end
 
