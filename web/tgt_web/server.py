@@ -243,12 +243,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = urllib.parse.urlparse(self.path).path
         if path == "/" or path == "/index.html":
             return self._send_static("index.html")
-        if path == "/style.css":
-            return self._send_static("style.css")
-        if path == "/app.js":
-            return self._send_static("app.js")
         if path.startswith("/vendor/"):
             return self._send_static("vendor/" + path[len("/vendor/"):])
+        # Any top-level static file (script / stylesheet / image).
+        # Charset is intentionally narrow — `_load_static` also
+        # rejects `..` and absolute paths, but this regex layer
+        # makes that impossible to even reach.
+        m = re.match(r"^/([a-z0-9][a-z0-9_-]*\.(?:js|css|html))$", path)
+        if m:
+            return self._send_static(m.group(1))
         if path == "/api/status":
             return self._send_json(200, _startup)
         if path == "/api/events":
