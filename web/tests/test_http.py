@@ -111,6 +111,25 @@ def test_arbitrary_js_outside_static_404s(http_server):
     assert status == 404
 
 
+def test_index_html_has_no_inline_event_handlers(http_server):
+    """Module-loaded scripts don't put their exports on `window`,
+    so HTML attributes like `onclick="refresh(true)"` can't resolve
+    the name — every click would throw `refresh is not defined`.
+    Caught one of these (the ↻ refresh button) live on the module-
+    split PR; this test makes the regression class CI-visible.
+    Every interactive control must go through `el(…)` /
+    `addEventListener(…)` so the closure captures the import."""
+    import re as _re
+    _, body = _get(http_server, "/")
+    html = body.decode("utf-8", errors="replace")
+    # `on<event>=…` attributes — onclick, onsubmit, onmouseenter, etc.
+    leftovers = _re.findall(r"\bon[a-z]+\s*=\s*\"[^\"]+\"", html)
+    assert not leftovers, (
+        "inline event-handler attributes break under "
+        "<script type='module'>: " + str(leftovers)
+    )
+
+
 def test_vendor_alpine_served(http_server):
     """Vendored Alpine must be reachable so the <script> tag in
     index.html resolves on offline pentest boxes."""

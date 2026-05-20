@@ -29,6 +29,7 @@ document.getElementById('entity-search').addEventListener('input', (e) => {
   state.entitySearch = e.target.value;
   renderDetail();
 });
+document.getElementById('refresh-btn').addEventListener('click', () => refresh(true));
 
 // Theme toggle. The initial theme attribute is set by the inline
 // script in index.html <head> before first paint (to avoid FOUC);

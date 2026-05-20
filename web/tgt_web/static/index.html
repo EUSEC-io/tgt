@@ -17,6 +17,14 @@
   })();
 </script>
 <link rel="stylesheet" href="/style.css">
+<!-- Order matters: our app module must execute BEFORE Alpine, so
+     forms.js's `document.addEventListener('alpine:init', …)` is
+     attached before Alpine calls `Alpine.start()` (which Alpine 3
+     does at the end of its own script execution, not on
+     DOMContentLoaded). If Alpine ran first, our factory
+     registrations would be silently lost and every `x-data="…"`
+     in the document would `not defined`. -->
+<script type="module" src="/app.js"></script>
 <script defer src="/vendor/alpine-3.14.1.min.js"></script>
 </head>
 <body>
@@ -30,7 +38,7 @@
     <label><input type="checkbox" id="show-archived"> show archived</label>
     <button id="theme-toggle" class="theme-toggle" type="button"
             title="toggle light / dark" aria-label="toggle theme">🌗</button>
-    <button class="refresh" onclick="refresh(true)">↻ refresh</button>
+    <button id="refresh-btn" class="refresh" type="button">↻ refresh</button>
   </div>
 </header>
 
@@ -98,6 +106,5 @@
   </div>
 </div>
 
-<script type="module" src="/app.js"></script>
 </body>
 </html>
