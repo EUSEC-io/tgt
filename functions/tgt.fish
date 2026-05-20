@@ -38,7 +38,11 @@ function tgt --description 'Set penetration testing target environment variables
             echo '  {"action": "dc_new",             "argv": ["dc", "new", "<alias>", "[--domain]", "[--realm]", "[--kdc-host]", "[--kdc-ip]", "[--admin-host]", "[--admin-ip]"]},'
             echo '  {"action": "dc_edit",            "argv": ["dc", "edit", "<alias>", "[--domain]", "[--realm]", "[--kdc-host]", "[--kdc-ip]", "[--admin-host]", "[--admin-ip]"]},'
             echo '  {"action": "dc_switch",          "argv": ["dc", "switch", "<alias>"]},'
-            echo '  {"action": "dc_unset",           "argv": ["dc", "unset"]}'
+            echo '  {"action": "dc_unset",           "argv": ["dc", "unset"]},'
+            echo '  {"action": "ports_add",          "argv": ["ports", "add", "--target", "<t>", "<port>[/<proto>]", "[service]", "[comment]"]},'
+            echo '  {"action": "ports_rm",           "argv": ["ports", "rm", "--target", "<t>", "<port>[/<proto>]"]},'
+            echo '  {"action": "ports_clear",        "argv": ["ports", "clear", "--target", "<t>"]},'
+            echo '  {"action": "ports_comment",      "argv": ["ports", "comment", "--target", "<t>", "<port>[/<proto>]", "<text>"]}'
             echo ']'
             return 0
         end

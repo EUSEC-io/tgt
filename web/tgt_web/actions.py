@@ -84,6 +84,33 @@ def _dc_new_argv(p: dict) -> list[str]:
     return argv
 
 
+def _ports_spec(p: dict) -> str:
+    """`<port>/<proto>` or just `<port>` (proto defaults to tcp
+    fish-side). proto is optional in params; UI passes 'tcp' or
+    'udp' explicitly when it cares."""
+    proto = p.get("proto", "").strip()
+    return f"{p['port']}/{proto}" if proto else str(p["port"])
+
+
+def _ports_add_argv(p: dict) -> list[str]:
+    """`tgt ports add --target <t> <port>[/<proto>] [service] [comment]`.
+    Service + comment are optional positionals; we only emit them
+    when non-empty to keep the argv lean."""
+    argv = ["ports", "add", "--target", p["target"], _ports_spec(p)]
+    service = p.get("service", "")
+    comment = p.get("comment", "")
+    if service:
+        argv.append(service)
+        # `comment` is captured as rest[3..] fish-side, so it MUST
+        # come after a non-empty service to land in the right slot.
+        # An empty service with a comment isn't representable on
+        # the CLI; surface that case the same way fish does (no
+        # comment unless service is set).
+        if comment:
+            argv.append(comment)
+    return argv
+
+
 def _target_edit_argv(p: dict) -> list[str]:
     argv = ["edit", p["alias"]]
     for key, flag in (("host",  "--host"),
@@ -118,6 +145,13 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),
+    "ports_add":          (lambda p: _ports_add_argv(p),                    ["target", "port"]),
+    "ports_rm":           (lambda p: ["ports", "rm", "--target", p["target"],
+                                       _ports_spec(p)],                    ["target", "port"]),
+    "ports_clear":        (lambda p: ["ports", "clear", "--target", p["target"]],
+                                                                            ["target"]),
+    "ports_comment":      (lambda p: ["ports", "comment", "--target", p["target"],
+                                       _ports_spec(p), p["comment"]],      ["target", "port", "comment"]),
     "cred_new":           (_cred_new_argv,                                  ["alias", "username"]),
     "cred_edit":          (_cred_edit_argv,                                 ["alias"]),
     "cred_rename":        (lambda p: ["cred", "rename", p["old"], p["new"]], ["old", "new"]),

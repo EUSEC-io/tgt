@@ -437,6 +437,74 @@ def test_target_edit_requires_alias():
     assert status == 400 and "alias" in body["error"]
 
 
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Minimal: target + port. proto defaults fish-side.
+        ({"target": "web", "port": "22"},
+         ["ports", "add", "--target", "web", "22"]),
+        # Explicit proto.
+        ({"target": "web", "port": "53", "proto": "udp"},
+         ["ports", "add", "--target", "web", "53/udp"]),
+        # Service.
+        ({"target": "web", "port": "22", "proto": "tcp", "service": "ssh"},
+         ["ports", "add", "--target", "web", "22/tcp", "ssh"]),
+        # Service + comment.
+        ({"target": "web", "port": "22", "proto": "tcp",
+          "service": "ssh", "comment": "OpenSSH 8.4"},
+         ["ports", "add", "--target", "web", "22/tcp", "ssh", "OpenSSH 8.4"]),
+        # Empty service + comment is harmless — comment can't be set
+        # without a service on the CLI so we just omit both.
+        ({"target": "web", "port": "443", "proto": "tcp",
+          "service": "", "comment": "should-not-appear"},
+         ["ports", "add", "--target", "web", "443/tcp"]),
+    ],
+)
+def test_ports_add_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("ports_add", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_ports_add_requires_target_and_port():
+    s1, b1 = actions.dispatch_action("ports_add", {})
+    assert s1 == 400 and "target" in b1["error"]
+    s2, b2 = actions.dispatch_action("ports_add", {"target": "web"})
+    assert s2 == 400 and "port" in b2["error"]
+
+
+def test_ports_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_rm", {"target": "web", "port": "22", "proto": "tcp"})
+    assert status == 200
+    assert body["argv"] == ["ports", "rm", "--target", "web", "22/tcp"]
+
+
+def test_ports_clear_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("ports_clear", {"target": "web"})
+    assert status == 200
+    assert body["argv"] == ["ports", "clear", "--target", "web"]
+
+
+def test_ports_comment_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "ports_comment",
+            {"target": "web", "port": "22", "proto": "tcp",
+             "comment": "rotated key"})
+    assert status == 200
+    assert body["argv"] == [
+        "ports", "comment", "--target", "web", "22/tcp", "rotated key",
+    ]
+
+
 def test_dispatch_invalidates_active_cache():
     """After every action, the cached `$TGT_SCENARIO` must be dropped —
     most actions can flip it, and the immediate post-action refresh
