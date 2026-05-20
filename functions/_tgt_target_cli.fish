@@ -247,18 +247,25 @@ function _tgt_target_cli
             _tgt_target_save $scenario $alias
             or return $status
 
-            # If we edited the currently-active target, keep the new
-            # env values in place (they're now the live state) and
+            # Restore universal-scope state across all shells. The
+            # unexport at the top cleared TGT / TGT_HOSTS universally
+            # (so the save would drop fields that became empty); we
+            # have to put them back so other open shells reflect the
+            # newly-saved values (or, when editing a non-active
+            # target, the previously-loaded active target's values).
+            # Re-loading from disk goes through `_tgt_export` =
+            # `set -Ux`, which is what `tgt switch` does — same
+            # universal propagation.
+            for v in TGT TGT_HOSTS
+                set -q $v; and _tgt_unexport $v
+            end
+            if set -q TGT_ACTIVE; and test -n "$TGT_ACTIVE"
+                _tgt_target_load $scenario $TGT_ACTIVE
+            end
+            # If the edit affected the currently-active target, also
             # re-apply /etc/hosts since TGT_HOSTS may have changed.
-            # Otherwise restore whatever was loaded before.
             if set -q TGT_ACTIVE; and test "$TGT_ACTIVE" = "$alias"
                 _tgt_hosts_apply_scenario $scenario
-            else
-                for v in TGT TGT_HOSTS
-                    set -q $v; and _tgt_unexport $v
-                end
-                test $have_tgt   -eq 1; and set -gx TGT $save_tgt
-                test $have_hosts -eq 1; and set -gx TGT_HOSTS $save_hosts
             end
 
             set_color green; echo "✓ target '$alias' updated in '$scenario'"; set_color normal

@@ -199,6 +199,15 @@ _tgt_target_cli edit web --hosts "new.dante.local extra.dante.local" >/dev/null
     "$TGT_HOSTS" = "new.dante.local extra.dante.local"
 @test "target edit (active): TGT preserved" \
     "$TGT" = 10.10.10.10
+# After the edit, the env value should reflect what's on disk
+# (re-sourced via _tgt_target_load). Cross-shell propagation goes
+# through fish universal vars in production; tests run with
+# TGT_TEST_MODE so _tgt_export collapses to set -gx — but the
+# round-trip (unexport → save → load) still has to leave the env
+# var pointing at the saved value.
+set -l file (_tgt_target_file dante web)
+@test "target edit (active): TGT_HOSTS on disk matches env" \
+    (grep -E "^_tgt_export TGT_HOSTS " $file | string match -rq -- "$TGT_HOSTS"; echo $status) -eq 0
 _test_teardown
 
 #
