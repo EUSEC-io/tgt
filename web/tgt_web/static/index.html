@@ -6,15 +6,14 @@
 <title>tgt</title>
 <script>
   // Set the theme before the stylesheet is applied so we never flash
-  // the wrong palette. Saved preference wins; otherwise follow the
-  // OS-level prefers-color-scheme.
+  // the wrong palette. Saved preference wins; default is dark
+  // (pentest terminals are dark, the OS preference doesn't really
+  // reflect user intent for this UI). The toggle button still
+  // flips + persists.
   (function () {
     var saved = null;
     try { saved = localStorage.getItem('tgt-theme'); } catch (e) {}
-    var theme = saved
-      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-          ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', saved || 'dark');
   })();
 </script>
 <link rel="stylesheet" href="/style.css">
