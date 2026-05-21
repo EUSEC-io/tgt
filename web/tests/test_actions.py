@@ -387,6 +387,31 @@ def test_scenario_rename_requires_old_and_new():
 @pytest.mark.parametrize(
     "params,expected",
     [
+        # Name only — workspace files survive.
+        ({"name": "acme"}, ["scenario", "rm", "acme"]),
+        # Same shape as target_rm: truthy purge_workspace adds the flag.
+        ({"name": "acme", "purge_workspace": True},
+         ["scenario", "rm", "acme", "--purge-workspace"]),
+        ({"name": "acme", "purge_workspace": False},
+         ["scenario", "rm", "acme"]),
+    ],
+)
+def test_scenario_rm_argv(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("scenario_rm", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_scenario_rm_requires_name():
+    status, body = actions.dispatch_action("scenario_rm", {})
+    assert status == 400 and "name" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
         # Alias only — every other flag is optional on the fish side.
         ({"alias": "dc01"}, ["dc", "new", "dc01"]),
         # Full payload.
