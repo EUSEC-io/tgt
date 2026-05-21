@@ -154,6 +154,10 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
+    "scenario_rm":        (lambda p: ["scenario", "rm", p["name"]]
+                                       + (["--purge-workspace"]
+                                          if p.get("purge_workspace") else []),
+                                                                            ["name"]),
     "target_new":         (_target_new_argv,                                ["alias"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),

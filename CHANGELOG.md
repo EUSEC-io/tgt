@@ -3,6 +3,16 @@
 Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
+## Unreleased
+
+### Web UI
+- **Delete a scenario.** `delete` button in the scenario-actions
+  row, gated by typed-name confirmation (the user has to type the
+  scenario's name exactly). Removes the scenario directory and
+  all its targets / creds / DCs / port records. Workspace files
+  under `~/tgt/<scenario>/` are preserved — users who want to
+  also wipe the workspace dir pass `--purge-workspace` on the CLI.
+
 ## 1.1.0 — 2026-05-21
 
 ### Breaking

@@ -157,6 +157,26 @@ export function renderDetail() {
       act('scenario_clone', {src: d.name, new: target});
     },
   }, 'clone'));
+  // Delete — strongest op in the UI: removes the scenario's entire
+  // directory under $TGT_HOME (all targets / creds / DCs / port
+  // records). A typed-name confirm is the gate; we deliberately do
+  // not go through the confirmAct modal because the dry-run preview
+  // can't convey "this wipes 30+ records". `--purge-workspace` is
+  // intentionally not surfaced — users who want to also nuke
+  // `~/tgt/<scenario>/` reach for the CLI.
+  actions.append(el('button', {
+    onclick: () => {
+      const typed = window.prompt(
+        `Type "${d.name}" to confirm deletion. Removes the scenario ` +
+        `and all its targets, creds, DCs, and port records. ` +
+        `Workspace files under ~/tgt/${d.name}/ are NOT deleted.`);
+      if (typed !== d.name) return;
+      // Selection must clear BEFORE dispatch so the post-action
+      // refresh doesn't 404 on /api/scenarios/<gone>.
+      if (state.selected === d.name) state.selected = null;
+      act('scenario_rm', {name: d.name});
+    },
+  }, 'delete'));
   main.append(actions);
 
   // Entity-search filtering. Each section renders the filtered
