@@ -122,8 +122,6 @@ via the loader, sets `$TGT_WORKSPACE_ROOT` etc).
    template (date, target IP, etc.)? Or just touched empty?
 3. **Multi-user paths.** If user has multiple machines, sync via git
    would be nice. Maybe `.git` ignore by default but not enforced.
-4. **Integration with `tgt ingest`.** BloodHound output currently
-   lands in CWD. Should it auto-route to the active target's folder?
 
 ## Out of scope
 

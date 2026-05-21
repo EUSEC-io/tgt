@@ -72,7 +72,6 @@ function tgt --description 'Set penetration testing target environment variables
         echo "  ACTIVE DIRECTORY"
         echo "    tgt dc                       Per-scenario DC entries: new / switch / list / rm"
         echo "    tgt cred                     Per-scenario credentials: new / switch / list / rm"
-        echo "    tgt ingest <U> <P> [--zip]   Run bloodhound-python (optional: --zip <col> <name>)"
         echo ""
         echo "  SCENARIOS & TARGETS"
         echo "    tgt scenario                 Pick an action interactively (or --help for verbs)"
@@ -240,37 +239,6 @@ function tgt --description 'Set penetration testing target environment variables
         end
         _tgt_maybe_save_active
         return 0
-    end
-
-    # ── BloodHound CLI Ingest ───────────────────────────────
-    if test (count $argv) -ge 1 && test $argv[1] = "ingest"
-        if test (count $argv) -lt 3
-            echo "Usage: tgt ingest <User> <Pass> [--zip [collection] [zipname]]"
-            return 1
-        end
-
-        set -l bh_user $argv[2]
-        set -l bh_pass $argv[3]
-        set -l do_zip false
-        set -l collection "all"
-        set -l zip_name "bloodhound_data.zip"
-
-        # Dynamically parse the remaining arguments
-        if test (count $argv) -ge 4; and test $argv[4] = "--zip"
-            set do_zip true
-            if test (count $argv) -ge 5
-                set collection $argv[5]
-            end
-            if test (count $argv) -ge 6
-                set zip_name $argv[6]
-                if not string match -q "*.zip" $zip_name
-                    set zip_name "$zip_name.zip"
-                end
-            end
-        end
-
-        _tgt_run_bloodhound "$bh_user" "$bh_pass" "$collection" "$do_zip" "$zip_name"
-        return $status
     end
 
     # ── Scenarios ───────────────────────────────────────────

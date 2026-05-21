@@ -6,7 +6,7 @@
 # No file completion by default — most args are alias names.
 complete -c tgt -f
 
-set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt ingest hosts ports dc cred web show revoke
+set -l top_subs scenario new switch list rm edit rename cd path workspace config prompt hosts ports dc cred web show revoke
 
 # ── Top-level subcommands ───────────────────────────────────────────
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
@@ -47,8 +47,6 @@ complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a config    -d 'Interactive editor for workspace settings'
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
     -a prompt    -d 'Install/uninstall the prompt segment'
-complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \
-    -a ingest    -d 'Run bloodhound-python'
 
 # Top-level long options
 complete -c tgt -n "not __fish_seen_subcommand_from $top_subs" \

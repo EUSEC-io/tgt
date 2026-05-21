@@ -3,6 +3,22 @@
 Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
+## Unreleased
+
+### Breaking
+- **`tgt ingest` and BloodHound integration removed.** The
+  `_tgt_run_bloodhound` runner, `_tgt_ingest_output_dir` helper,
+  the test, and every README / `docs/commands.md` mention are
+  gone. Users who relied on `tgt ingest` should invoke
+  `bloodhound-python` directly; `tgt cd <target>` still lands you
+  in the target's workspace folder where the output makes sense.
+  `bloodhound-python` is no longer listed as a dependency.
+
+### Licensing
+- **License switched from MIT to GPL v3 or later.** New `LICENSE`
+  file with the full FSF text; `pyproject.toml` metadata + README
+  footer updated. No behavior change.
+
 ## 1.0.1 — 2026-05-20
 
 Internal-only patch release. No user-visible changes; just version
