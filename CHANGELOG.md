@@ -3,7 +3,7 @@
 Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
-## Unreleased
+## 1.1.0 — 2026-05-21
 
 ### Breaking
 - **`tgt ingest` and BloodHound integration removed.** The
@@ -18,6 +18,32 @@ Older milestones live in `git log`.
 - **License switched from MIT to GPL v3 or later.** New `LICENSE`
   file with the full FSF text; `pyproject.toml` metadata + README
   footer updated. No behavior change.
+
+### Commands added / extended
+- `tgt new <alias> [--host <h>] [--hosts "<h1> <h2> …"]` —
+  non-interactive flag mode for `tgt new`. Wizard fallback
+  unchanged when no flags are passed. Drives the web UI's
+  `+ new target` form.
+
+### Web UI
+- **Create a new target.** `+ new` button on the targets section
+  opens an inline alias / host / hostnames form, mirroring the
+  cred / dc new forms. Maps to `tgt new <alias> --host …
+  --hosts …`.
+- **Clone a scenario.** `clone` button in the scenario-actions
+  row prompts for the new scenario name (defaults to
+  `<source>-copy`), then dispatches `tgt scenario clone <src>
+  <new>`. The clone is auto-selected after success.
+- **Rename a scenario.** `rename` button in the scenario-actions
+  row uses `window.prompt()` (consistent with the per-cred
+  rename). State.selected updates in lock-step so the post-
+  rename refresh fetches the right detail (fixes a stale-
+  selection 404 the old approach would hit).
+- **Delete a target / DC.** Per-row `rm` buttons on the targets
+  + DCs tables, gated by the shared confirm modal with the
+  dry-run command preview. Side effects called out in the modal
+  copy. `target_rm` accepts an optional `--purge-workspace`
+  flag (web defaults to off so scan / loot files survive).
 
 ## 1.0.1 — 2026-05-20
 
