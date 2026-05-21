@@ -13,6 +13,14 @@ Older milestones live in `git log`.
   under `~/tgt/<scenario>/` are preserved — users who want to
   also wipe the workspace dir pass `--purge-workspace` on the CLI.
 
+### CI
+- **Playwright browser smoke runs on every PR.** The headless
+  chromium test that was previously local-only is now a GitHub
+  Actions job. Caches the chromium binary keyed by Playwright
+  version. Catches runtime-only regressions (e.g. the Alpine
+  module-load-order class) that the static `node --check` gate
+  doesn't see.
+
 ## 1.1.0 — 2026-05-21
 
 ### Breaking

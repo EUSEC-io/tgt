@@ -96,3 +96,55 @@ jobs:
       - name: Run drift contract test
         working-directory: web
         run: pytest -q tests/test_drift.py
+
+  browser:
+    # Headless chromium load of `/`, asserting zero console errors
+    # / warnings and zero uncaught page errors. The static `node
+    # --check` job catches parser-level breakage; this job is the
+    # only thing that catches runtime-only regressions like the
+    # module-load-order bug that shipped in #14. ~30 s end to end
+    # with the cached chromium binary.
+    name: browser smoke (playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install web package + pytest + playwright
+        working-directory: web
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest playwright
+
+      # Cache the chromium binary (~150 MB) so we don't re-download
+      # it on every PR. Key by playwright version so a Playwright
+      # bump auto-invalidates and re-fetches.
+      - name: Detect Playwright version
+        id: pw
+        run: |
+          v=$(python -c "import playwright; print(playwright.__version__)")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Chromium (when cache misses)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: python -m playwright install chromium
+
+      # apt-installed system libs (libnss, libnspr, etc.) aren't
+      # cached by actions/cache, so always run install-deps. It's
+      # an apt step — fast when packages are already present.
+      - name: Install Chromium system deps
+        run: python -m playwright install-deps chromium
+
+      - name: Run browser smoke
+        working-directory: web
+        run: pytest -v tests/test_browser.py
