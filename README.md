@@ -325,3 +325,8 @@ pipx uninstall tgt-web      # if you installed the web UI
 
 `make undev` removes only the symlinks that point into this repo —
 nothing else. To fully remove, also delete the repo directory.
+
+
+## License
+
+GPL v3 or later — see [LICENSE](LICENSE).

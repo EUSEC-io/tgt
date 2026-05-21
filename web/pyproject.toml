@@ -9,14 +9,14 @@ description = "Local browser UI for the tgt fish plugin"
 requires-python = ">=3.10"
 dependencies = []
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0-or-later"}
 authors = [{name = "Stefan Mayer-Popp"}]
 keywords = ["pentest", "fish", "tgt", "active-directory"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Environment :: Web Environment",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
