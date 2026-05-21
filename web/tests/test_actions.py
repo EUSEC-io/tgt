@@ -352,6 +352,38 @@ def test_scenario_new_requires_name():
     assert status == 400 and "name" in body["error"]
 
 
+def test_scenario_clone_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "scenario_clone", {"src": "acme", "new": "acme-copy"})
+    assert status == 200
+    assert body["argv"] == ["scenario", "clone", "acme", "acme-copy"]
+
+
+def test_scenario_clone_requires_src_and_new():
+    s1, b1 = actions.dispatch_action("scenario_clone", {})
+    assert s1 == 400 and "src" in b1["error"]
+    s2, b2 = actions.dispatch_action("scenario_clone", {"src": "acme"})
+    assert s2 == 400 and "new" in b2["error"]
+
+
+def test_scenario_rename_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "scenario_rename", {"old": "acme", "new": "acme-2026"})
+    assert status == 200
+    assert body["argv"] == ["scenario", "rename", "acme", "acme-2026"]
+
+
+def test_scenario_rename_requires_old_and_new():
+    s1, b1 = actions.dispatch_action("scenario_rename", {})
+    assert s1 == 400 and "old" in b1["error"]
+    s2, b2 = actions.dispatch_action("scenario_rename", {"old": "acme"})
+    assert s2 == 400 and "new" in b2["error"]
+
+
 @pytest.mark.parametrize(
     "params,expected",
     [
@@ -453,6 +485,78 @@ def test_target_edit_argv_builder(params, expected):
 
 def test_target_edit_requires_alias():
     status, body = actions.dispatch_action("target_edit", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        # Alias only — fish-side leaves the wizard for the user
+        # (web doesn't pass --no-edit; tests run in TGT_TEST_MODE
+        # which short-circuits the wizard anyway).
+        ({"alias": "web"}, ["new", "web"]),
+        # Host only.
+        ({"alias": "web", "host": "10.0.0.5"},
+         ["new", "web", "--host", "10.0.0.5"]),
+        # Hosts only.
+        ({"alias": "web", "hosts": "a.local b.local"},
+         ["new", "web", "--hosts", "a.local b.local"]),
+        # Both.
+        ({"alias": "web", "host": "10.0.0.5", "hosts": "a.local"},
+         ["new", "web", "--host", "10.0.0.5", "--hosts", "a.local"]),
+        # Empty values pass through — fish treats them as "clear",
+        # which on a fresh create means "skip writing the line".
+        ({"alias": "web", "host": "", "hosts": ""},
+         ["new", "web", "--host", "", "--hosts", ""]),
+    ],
+)
+def test_target_new_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_new", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_new_requires_alias():
+    status, body = actions.dispatch_action("target_new", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
+        ({"alias": "web"}, ["rm", "web"]),
+        # purge_workspace flag toggles the --purge-workspace arg.
+        # Truthy value adds it; absent / falsy omits.
+        ({"alias": "web", "purge_workspace": True},
+         ["rm", "web", "--purge-workspace"]),
+        ({"alias": "web", "purge_workspace": False}, ["rm", "web"]),
+    ],
+)
+def test_target_rm_argv(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_rm", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_rm_requires_alias():
+    status, body = actions.dispatch_action("target_rm", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+def test_dc_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("dc_rm", {"alias": "dc01"})
+    assert status == 200
+    assert body["argv"] == ["dc", "rm", "dc01"]
+
+
+def test_dc_rm_requires_alias():
+    status, body = actions.dispatch_action("dc_rm", {})
     assert status == 400 and "alias" in body["error"]
 
 

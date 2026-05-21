@@ -109,6 +109,18 @@ def _ports_add_argv(p: dict) -> list[str]:
     return argv
 
 
+def _target_new_argv(p: dict) -> list[str]:
+    """`tgt new <alias> [--host <h>] [--hosts "<h1> <h2> …"]`. Alias
+    required; host + hosts optional. Empty value clears (matches
+    `target_edit`)."""
+    argv = ["new", p["alias"]]
+    for key, flag in (("host",  "--host"),
+                      ("hosts", "--hosts")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 def _target_edit_argv(p: dict) -> list[str]:
     argv = ["edit", p["alias"]]
     for key, flag in (("host",  "--host"),
@@ -136,13 +148,20 @@ def _dc_edit_argv(p: dict) -> list[str]:
 
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
+    "scenario_clone":     (lambda p: ["scenario", "clone", p["src"], p["new"]], ["src", "new"]),
+    "scenario_rename":    (lambda p: ["scenario", "rename", p["old"], p["new"]], ["old", "new"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
+    "target_new":         (_target_new_argv,                                ["alias"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),
+    "target_rm":          (lambda p: ["rm", p["alias"]]
+                                       + (["--purge-workspace"]
+                                          if p.get("purge_workspace") else []),
+                                                                            ["alias"]),
     "ports_add":          (lambda p: _ports_add_argv(p),                    ["target", "port"]),
     "ports_rm":           (lambda p: ["ports", "rm", "--target", p["target"],
                                        _ports_spec(p)],                    ["target", "port"]),
@@ -162,6 +181,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "dc_edit":            (_dc_edit_argv,                                   ["alias"]),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
     "dc_unset":           (lambda p: ["dc", "unset"],                       []),
+    "dc_rm":              (lambda p: ["dc", "rm", p["alias"]],              ["alias"]),
 }
 
 
