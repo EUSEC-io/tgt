@@ -22,6 +22,8 @@ function tgt --description 'Set penetration testing target environment variables
         if test (count $argv) -ge 2; and test $argv[2] = "--json"
             echo '['
             echo '  {"action": "scenario_new",       "argv": ["scenario", "new", "<name>"]},'
+            echo '  {"action": "scenario_clone",     "argv": ["scenario", "clone", "<src>", "<new>"]},'
+            echo '  {"action": "scenario_rename",    "argv": ["scenario", "rename", "<old>", "<new>"]},'
             echo '  {"action": "scenario_switch",    "argv": ["scenario", "switch", "<name>"]},'
             echo '  {"action": "scenario_unload",    "argv": ["scenario", "unload"]},'
             echo '  {"action": "scenario_archive",   "argv": ["scenario", "archive", "<name>"]},'

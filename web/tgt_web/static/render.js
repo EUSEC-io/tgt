@@ -127,6 +127,30 @@ export function renderDetail() {
       }, 'scenario_archive', {name: d.name}),
     }, 'archive'));
   }
+  // Rename / clone — use window.prompt for consistency with the
+  // per-cred rename button. A modal form would be slightly nicer
+  // but the input is a single string in both cases; the prompt
+  // dialog is fine.
+  actions.append(el('button', {
+    onclick: () => {
+      const next = window.prompt(`Rename scenario "${d.name}" to:`, d.name);
+      if (!next || next === d.name) return;
+      act('scenario_rename', {old: d.name, new: next});
+    },
+  }, 'rename'));
+  actions.append(el('button', {
+    onclick: () => {
+      const target = window.prompt(
+        `Clone scenario "${d.name}" as:`, `${d.name}-copy`);
+      if (!target || target === d.name) return;
+      // Carries over targets / creds / DCs; workspace files are NOT
+      // copied (fish-side decision — clones carry config forward,
+      // not engagement output). Auto-selects the clone afterwards
+      // so the user lands in it.
+      state.selected = target;
+      act('scenario_clone', {src: d.name, new: target});
+    },
+  }, 'clone'));
   main.append(actions);
 
   // Entity-search filtering. Each section renders the filtered

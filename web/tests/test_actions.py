@@ -352,6 +352,38 @@ def test_scenario_new_requires_name():
     assert status == 400 and "name" in body["error"]
 
 
+def test_scenario_clone_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "scenario_clone", {"src": "acme", "new": "acme-copy"})
+    assert status == 200
+    assert body["argv"] == ["scenario", "clone", "acme", "acme-copy"]
+
+
+def test_scenario_clone_requires_src_and_new():
+    s1, b1 = actions.dispatch_action("scenario_clone", {})
+    assert s1 == 400 and "src" in b1["error"]
+    s2, b2 = actions.dispatch_action("scenario_clone", {"src": "acme"})
+    assert s2 == 400 and "new" in b2["error"]
+
+
+def test_scenario_rename_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action(
+            "scenario_rename", {"old": "acme", "new": "acme-2026"})
+    assert status == 200
+    assert body["argv"] == ["scenario", "rename", "acme", "acme-2026"]
+
+
+def test_scenario_rename_requires_old_and_new():
+    s1, b1 = actions.dispatch_action("scenario_rename", {})
+    assert s1 == 400 and "old" in b1["error"]
+    s2, b2 = actions.dispatch_action("scenario_rename", {"old": "acme"})
+    assert s2 == 400 and "new" in b2["error"]
+
+
 @pytest.mark.parametrize(
     "params,expected",
     [

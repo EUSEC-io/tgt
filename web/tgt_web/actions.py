@@ -136,6 +136,8 @@ def _dc_edit_argv(p: dict) -> list[str]:
 
 ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_new":       (lambda p: ["scenario", "new", p["name"]],        ["name"]),
+    "scenario_clone":     (lambda p: ["scenario", "clone", p["src"], p["new"]], ["src", "new"]),
+    "scenario_rename":    (lambda p: ["scenario", "rename", p["old"], p["new"]], ["old", "new"]),
     "scenario_switch":    (lambda p: ["scenario", "switch", p["name"]],     ["name"]),
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
