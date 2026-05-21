@@ -126,7 +126,9 @@ jobs:
       - name: Detect Playwright version
         id: pw
         run: |
-          v=$(python -c "import playwright; print(playwright.__version__)")
+          # The `playwright` package doesn't expose __version__ on the
+          # module; ask importlib.metadata instead.
+          v=$(python -c "from importlib.metadata import version; print(version('playwright'))")
           echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - uses: actions/cache@v4
