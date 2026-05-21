@@ -9,7 +9,7 @@ import { act, confirmAct } from './actions.js';
 import {
   buildCredNewForm, buildCredEditForm, openCredEdit,
   buildDcNewForm, buildDcEditForm, openDcEdit,
-  buildTargetEditForm, openTargetEdit,
+  buildTargetNewForm, buildTargetEditForm, openTargetEdit,
   buildPortsManagerForm, openPortsManager,
 } from './forms.js';
 
@@ -171,16 +171,24 @@ export function renderDetail() {
   countEl.textContent = (q && totalMatches !== totalAll)
     ? `${totalMatches} of ${totalAll} match` : '';
 
-  // Targets — wrapped in an Alpine scope for the edit form
-  // (no `new` form on the web yet since fish-side `target new`
-  // only accepts an alias without field flags).
+  // Targets — wrapped in TWO Alpine scopes: an outer one for the
+  // new form (drives the `+ new` button next to the section
+  // header) and an inner sibling for the per-row edit form.
   const targetSection = el('div', {
+    'x-data': `targetNewForm(${JSON.stringify(d.name)})`,
+  });
+  targetSection.append(el('h2', {},
+    `targets (${sectionCount(targets.length, d.targets.length)}) `,
+    el('button', { 'class': 'add', 'type': 'button', '@click': 'open = true' },
+      '+ new'),
+  ));
+  targetSection.append(buildTargetNewForm());
+  const targetEditScope = el('div', {
     'x-data': `targetEditForm(${JSON.stringify(d.name)})`,
     'data-edit-scope': 'target',
   });
-  targetSection.append(el('h2', {},
-    `targets (${sectionCount(targets.length, d.targets.length)})`));
-  targetSection.append(buildTargetEditForm());
+  targetEditScope.append(buildTargetEditForm());
+  targetSection.append(targetEditScope);
   // Ports manager — separate Alpine scope (same pattern as the
   // edit scopes). Opens prefilled when any target row's "ports"
   // button is clicked.

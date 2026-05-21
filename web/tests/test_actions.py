@@ -491,6 +491,41 @@ def test_target_edit_requires_alias():
 @pytest.mark.parametrize(
     "params,expected",
     [
+        # Alias only — fish-side leaves the wizard for the user
+        # (web doesn't pass --no-edit; tests run in TGT_TEST_MODE
+        # which short-circuits the wizard anyway).
+        ({"alias": "web"}, ["new", "web"]),
+        # Host only.
+        ({"alias": "web", "host": "10.0.0.5"},
+         ["new", "web", "--host", "10.0.0.5"]),
+        # Hosts only.
+        ({"alias": "web", "hosts": "a.local b.local"},
+         ["new", "web", "--hosts", "a.local b.local"]),
+        # Both.
+        ({"alias": "web", "host": "10.0.0.5", "hosts": "a.local"},
+         ["new", "web", "--host", "10.0.0.5", "--hosts", "a.local"]),
+        # Empty values pass through — fish treats them as "clear",
+        # which on a fresh create means "skip writing the line".
+        ({"alias": "web", "host": "", "hosts": ""},
+         ["new", "web", "--host", "", "--hosts", ""]),
+    ],
+)
+def test_target_new_argv_builder(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_new", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_new_requires_alias():
+    status, body = actions.dispatch_action("target_new", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
         # Minimal: target + port. proto defaults fish-side.
         ({"target": "web", "port": "22"},
          ["ports", "add", "--target", "web", "22"]),

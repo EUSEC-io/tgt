@@ -246,3 +246,47 @@ set -q TGT_ACTIVE; and _tgt_unexport TGT_ACTIVE
 set -l rc (_tgt_target_cli edit --host 10.10.10.99 2>/dev/null; echo $status)
 @test "target edit (no alias, no active): non-zero" "$rc" -ne 0
 _test_teardown
+
+#
+# `tgt new <alias> --host / --hosts` — non-interactive create.
+# Skips the wizard entirely. Drives the web `target new` form.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new web --host 10.10.10.10 --hosts "web.dante.local mail.dante.local" >/dev/null
+set -l file (_tgt_target_file dante web)
+@test "target new --host: TGT line written" \
+    (grep -q "^_tgt_export TGT 10.10.10.10\$" $file; echo $status) -eq 0
+@test "target new --hosts: TGT_HOSTS line written" \
+    (grep -q "TGT_HOSTS .*web.dante.local" $file; echo $status) -eq 0
+@test "target new (flag mode): TGT_ACTIVE set to new alias" \
+    "$TGT_ACTIVE" = web
+_test_teardown
+
+#
+# Just --host without --hosts: TGT_HOSTS line absent on disk.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new db --host 10.10.10.20 >/dev/null
+set -l file (_tgt_target_file dante db)
+@test "target new --host only: TGT written" \
+    (grep -q "^_tgt_export TGT 10.10.10.20\$" $file; echo $status) -eq 0
+@test "target new --host only: no TGT_HOSTS line on disk" \
+    (grep -q TGT_HOSTS $file; echo $status) -ne 0
+_test_teardown
+
+#
+# Empty --host clears the field (matches the edit semantic).
+# Also asserts that flag mode skips the wizard even when test
+# mode wouldn't otherwise.
+#
+_test_setup_home
+_tgt_scenario_cli new dante >/dev/null
+_tgt_target_cli new ghost --host "" --hosts "" >/dev/null
+set -l file (_tgt_target_file dante ghost)
+@test "target new with empty flags: no TGT line on disk" \
+    (grep -q "^_tgt_export TGT " $file; echo $status) -ne 0
+@test "target new with empty flags: TGT_ACTIVE still set" \
+    "$TGT_ACTIVE" = ghost
+_test_teardown

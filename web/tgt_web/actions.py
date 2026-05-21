@@ -109,6 +109,18 @@ def _ports_add_argv(p: dict) -> list[str]:
     return argv
 
 
+def _target_new_argv(p: dict) -> list[str]:
+    """`tgt new <alias> [--host <h>] [--hosts "<h1> <h2> …"]`. Alias
+    required; host + hosts optional. Empty value clears (matches
+    `target_edit`)."""
+    argv = ["new", p["alias"]]
+    for key, flag in (("host",  "--host"),
+                      ("hosts", "--hosts")):
+        if key in p:
+            argv += [flag, p[key]]
+    return argv
+
+
 def _target_edit_argv(p: dict) -> list[str]:
     argv = ["edit", p["alias"]]
     for key, flag in (("host",  "--host"),
@@ -142,6 +154,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "scenario_unload":    (lambda p: ["scenario", "unload"],                []),
     "scenario_archive":   (lambda p: ["scenario", "archive", p["name"]],    ["name"]),
     "scenario_unarchive": (lambda p: ["scenario", "unarchive", p["name"]],  ["name"]),
+    "target_new":         (_target_new_argv,                                ["alias"]),
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),

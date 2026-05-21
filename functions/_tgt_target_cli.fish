@@ -21,7 +21,13 @@ function _tgt_target_cli
 
     switch $verb
         case new
-            argparse --name='tgt new' 'no-edit' -- $rest
+            # `tgt new <alias>` is wizard-driven by default. Flag
+            # form for non-interactive use: `tgt new <alias>
+            # [--host <h>] [--hosts "<h1> <h2> …"] [--no-edit]`.
+            # When any of those is set, the wizard is skipped and
+            # the listed fields are written directly. Drives the
+            # web `target new` form.
+            argparse --name='tgt new' 'no-edit' 'host=' 'hosts=' -- $rest
             or return 1
             set -l alias ""
             test (count $argv) -ge 1; and set alias $argv[1]
@@ -40,6 +46,24 @@ function _tgt_target_cli
                 echo "tgt new: target '$alias' already exists in scenario '$scenario'" >&2
                 return 1
             end
+
+            # Field flags → stage as universals so cross-shell
+            # state matches what `tgt switch` would produce, and
+            # so `_tgt_target_save` (which reads from env) picks
+            # them up. Empty flag value leaves the field absent
+            # (matches the wizard's "no answer" path).
+            set -l any_field_flag 0
+            if set -q _flag_host
+                set any_field_flag 1
+                set -q TGT; and _tgt_unexport TGT
+                test -n "$_flag_host"; and _tgt_export TGT $_flag_host
+            end
+            if set -q _flag_hosts
+                set any_field_flag 1
+                set -q TGT_HOSTS; and _tgt_unexport TGT_HOSTS
+                test -n "$_flag_hosts"; and _tgt_export TGT_HOSTS $_flag_hosts
+            end
+
             _tgt_target_save $scenario $alias
             _tgt_export TGT_ACTIVE $alias
             set_color green; echo "✓ target '$alias' created in '$scenario' and activated"; set_color normal
@@ -48,8 +72,13 @@ function _tgt_target_cli
                     echo "  workspace: "(_tgt_workspace_dir $scenario $alias)
                 end
             end
-            if set -q _flag_no_edit; or set -q TGT_TEST_MODE
-                echo "  Run `tgt` to fill in IP / port / creds — they'll be saved automatically."
+            # Skip the wizard if --no-edit, test mode, or any
+            # field flag supplied (caller already provided the
+            # values).
+            if set -q _flag_no_edit; or set -q TGT_TEST_MODE; or test $any_field_flag -eq 1
+                if set -q _flag_no_edit
+                    echo "  Run `tgt` to fill in IP / port / creds — they'll be saved automatically."
+                end
                 return 0
             end
             # Chain into the wizard. Clear stale env from the previous

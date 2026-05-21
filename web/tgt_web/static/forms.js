@@ -231,6 +231,44 @@ export async function openDcEdit(scenario, dc) {
   data.open = true;
 }
 
+// ────────────────────────── forms: target new ────────────────────────
+// `tgt new <alias> [--host …] [--hosts …]`. Web-side target
+// creation lives at the target-file level only: alias is required;
+// host + hosts are optional. Creds / DCs / ports are added via
+// their own forms after the target exists (each lives in its own
+// per-scenario registry, not in the target file).
+export function buildTargetNewForm() {
+  return el('div', { 'x-show': 'open', 'class': 'form-card' },
+    el('div', {class: 'form-title'}, 'new target'),
+    el('div', {class: 'form-error', 'x-show': 'error', 'x-text': 'error'}),
+    el('form', { '@submit.prevent': 'submit' },
+      el('label', {},
+        el('span', {class: 'form-label'}, 'alias'),
+        el('input', {
+          'x-model.trim': 'alias', 'required': '', 'autocomplete': 'off',
+          'placeholder': 'e.g. web01',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'host'),
+        el('input', {
+          'x-model.trim': 'host', 'autocomplete': 'off',
+          'placeholder': 'IP or hostname (optional)',
+        })),
+      el('label', {},
+        el('span', {class: 'form-label'}, 'hostnames'),
+        el('input', {
+          'x-model.trim': 'hosts', 'autocomplete': 'off',
+          'placeholder': 'space-separated, e.g. web.acme.local mail.acme.local',
+        })),
+      el('div', {class: 'form-buttons'},
+        el('button', { 'type': 'button', '@click': 'cancel()' }, 'cancel'),
+        el('button', {
+          'type': 'submit', 'class': 'primary',
+          ':disabled': 'submitting',
+          'x-text': "submitting ? 'creating…' : 'create'",
+        }))));
+}
+
 // ────────────────────────── forms: target edit ───────────────────────
 // Targets store TGT (host) + TGT_HOSTS (space-separated extra
 // hostnames). The form accepts both as scalar inputs; the backend
@@ -680,6 +718,39 @@ document.addEventListener('alpine:init', () => {
         this.addService = '';
         this.addComment = '';
         this.submitting = false;
+      } catch (e) {
+        this.error = e.message;
+        this.submitting = false;
+      }
+    },
+  }));
+
+  // New-target form. Alias required; host + hosts optional and
+  // map directly to TGT / TGT_HOSTS on disk. Per the design
+  // discussion (2026-05-21): web-side target creation is target-
+  // file scope only; creds / DCs / ports go through their own
+  // forms after the target exists.
+  window.Alpine.data('targetNewForm', (scenario) => ({
+    open: false, submitting: false, error: '',
+    alias: '', host: '', hosts: '',
+    reset() {
+      this.alias = ''; this.host = ''; this.hosts = '';
+      this.error = ''; this.submitting = false;
+    },
+    cancel() { this.open = false; this.reset(); },
+    async submit() {
+      this.error = ''; this.submitting = true;
+      try {
+        const { ok, result } = await submitForm('target_new', {
+          alias: this.alias, host: this.host, hosts: this.hosts,
+        });
+        if (ok) {
+          this.open = false; this.reset();
+          await refresh(true);
+        } else {
+          this.error = (result.stderr || result.error || `rc=${result.rc}`).trim();
+          this.submitting = false;
+        }
       } catch (e) {
         this.error = e.message;
         this.submitting = false;
