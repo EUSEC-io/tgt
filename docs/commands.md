@@ -77,7 +77,6 @@ tgt dc rename [<old>] <new>             rename a DC (defaults to active when onl
 tgt dc switch [alias]                   load DC env vars + set default_realm
 tgt dc unset                            clear $TGT_DC_* + per-scenario marker
 tgt dc rm [alias]
-tgt ingest <user> <pass> [--zip]        bloodhound-python (uses active DC)
 
 # workspace
 tgt cd   [alias|--scenario]
@@ -302,21 +301,6 @@ scenarios/<scen>/
 └── dcs/
     └── <alias>.fish              (raw fields; TGT_DC and TGT_DC_NAME derived at load)
 ```
-
-
-## BloodHound ingest
-
-```
-tgt ingest <user> <pass> [--zip [collection] [zipname]]
-```
-
-Uses the active DC's `TGT_DC_DOMAIN` (for `-d`) and `TGT_DC_IP` (for
-`-ns`). Run `tgt dc switch <alias>` first if no DC is active.
-
-When the workspace folder for the active target exists on disk,
-`tgt ingest` runs from that target's `loot/` subfolder (created on
-demand) so JSON / zip output lands there. Otherwise it stays in
-`$PWD`.
 
 
 ## Workspace

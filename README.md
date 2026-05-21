@@ -17,8 +17,7 @@ typing CLI commands for every change.
 
 Additional features: a `[scenario:target:port@dc+cred]` prompt
 segment, fzf pickers, archive support for finished engagements,
-BloodHound ingest with auto-routed loot folders, nmap port-record
-import, and a gum-based config wizard when
+nmap port-record import, and a gum-based config wizard when
 [`gum`](https://github.com/charmbracelet/gum) is installed.
 
 
@@ -29,7 +28,7 @@ import, and a gum-based config wizard when
 | **scenario** | An engagement, HTB Pro Lab season, or client. Holds many targets, credentials, and DCs. |
 | **target** | One box / host. IP, hostnames, ports. |
 | **credential** | A username / password (or hash) pair, scenario-level. You typically collect several (foothold, lateral, DA) and pivot with `tgt cred switch`. |
-| **DC** | A krb5 realm definition (per-scenario), used by `tgt ingest` and AD tools. |
+| **DC** | A krb5 realm definition (per-scenario), used by AD tools that consume `/etc/krb5.conf`. |
 | **workspace** | Optional per-scenario / per-target directory tree (scans, loot, exploits, notes) for tidy reporting. |
 
 
@@ -97,10 +96,9 @@ discussion (stdlib-only Python, no build step, Alpine.js for state).
 |---|---|---|---|
 | `fish` | the shell | `fish` | `fish` |
 | `fzf` | switch picker (no-arg `tgt switch` etc.) | `fzf` | `fzf` |
-| `pipx` | installing `tgt-web` or `bloodhound-python` | `python-pipx` | `pipx` |
+| `pipx` | installing `tgt-web` (optional) | `python-pipx` | `pipx` |
 | `gum` | nicer wizards (optional, but worth it) | `gum` | `gum` |
 | `tree` | nicer `tgt workspace` visualization (optional) | `tree` | `tree` |
-| `bloodhound-python` | `tgt ingest` (optional) | `pipx install bloodhound` | `pipx install bloodhound` |
 | `zenity` / `kdialog` / `ssh-askpass` | graphical sudo prompts for `tgt-web` (optional) | `zenity` or `kdialog` | `zenity` or `ssh-askpass` |
 
 Most are pre-installed on pentesting-focused distros. Arch:
@@ -198,7 +196,6 @@ tgt cred new admin --username Administrator --password hunter2
                                              # found a DA cred — `tgt cred switch`
                                              # between foothold/admin as needed
 tgt switch                                   # fzf picker to jump between targets
-tgt ingest                                   # bloodhound JSON lands in dc01-host/loot/
 ```
 
 A scenario can hold many DCs and many credentials. `tgt dc switch
@@ -325,3 +322,8 @@ pipx uninstall tgt-web      # if you installed the web UI
 
 `make undev` removes only the symlinks that point into this repo —
 nothing else. To fully remove, also delete the repo directory.
+
+
+## License
+
+GPL v3 or later — see [LICENSE](LICENSE).

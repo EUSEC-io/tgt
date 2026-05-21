@@ -147,8 +147,8 @@ Picker mechanics:
 | `tgt show [alias]` | Show active or named target |
 | `tgt --revoke` | Clear `$TGT*` env vars (scenario stays active, registry preserved) |
 
-**Existing per-target ops** (`--add-host`, `--rm-host`, `--set-dc`,
-`ingest`) work unchanged — they always target the active target.
+**Existing per-target ops** (`--add-host`, `--rm-host`, `--set-dc`)
+work unchanged — they always target the active target.
 
 **Top-level `tgt`** (no args):
 - No active scenario → prompt to create one (or pick existing if any).
@@ -201,7 +201,7 @@ These build on the scenario layer rather than being separate concepts:
   to the target file. Reboot or scenario switch wipes them.
 - **Per-scenario audit log**:
   `~/.local/share/tgt/scenarios/<name>/history.log` records timestamp +
-  target + command for `switch`, `ingest`, `--add-host`, `--set-dc`.
+  target + command for `switch`, `--add-host`, `--set-dc`.
   Engagement reporting gets a built-in source-of-truth.
 - **Encrypted-at-rest creds**: optional `pass` integration for
   scenarios marked `kind=real`. Out of scope for v1.
