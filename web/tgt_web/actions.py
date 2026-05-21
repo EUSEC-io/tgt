@@ -158,6 +158,10 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "target_switch":      (lambda p: ["switch", p["alias"]],                ["alias"]),
     "target_revoke":      (lambda p: ["revoke"],                            []),
     "target_edit":        (lambda p: _target_edit_argv(p),                  ["alias"]),
+    "target_rm":          (lambda p: ["rm", p["alias"]]
+                                       + (["--purge-workspace"]
+                                          if p.get("purge_workspace") else []),
+                                                                            ["alias"]),
     "ports_add":          (lambda p: _ports_add_argv(p),                    ["target", "port"]),
     "ports_rm":           (lambda p: ["ports", "rm", "--target", p["target"],
                                        _ports_spec(p)],                    ["target", "port"]),
@@ -177,6 +181,7 @@ ACTIONS: dict[str, tuple[Callable[[dict], list[str]], list[str]]] = {
     "dc_edit":            (_dc_edit_argv,                                   ["alias"]),
     "dc_switch":          (lambda p: ["dc", "switch", p["alias"]],          ["alias"]),
     "dc_unset":           (lambda p: ["dc", "unset"],                       []),
+    "dc_rm":              (lambda p: ["dc", "rm", p["alias"]],              ["alias"]),
 }
 
 

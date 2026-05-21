@@ -135,6 +135,12 @@ export function renderDetail() {
     onclick: () => {
       const next = window.prompt(`Rename scenario "${d.name}" to:`, d.name);
       if (!next || next === d.name) return;
+      // Keep `state.selected` in lock-step with the rename so the
+      // refresh() that act() runs picks the new name. Without
+      // this, refresh would fetch `/api/scenarios/<old>`, 404,
+      // and the detail pane would stop updating until the user
+      // clicks something else.
+      if (state.selected === d.name) state.selected = next;
       act('scenario_rename', {old: d.name, new: next});
     },
   }, 'rename'));
@@ -224,7 +230,12 @@ export function renderDetail() {
               message: `Clears the active-target marker and TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE runtime in fish. Also removes "${t.alias}"'s entries from /etc/hosts. The target record stays on disk; creds + DC are unaffected.`,
               confirmLabel: 'revoke',
             }, 'target_revoke')}, 'revoke') : ''),
-        el('button', {onclick: () => openTargetEdit(d.name, t)}, 'edit'))))))));
+        el('button', {onclick: () => openTargetEdit(d.name, t)}, 'edit'),
+        el('button', {onclick: () => confirmAct({
+          title: `Delete target "${t.alias}"?`,
+          message: `Removes the target record from "${d.name}" and revokes any "${t.alias}" entries from /etc/hosts. If it's the active target, TGT / TGT_PORT / TGT_HOSTS / TGT_ACTIVE are also cleared. Workspace folder is NOT deleted (pass --purge-workspace on the CLI for that).`,
+          confirmLabel: 'delete',
+        }, 'target_rm', {alias: t.alias})}, 'rm'))))))));
   main.append(targetSection);
 
   // Creds — wrapped in an Alpine scope so the "+ new" button can
@@ -351,7 +362,12 @@ export function renderDetail() {
               message: `Clears the active-DC marker in "${d.name}" and all TGT_DC_* runtime. The DC record stays on disk.`,
               confirmLabel: 'unset',
             }, 'dc_unset')}, 'unset') : ''),
-        el('button', {onclick: () => openDcEdit(d.name, dc)}, 'edit'))))))));
+        el('button', {onclick: () => openDcEdit(d.name, dc)}, 'edit'),
+        el('button', {onclick: () => confirmAct({
+          title: `Delete DC "${dc.alias}"?`,
+          message: `Removes the DC record from "${d.name}". Any /etc/hosts and /etc/krb5.conf entries scoped to this DC are revoked. If it's the active DC, TGT_DC_* runtime is also cleared.`,
+          confirmLabel: 'delete',
+        }, 'dc_rm', {alias: dc.alias})}, 'rm'))))))));
   main.append(dcSection);
 }
 

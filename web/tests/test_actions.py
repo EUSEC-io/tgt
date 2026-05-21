@@ -526,6 +526,43 @@ def test_target_new_requires_alias():
 @pytest.mark.parametrize(
     "params,expected",
     [
+        ({"alias": "web"}, ["rm", "web"]),
+        # purge_workspace flag toggles the --purge-workspace arg.
+        # Truthy value adds it; absent / falsy omits.
+        ({"alias": "web", "purge_workspace": True},
+         ["rm", "web", "--purge-workspace"]),
+        ({"alias": "web", "purge_workspace": False}, ["rm", "web"]),
+    ],
+)
+def test_target_rm_argv(params, expected):
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("target_rm", params)
+    assert status == 200
+    assert body["argv"] == expected
+
+
+def test_target_rm_requires_alias():
+    status, body = actions.dispatch_action("target_rm", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+def test_dc_rm_argv():
+    recorder = _fake_run(rc=0)
+    with patch("tgt_web.actions.subprocess.run", recorder):
+        status, body = actions.dispatch_action("dc_rm", {"alias": "dc01"})
+    assert status == 200
+    assert body["argv"] == ["dc", "rm", "dc01"]
+
+
+def test_dc_rm_requires_alias():
+    status, body = actions.dispatch_action("dc_rm", {})
+    assert status == 400 and "alias" in body["error"]
+
+
+@pytest.mark.parametrize(
+    "params,expected",
+    [
         # Minimal: target + port. proto defaults fish-side.
         ({"target": "web", "port": "22"},
          ["ports", "add", "--target", "web", "22"]),
