@@ -3,15 +3,15 @@
 Entries are reverse-chronological; the top is the freshest.
 Older milestones live in `git log`.
 
-## Unreleased
+## 1.1.1 — 2026-05-21
 
 ### Web UI
 - **Delete a scenario.** `delete` button in the scenario-actions
   row, gated by typed-name confirmation (the user has to type the
   scenario's name exactly). Removes the scenario directory and
-  all its targets / creds / DCs / port records. Workspace files
-  under `~/tgt/<scenario>/` are preserved — users who want to
-  also wipe the workspace dir pass `--purge-workspace` on the CLI.
+  all its targets / creds / DCs / port records. The on-disk
+  workspace folder is preserved — users who want to wipe it too
+  pass `--purge-workspace` on the CLI.
 
 ### CI
 - **Playwright browser smoke runs on every PR.** The headless
