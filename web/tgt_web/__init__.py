@@ -1,3 +1,3 @@
 """tgt-web — local browser UI for the tgt fish plugin."""
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
